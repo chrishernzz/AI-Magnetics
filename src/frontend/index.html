@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIMagnetics</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="hero">
+        <div>
+            <h1>AIMagnetics</h1>
+            <p>Engineer-focused buck inductor recommendation tool.</p>
+        </div>
+        <div class="hero-note">
+            Enter your known buck requirements and get a recommended core and material.
+        </div>
+    </div>
+
+    <div class="main-grid">
+        <section class="card requirements-card">
+            <h2>Design Requirements</h2>
+            <p class="section-description">Provide the buck converter inputs below.</p>
+
+            <label for="inductance">Inductance (µH)</label>
+            <input id="inductance" type="number" value="250" min="0" step="1">
+
+            <label for="current">Peak Current (A)</label>
+            <input id="current" type="number" value="2" min="0" step="0.1">
+
+            <label for="frequency">Switching Frequency (kHz)</label>
+            <input id="frequency" type="number" value="100" min="0" step="1">
+
+            <label for="tempRise">Temperature Rise (°C)</label>
+            <input id="tempRise" type="number" value="40" min="0" step="1">
+
+            <div class="button-row">
+                <button id="generateButton" class="primary-button" type="button">
+                    Generate Recommendation
+                </button>
+            </div>
+
+            <div id="statusMessage" class="status-message">
+                Ready to generate a core recommendation.
+            </div>
+        </section>
+
+        <section class="card summary-card">
+            <h2>Design Summary</h2>
+            <div id="designSummary" class="summary-placeholder">
+                Run the recommendation to see the selected material, core, and key metrics.
+            </div>
+        </section>
+
+        <section class="card assistant-card">
+            <h2>Assistant Notes</h2>
+            <div id="assistant">
+                The tool will compute material selection, stored energy, and recommended core automatically.
+            </div>
+        </section>
+    </div>
+
+    <div class="results-grid">
+        <div id="material" class="card result-panel"></div>
+        <div id="core" class="card result-panel"></div>
+        <div id="details" class="card result-panel"></div>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+</html>

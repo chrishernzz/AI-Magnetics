@@ -1,0 +1,38 @@
+# Build folders
+build_pybind/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Debug
+Debug/
+
+# Compiled Python extension
+*.pyd
+
+# Debug symbols
+*.pdb
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.obj
+*.lib
+*.ilk
+*.exp
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

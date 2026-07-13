@@ -1,0 +1,5 @@
+Name,MuOpt,MinFrequencyHz,MaxFrequencyHz,Reason,Alternatives,BmaxT,CuLossFactor
+Powder Iron,90,1000,100000,Excellent at low-mid frequencies; high Bmax tolerance; good for buck inductors,Ferrite|Kool Mu,1.6,1.0
+Kool Mu,26,50000,250000,Balanced performance 50-250kHz; low core loss; good saturation margin,Ferrite|Powder Iron,1.0,1.15
+Ferrite 3C90,2000,50000,250000,Low loss at 100kHz; tighter temperature control needed,Kool Mu|Powder Iron,0.38,1.2
+High Frequency Ferrite,2500,250000,10000000,Optimized for 250kHz+; very low loss but expensive,Kool Mu|Ferrite,0.30,1.3

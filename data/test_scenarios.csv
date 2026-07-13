@@ -1,0 +1,8 @@
+Name,InductanceUH,PeakCurrentA,FrequencyKHz,AllowedTempRiseC,ExpectedCore,ExpectedTurns,TestDescription
+i77006_validation,250,5,100,40,0077440A7,14-20,Real IntelliPower spec; should match
+low_power_rf,100,2,500,30,0054035,8-12,High frequency; small core expected
+buck_10A,470,10,80,50,0055610,18-25,Heavy duty; expect larger Powder Iron core
+budget_option,150,3,120,60,0054003,12-18,Cost-conscious; pick cheapest viable
+high_efficiency,220,7,95,35,0077439,15-22,Minimize losses; should suggest Kool Mu over cheaper options
+low_freq_power,1000,15,25,55,0055601,35-50,Very low frequency; Powder Iron dominates
+thermal_constraint,180,4,110,25,0054035L,10-15,Tight temp; smaller core + better cooling needed
