@@ -1,43 +1,64 @@
 # Getting Started: Build & Run AIMagnetics
-This guide walks you through building and running the tool locally.
+
+This guide walks you through building the C++/pybind11 extension and running the FastAPI app locally.
 
 ---
+
 ## Prerequisites
+
 ### Windows (Recommended)
 - **Visual Studio 2019+** or **Visual Studio Build Tools** (for MSVC compiler)
 - **CMake 3.16+** ([download](https://cmake.org/download/))
+- **Python 3.9+**
 - **Git** (optional, for cloning)
+
 ### macOS/Linux
 - **GCC 9+** or **Clang 10+**
 - **CMake 3.16+**
+- **Python 3.9+**
+
+### Python packages
+```bash
+pip install pybind11
+pip install -r python/requirements.txt # fastapi, uvicorn[standard]
+```
+`pybind11` must be installed *before* running CMake — `CMakeLists.txt` calls `python -m pybind11 --cmakedir` to locate it.
 
 ---
+
 ## Build Instructions
-### Step 1: Generate Build Files with CMake
+
+### Step 1: Configure with CMake
 ```bash
-# Navigate to project root
-cd c:\Users\chernandez1\OneDrive - AMETEK Inc\Desktop\AIMagnetics
-# Create build directory
-mkdir build
-cd build
-# Generate Visual Studio project files (Windows)
-cmake -G "Visual Studio 16 2019" ..
+# From the project root
+cmake -S . -B build_pybind
+```
 
-# OR: For Unix-like systems
-# cmake ..
+### Step 2: Build the Python extension
+```bash
+cmake --build build_pybind --config Debug --target magnetics_cpp
+```
+This compiles `magnetics_engine` → `magnetics_services` → the `magnetics_cpp` pybind11 module, and places the compiled extension directly in `python/` (per `CMakeLists.txt`'s `LIBRARY_OUTPUT_DIRECTORY` setting), where `python/routes/core_selection.py` imports it as `import magnetics_cpp`.
 
-Step 2: Build the Executable
-Windows (Visual Studio):
-cmake --build . --config Release
-macOS/Linux:
-make
+### Step 3: Run the app
+```bash
+python -m uvicorn python.app:app --reload --host 127.0.0.1 --port 8000
+```
 
-Step 3: Run the Server
-Navigate to the build output directory and run:
-Windows:
-magnetics_server.exe
-macOS/Linux:
-./magnetics_server
-You should see:
-Server started on port 8080
-Listening for requests...
+### Step 4: Open the UI
+Navigate to **http://127.0.0.1:8000** in a browser.
+
+---
+
+## Day-to-Day Workflow
+
+- **Only changed Python code (routes, `app.py`)?** Just re-run Step 3 — `--reload` picks it up automatically.
+- **Changed any C++ code or the pybind11 binding file?** Re-run Step 2 before Step 3.
+
+See [WHEN_TO_RUN_PROGRAM.md](WHEN_TO_RUN_PROGRAM.md) for the exact commands.
+
+---
+
+## Note
+
+There is no standalone `magnetics_server` executable — the FastAPI app (`python/app.py`) is the only entry point. If you see an older instruction referencing `magnetics_server.exe` or a port-8080 C++ server, that describes an earlier plan that's no longer how the project is built.
