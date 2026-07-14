@@ -1,165 +1,159 @@
 # Data Files Guide
+
 This document explains the structure of CSV files in `data/` and how to add new entries.
 
 ---
+
 ## cores.csv
+
 **Purpose:** Database of available inductor cores (part numbers, geometry, materials).
 **Location:** `data/cores.csv`
 **Used by:** `src/data/CoreDatabase.cpp`
-### Fields
-| Field | Unit | Example | Description |
-|-------|------|---------|-------------|
-| PartNumber | — | 0077440A7 | Supplier part number (unique key) |
-| Material | — | Kool Mu | Material type (must match materials.csv) |
-| Ac | cm² | 1.2 | Cross-sectional area of core |
-| Wa | cm² | 2.8 | Window area available for copper winding |
-| Le | cm | 8.5 | Magnetic path length |
-| MuR | — | 26 | Relative permeability (µᵣ) |
-| AL | nH/100T | 125 | Inductance index (nH per 100 turns) |
-| VolumeCore | cm³ | 10.2 | Core volume (for loss calculation) |
-| CostUSD | $ | 2.50 | Unit cost (optional; for cost optimization) |
-| Supplier | — | IntelliPower | Vendor name |
-| Link | URL | https://... | Datasheet or product link |
-### How to Add a New Core
-1. **Get datasheet from supplier** — Contains Ac, Wa, Le, AL, material
-2. **Open data/cores.csv** in a spreadsheet or text editor
-3. **Add new row:**
-0077441A7,Kool Mu,1.5,3.2,9.0,26,195,12.0,3.00,IntelliPower,https://...
+**Currently:** 16 rows, all vendor "Magnetics" (Magnetics Inc.)
 
-4. **Verify:**
-- Material name matches exactly (case-sensitive) with materials.csv
-- AL value (nH/100T) is from datasheet
-- Ac × Wa product is reasonable (typical: 3–6 cm⁴ for buck inductors)
-5. **Save and rebuild** — `magnetics_server` will load new data on next run
+### Fields (actual header)
+
+| Field | Unit | Example | Description |
+|---|---|---|---|
+| PartNumber | — | 0077440A7 | Supplier part number (unique key) |
+| Material | — | Kool Mu | Material type (must match `materials.csv`'s `Name`) |
+| Mu | — | 26 | Relative permeability |
+| AL | nH/100T | 59 | Inductance index (nH per 100 turns) |
+| Ae | **mm²** | 199 | Cross-sectional area of core (millimeters², not cm²) |
+| Wa | **mm²** | 427 | Window area available for copper winding (millimeters², not cm²) |
+| Le | **mm** | 107 | Magnetic path length (millimeters, not cm) |
+| PartCost | $ | 8.50 | Unit cost — present in the data but not yet used in core-selection ranking |
+| Vendor | — | Magnetics | Vendor name |
+| MaxCurrent_A | A | 8 | Max rated current |
+| MaxFreq_kHz | kHz | 200 | Max rated frequency |
+
+### How to Add a New Core
+
+1. Get the datasheet from the supplier (needs Ae, Wa, Le in mm; AL; material)
+2. Open `data/cores.csv`
+3. Add a new row matching the 11-field order above, e.g.:
+```
+0077441A7,Kool Mu,26,59,150,320,90,3.00,Magnetics,12,200
+```
+4. Verify:
+- `Material` matches a `Name` in `materials.csv` exactly (case-sensitive)
+- `Ae` and `Wa` are in mm² (not cm²) — this is what `CoreSelection.cpp` expects; it converts internally via `(Ae × Wa) × 1e-4` to get cm⁴
+5. Rebuild the pybind11 extension (core data is loaded at runtime, so a C++ rebuild isn't strictly required for a data-only change — but restart the running `uvicorn` process so it re-reads the CSV)
 
 ### Calculation Tips
-If datasheet only provides **AL value** (most common):
-- Ap = Ac × Wa (core size product)
-- Calculate from datasheet: Ac, Wa, Le are usually provided
-- AL = inductance per 100-turn winding (e.g., 125 nH/100T)
-If datasheet provides **µ instead of AL**:
-- AL ≈ 0.4π × µ₀ × µᵣ × (Ac / Le) × 10⁹ (nH/100T)
-- Where: µ₀ = 4π × 10⁻⁷, Ac in cm², Le in cm
+
+`CoreSelection.cpp`'s core-side area product: `Ap_cm4 = (Ae_mm² × Wa_mm²) × 1e-4`. This is a different Ap than the one computed by `AreaProduct.cpp` (which computes the *required* Ap from L, Ipk, Ku, Bmax, J) — the two are compared against each other in Stage 3, not the same calculation.
+
+If a datasheet gives µ instead of AL:
+```
+AL ≈ 0.4π × µ₀ × µᵣ × (Ae / Le) × 10⁹ (nH/100T; µ₀ = 4π×10⁻⁷, Ae in cm², Le in cm — convert your mm values before using this formula)
+```
 
 ---
+
 ## materials.csv
+
 **Purpose:** Database of magnetic materials and their properties.
 **Location:** `data/materials.csv`
-**Used by:** `src/data/Materials.cpp`, `MaterialSelection.cpp`, loss calculators
-### Fields
+**Used by:** `src/data/Materials.cpp`, `MaterialSelection.cpp`
+**Currently:** 4 rows — Powder Iron, Kool Mu, Ferrite 3C90, High Frequency Ferrite
+
+### Fields (actual header)
+
 | Field | Unit | Example | Description |
-|-------|------|---------|-------------|
-| Name | — | Kool Mu | Material identifier (unique; must match cores.csv) |
-| MuOpt | — | 26 | Optimal permeability for frequency range |
-| MinFrequencyHz | Hz | 50000 | Minimum operating frequency (50 kHz = 50000 Hz) |
+|---|---|---|---|
+| Name | — | Kool Mu | Material identifier (unique; must match `cores.csv`'s `Material`) |
+| MuOpt | — | 26 | Optimal permeability for the frequency range |
+| MinFrequencyHz | Hz | 50000 | Minimum operating frequency |
 | MaxFrequencyHz | Hz | 250000 | Maximum operating frequency |
-| Reason | — | Balanced performance... | Why this material is good in its range |
-| Alternatives | — | Ferrite\|Powder Iron | Comma-separated alternatives (pipe-separated list) |
-| BmaxT | T | 1.0 | Maximum flux density (saturation limit) |
-| CuLossFactor | — | 1.15 | Multiplier for copper loss (accounts for skin effect, proximity) |
-### Frequency Ranges (Key Rules)
-- **Powder Iron:** 1–100 kHz (great for low freq, high current)
-- **Kool Mu:** 50–250 kHz (balanced; low loss)
-- **Ferrite 3C90:** 50–250 kHz (low loss but expensive)
-- **High Frequency Ferrite:** 250 kHz–10 MHz (for high-speed switching)
-**Selection Logic:**
-- Tool picks material whose frequency range contains the requested frequency
-- Prefers material with lowest loss in that range
+| Reason | — | "Balanced performance 50-250kHz..." | Why this material suits its range |
+| Alternatives | — | `Ferrite\|Powder Iron` | Pipe-separated alternatives; passed through as a raw string by the API, not parsed into a list |
+| BmaxT | T | 1.0 | Max flux density — **not currently read by `AreaProduct.cpp`**, which uses a hard-coded 0.30 T instead |
+| CuLossFactor | — | 1.15 | Multiplier for AC copper loss — not yet consumed anywhere (Stage 4 is a stub) |
+
+### Frequency Ranges (current data)
+- **Powder Iron:** 1–100 kHz — reason text notes "good for buck inductors" specifically; worth genericizing if the tool is meant to be topology-agnostic
+- **Kool Mu:** 50–250 kHz
+- **Ferrite 3C90:** 50–250 kHz
+- **High Frequency Ferrite:** 250 kHz–10 MHz
+
 ### How to Add a New Material
-1. **Get datasheet from supplier** — Contains µ, Bmax, loss curves
-2. **Open data/materials.csv**
-3. **Add new row:**
-Powder Iron M,60,1000,100000,Affordable mid-frequency core,Kool Mu|Ferrite,1.6,1.0
 
-4. **Verify:**
-- Frequency range covers your use case
-- BmaxT is from datasheet (saturation flux density)
-- CuLossFactor accounts for skin effect at max frequency (typically 1.0–1.5)
-5. **Save and rebuild**
-### CuLossFactor Explanation
-At higher frequencies, AC resistance increases due to **skin effect**:
-- Skin depth: δ = 1 / √(πfμσ)
-- At 1 MHz in copper: δ ≈ 0.066 mm
-- Thin wires (< 0.1 mm) only conduct on surface → higher resistance
-**CuLossFactor** multiplier accounts for this:
-- 1.0 = No skin effect (DC-like resistance)
-- 1.15 = 15% higher loss than DC due to AC effects
-- 1.3 = 30% higher loss (common for very high frequency)
+1. Get the datasheet (µ, Bmax, loss curves)
+2. Open `data/materials.csv`
+3. Add a new row matching the 8-field order above
+4. Verify frequency range doesn't unintentionally overlap in a way that changes which material wins for a given frequency (`MaterialSelection.cpp` returns the *first* match in file order)
+5. Restart the running app to pick up the new row
 
 ---
+
 ## reference_designs.csv
-**Purpose:** Example designs for testing and documentation.
+
+**Purpose:** Real reference part(s) used for manual validation.
 **Location:** `data/reference_designs.csv`
-**Used by:** Documentation, manual testing
-### Fields
+**Currently:** 1 row (the IntelliPower `i77006`)
+
+### Fields (actual header)
+
 | Field | Example | Description |
-|-------|---------|-------------|
-| DesignName | USB_Charger_5W | Descriptive name |
-| L_uH | 10 | Inductance (µH) |
-| Ipk_A | 1.5 | Peak current (A) |
-| Frequency_kHz | 500 | Switching frequency (kHz) |
-| TempRise_C | 40 | Allowable temperature rise (°C) |
-| ExpectedMaterial | Ferrite 3C90 | Predicted best material |
-| ExpectedCore | 0077440A7 | Expected core part number |
-| ExpectedLoss_W | 0.05 | Expected total loss (W) |
-| Notes | Low-power example | Design context |
+|---|---|---|
+| PartNumber | i77006 | Reference part identifier |
+| InductanceUH | 250 | Inductance (µH) |
+| Turns | 64 | Actual turns count on the real part |
+| WireAWG | 13 | Actual wire gauge on the real part |
+| Core | 0077440A7 | Core part number used |
+
+**Note:** this is a much smaller schema than a full design package (no current, frequency, or loss columns) — it exists purely to sanity-check core/turns selection against one known real part, documented in `TESTRESULTSMEAN.md`.
+
 ### How to Use
-- **Validation:** Add your successful designs here for regression testing
-- **Documentation:** Share example designs with users
-- **Regression:** Compare future results against known-good designs
+Add more real designs here as they become available — each new row is another point to validate the tool's core selection (and eventually turns calculation) against.
 
 ---
+
 ## test_scenarios.csv
-**Purpose:** Test cases for validating the design algorithm.
+
+**Purpose:** Test cases for validating the design algorithm, checked manually today (no automated runner exists yet).
 **Location:** `data/test_scenarios.csv`
-**Used by:** Automated tests, manual verification
-### Fields
+**Currently:** 7 rows
+
+### Fields (actual header)
+
 | Field | Example | Description |
-|-------|---------|-------------|
-| TestName | MaterialSelectionOK | Scenario identifier |
-| Frequency_kHz | 100 | Input: switching frequency |
-| L_uH | 250 | Input: inductance |
-| Ipk_A | 2 | Input: peak current |
-| TempRise_C | 40 | Input: allowable temperature rise |
-| ExpectedStatus | PASS | Expected outcome (PASS/FAIL/WARN) |
-| ExpectedMaterial | Kool Mu | Expected material selected |
-| ExpectedAp_cm4 | 3.2 | Expected Ap value ±5% |
-| ExpectedTurns | 18 | Expected turns count ±2 |
-| Reason | Validates Ap formula | Why this test matters |
-### How to Run Tests
-1. **Manual:** Enter each scenario into the web UI and verify results match expected output
-2. **Automated:** (Future) Parse test_scenarios.csv and run batch validation
+|---|---|---|
+| Name | i77006_validation | Scenario identifier |
+| InductanceUH | 250 | Input: inductance |
+| PeakCurrentA | 5 | Input: peak current |
+| FrequencyKHz | 100 | Input: switching frequency |
+| AllowedTempRiseC | 40 | Input: allowable temperature rise |
+| ExpectedCore | 0077440A7 | Expected core part number |
+| ExpectedTurns | 14-20 | Expected turns range — **can't be checked yet**, Stage 4 isn't implemented |
+| TestDescription | "Real IntelliPower spec; should match" | Why this scenario matters |
+
+### How to Run Tests (current process)
+1. Enter each row's inputs into the web UI (or `curl` the endpoints directly)
+2. Compare the returned `material` and `partNumber` against `ExpectedCore` / material implied by the description
+3. `ExpectedTurns` can't be verified yet — there's no turns output until Stage 4 is implemented
+
 ### Adding Test Cases
-When you discover a bug or edge case:
-1. Add a row to test_scenarios.csv with the failure scenario
+When you find a bug or edge case:
+1. Add a row with the failing scenario
 2. Fix the code
-3. Re-run test; verify it now shows PASS
-4. Keep the row in test_scenarios.csv for regression prevention
+3. Re-check the scenario by hand
+4. Keep the row for future regression checking (once an automated runner exists)
 
 ---
+
 ## CSV Format Rules
-1. **Headers on row 1** — Required; column names are case-sensitive
-2. **Pipe (|) for lists** — Use `Ferrite|Kool Mu|Powder Iron` for alternatives
-3. **No extra spaces** — Trim whitespace around values
-4. **Numbers without units** — Store `250` not `250µH`
-5. **URLs in links** — Must start with `http://` or `https://`
-6. **Encoding:** UTF-8 (save as UTF-8 in Excel/Google Sheets)
+1. Headers on row 1 — column names are case-sensitive
+2. Pipe (`|`) for lists — e.g. `Ferrite|Kool Mu` for alternatives (kept as a raw string through the API, not parsed)
+3. No extra spaces around values
+4. Numbers without units — store `250` not `250µH`
+5. UTF-8 encoding
 
 ---
-## Where Data Comes From
-### cores.csv
-- **Source:** Supplier datasheets (IntelliPower, Vishay, etc.)
-- **Frequency:** Updated quarterly as new cores release
-- **Validation:** Cross-check AL against calculated L = AL × (N/100)²
-### materials.csv
-- **Source:** Material vendor datasheets (Powder Iron, Ferrite, etc.)
-- **Frequency:** Updated annually or when new materials adopted
-- **Validation:** Measure core loss experimentally at key frequencies
-### reference_designs.csv
-- **Source:** AMETEK product specifications
-- **Frequency:** Updated per new AMETEK products
-- **Use:** Regression testing
-### test_scenarios.csv
-- **Source:** Manual edge-case discovery + AMETEK QA
-- **Frequency:** Updated per bug fix
-- **Use:** Prevent regression
+
+## Where Data Currently Comes From
+- **cores.csv:** Magnetics Inc. datasheets (all 16 current rows are Magnetics-brand parts)
+- **materials.csv:** material vendor datasheets
+- **reference_designs.csv:** one real IntelliPower part (`i77006`), used for manual validation
+- **test_scenarios.csv:** manually authored scenarios, including the `i77006` reference case

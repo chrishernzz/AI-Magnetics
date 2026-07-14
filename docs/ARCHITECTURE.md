@@ -1,181 +1,178 @@
----
-## **ARCHITECTURE.md** (New)
-```markdown
 # System Architecture
 
 This document describes the overall design of AIMagnetics: components, responsibilities, and data flow.
 
 ---
+
 ## High-Level Overview
-AIMagnetics is a **three-tier system**:
-1. **Frontend (Web UI)** — User enters requirements, displays results
-2. **Backend (HTTP Server)** — Routes requests to business logic, returns JSON
-3. **Core Engine (C++ Library)** — Implements the magnetic design algorithms
+
+AIMagnetics is a **four-layer system**:
+
+1. **Frontend (Web UI)** — plain HTML/JS/CSS; user enters requirements, displays results
+2. **Backend (FastAPI, Python)** — routes HTTP requests to the C++ engine via pybind11, returns JSON
+3. **Python Bindings (pybind11)** — exposes the C++ engine's classes/functions to Python as the `magnetics_cpp` module
+4. **Core Engine (C++17 library)** — implements the magnetic design algorithms
+
+There is no hand-written HTTP server — FastAPI (via `uvicorn`) handles all HTTP.
 
 ---
+
 ## Component Breakdown
+
 ### Frontend Layer
+
 **Location:** `src/frontend/`
+
 | File | Purpose |
-|------|---------|
+|---|---|
 | `index.html` | Web page structure; form for requirements input |
-| `app.js` | Handles form submission, API calls, result display |
+| `app.js` | Handles form submission, calls the API, renders results |
 | `styles.css` | Styling for the UI |
-**Responsibility:**
-- Collect user inputs (inductance, current, frequency, temp rise)
-- Send POST requests to backend endpoints
-- Parse JSON responses and display results
-**Key Endpoints Called:**
-- `POST /api/material-select`
-- `POST /api/area-product`
-- `POST /api/core-select`
+
+**Endpoints it calls** (relative paths, no `/api` prefix):
+- `POST /material-selection`
+- `POST /calculate` (area product)
+- `POST /core-selection`
+
+All three requests send the same payload shape: `{ inductanceUH, peakCurrentA, switchingFreqKHz, allowableTempRiseC }`.
 
 ---
-### Backend Layer
-**Location:** `src/backend/`
-**Components:**
-#### HttpServer
-- **File:** `HttpServer.cpp`, `HttpServer.h`
-- **Port:** 8080
-- **Responsibility:** Listen for HTTP requests, route to controllers, return responses
-#### Router
-- **File:** `routing/Router.cpp`, `routing/Router.h`
-- **Responsibility:** Map URL paths to controller handlers
-- **Routes Defined:**
-  - `POST /api/material-select` → MaterialSelectionController
-  - `POST /api/area-product` → AreaProductController
-  - `POST /api/core-select` → CoreSelectionController
-  - `GET /` → StaticFileController (serves index.html)
-#### Controllers
-- **MaterialSelectionController** — Parse request, call MaterialSelectionService, return material + µ_opt
-- **AreaProductController** — Parse request, call AreaProductService, return Ap value
-- **CoreSelectionController** — Parse request, call CoreSelectionService, return selected core
-- **StaticFileController** — Serve static files (HTML, CSS, JS)
-#### Services
-- **MaterialSelectionService** — Call `MaterialSelection::select()` from core engine
-- **AreaProductService** — Call `AreaProduct::calculate()` from core engine
-- **CoreSelectionService** — Call `CoreSelection::select()` from core engine
+
+### Backend Layer — FastAPI (Python)
+
+**Location:** `python/`
+
+| File | Purpose |
+|---|---|
+| `app.py` | Creates the FastAPI app, mounts `/static` for the frontend, serves `index.html` at `/`, includes the router |
+| `routes/core_selection.py` | Defines the three POST endpoints; builds C++ input structs and calls into `magnetics_cpp` |
+
+**Routes defined** (all in `routes/core_selection.py`, no path prefix applied to the router):
+| Route | Calls into C++ | Returns |
+|---|---|---|
+| `POST /material-selection` | `MaterialSelectionService().calculate(...)` | `MaterialSelectionResponse` |
+| `POST /calculate` | `magnetics_cpp.calculate_ap(...)`, `calculate_stored_energy(...)` | `AreaProductResponse` |
+| `POST /core-selection` | `CoreSelectionService().calculate(...)` (internally also calls material selection again) | `CoreSelectionResponse` |
+| `GET /` | — | `index.html` (via `FileResponse`) |
+| `GET /static/*` | — | frontend static files (mounted via `StaticFiles`) |
+
+Request/response validation is handled by Pydantic models declared directly in `routes/core_selection.py` — there are no separate "Controller" classes; the route function bodies do the parsing, calling, and response-shaping in one place.
 
 ---
+
+### Python Bindings Layer — pybind11
+
+**Location:** `src/python_bindings/CoreSelectionBindings.cpp`
+
+Builds a single pybind11 module, `magnetics_cpp`, exposing:
+- `MaterialSelectionInput` / `MaterialSelectionResult` / `MaterialSelectionService`
+- `AreaProductInput`, `calculate_ap()`, `calculate_stored_energy()`
+- `CoreSelectionInput` / `CoreSelectionResult` / `CoreSelectionService`
+
+CMake builds this as a Python extension module and places the compiled `.pyd`/`.so` directly in `python/`, so `import magnetics_cpp` resolves it as a local module.
+
+---
+
 ### Core Engine Layer
-**Location:** `src/core/`, `src/data/`
-**Responsibility:** Implement the magnetic design algorithm (4-stage pipeline)
-| Module | File | Purpose |
-|--------|------|---------|
-| MaterialSelection | `MaterialSelection.cpp` | Choose material based on frequency |
-| AreaProduct | `AreaProduct.cpp` | Calculate minimum Ap (core size) |
-| CoreSelection | `CoreSelection.cpp` | Find best core from database |
-| GapDesign | `GapDesign.cpp` | Calculate air gap (if needed) |
-| TurnsCalculation | `TurnsCalculation.cpp` | Calculate winding turns for L |
-| CopperLoss | `CopperLoss.cpp` | Calculate I²R heating in wire |
-| CoreLoss | `CoreLoss.cpp` | Calculate hysteresis + eddy loss |
-| HighFrequencyLosses | `HighFrequencyLosses.cpp` | Skin effect and proximity losses |
-| CoreDatabase | `data/CoreDatabase.cpp` | Load and query cores.csv |
-| Materials | `data/Materials.cpp` | Load and query materials.csv |
+
+**Location:** `src/core/`, `src/backend/services/`, `src/data/`
+
+| Module | File | Status |
+|---|---|---|
+| MaterialSelection | `MaterialSelection.cpp` | ✅ Implemented |
+| AreaProduct | `AreaProduct.cpp` | ✅ Implemented |
+| CoreSelection | `CoreSelection.cpp` | ✅ Implemented |
+| GapDesign | `GapDesign.cpp` | ❌ Stub (commented out) |
+| TurnsCalculation | `TurnsCalculation.cpp` | ❌ Stub (commented out) |
+| CopperLoss | `CopperLoss.cpp` | ❌ Stub (commented out) |
+| CoreLoss | `CoreLoss.cpp` | ❌ Stub (commented out) |
+| HighFrequencyLosses | `HighFrequencyLosses.cpp` | ❌ Stub (hard-coded return 0.0) |
+| CoreDatabase | `data/CoreDatabase.cpp` | ✅ Implemented — loads `cores.csv` |
+| Materials | `data/Materials.cpp` | ✅ Implemented — loads `materials.csv` |
+| Validation | `src/validation/Validation.h` | ❌ Header only — `ValidationResult{bool passed}` struct, no `.cpp`, not in `CMakeLists.txt` |
+| DesignRules | `src/rules/DesignRules.h` | ❌ Header only — no `.cpp`, not in `CMakeLists.txt` |
+
+The **Services** layer (`src/backend/services/`) sits directly between the pybind11 bindings and the core engine — e.g. `CoreSelectionService::calculate()` calls `selectCore()` from `CoreSelection.cpp`. There is no separate "Controller" layer in C++; HTTP parsing happens entirely in the Python route functions.
 
 ---
+
 ## Data Flow: From User Input to Result
-User enters: L=250µH, Ipk=2A, f=100kHz, ΔT=40°C
+
+```
+User enters: L=250µH, Ipk=5A, f=100kHz, ΔT=40°C
 ↓
-Frontend calls: POST /api/material-select with {frequency: 100}
+Frontend POSTs to /material-selection with {inductanceUH, peakCurrentA, switchingFreqKHz, allowableTempRiseC}
 ↓
-Server routes to MaterialSelectionController
+FastAPI route builds a MaterialSelectionInput, calls magnetics_cpp.MaterialSelectionService().calculate(...)
 ↓
-Controller calls MaterialSelectionService.select(100)
+C++ engine loads materials.csv, matches frequency range (e.g. Powder Iron)
 ↓
-Service calls MaterialSelection::select(100) [core engine]
+Route returns MaterialSelectionResponse: {materialFamily, muOpt, reason, alternatives}
 ↓
-Engine loads materials.csv, finds best match (e.g., Kool Mu)
+Frontend displays material, then POSTs to /calculate with the same payload
 ↓
-Service returns: {material: "Kool Mu", mu_opt: 26, ...}
+Route builds AreaProductInput (Ku=0.4, Bmax=0.30T, J=400 A/cm² are hard-coded here),
+calls magnetics_cpp.calculate_ap() and calculate_stored_energy()
 ↓
-Frontend displays material, enables next step
+Returns AreaProductResponse: {areaProduct, energy}
 ↓
-User clicks "Next" → Frontend calls: POST /api/area-product
-with {L: 250, peakCurrent: 2, tempRise: 40, material: "Kool Mu"}
+Frontend POSTs to /core-selection with the same payload
 ↓
-AreaProductService calculates Ap = 2×E_max×10⁴/(Ku×Bmax×J)
+Route re-runs material selection internally, builds CoreSelectionInput,
+calls magnetics_cpp.CoreSelectionService().calculate(...)
 ↓
-Returns: {ap: 3.2, units: "cm⁴"}
+C++ engine loads cores.csv, filters by Ap + material, ranks by loss heuristic
 ↓
-Frontend calls: POST /api/core-select
-with {ap: 3.2, material: "Kool Mu"}
+Returns CoreSelectionResponse: {partNumber, material, mu, al, ae, wa, le}
 ↓
-CoreSelectionService loads cores.csv, finds cores where Ac×Wa >= Ap
-↓
-Service ranks by efficiency, returns best match
-↓
-Frontend displays: Part number, core specs, losses
+Frontend renders material, core, energy/Ap details, and a summary panel
+whose "Next Step" field literally says "Turns & Loss Design" — the UI
+already acknowledges Stage 4 isn't built yet.
+```
 
 ---
-## Key Design Patterns
-### Service Layer Pattern
-- **Controllers** handle HTTP (parsing, routing)
-- **Services** handle business logic (calculations, database queries)
-- **Core Engine** handles math (algorithms, formulas)
-**Why?** Separation of concerns. You can test the service without HTTP, or swap out the HTTP layer later.
 
-### Dependency Flow
-Frontend → Backend (HTTP) → Services → Core Engine → Data (CSV)
-
-Each layer is independent. The core engine doesn't know about HTTP.
-
----
-## Database & Data Files
-**Location:** `data/`
-### cores.csv
-- **Purpose:** Core geometry database (vendor datasheets)
-- **Loaded by:** `CoreDatabase.cpp`
-- **Used by:** `CoreSelection.cpp` (to find cores matching Ap requirement)
-- **Fields:** Part number, Ac (cross-section), Wa (window area), Le (path length), material, µ, AL (inductance index)
-### materials.csv
-- **Purpose:** Material properties (frequency ranges, losses, saturation)
-- **Loaded by:** `Materials.cpp`
-- **Used by:** `MaterialSelection.cpp`, loss calculators
-- **Fields:** Name, µ_opt, frequency range, Bmax, loss factors
-
----
 ## Build Configuration
-**CMakeLists.txt** defines:
-- `magnetics_engine` library (core algorithms + data)
-- `magnetics_server` executable (backend + frontend)
-- Compiler flags (C++17, platform-specific)
-- Linking (ws2_32 on Windows for sockets)
+
+`CMakeLists.txt` defines:
+- `magnetics_engine` — static library: all of `src/core/` + `src/data/`
+- `magnetics_services` — static library: `src/backend/services/`, links against `magnetics_engine`
+- `magnetics_cpp` — the pybind11 extension module, links against `magnetics_services`, output directed into `python/`
+- `VALIDATION_SOURCES` and `RULES_SOURCES` are both **empty lists** — `Validation.h` and `DesignRules.h` are declared but not compiled into anything yet
+
+There is no `magnetics_server` target — that name (and the standalone-C++-HTTP-server approach) belongs to an earlier plan and no longer reflects the build.
 
 ---
-## Execution Flow (High Level)
-User runs: magnetics_server.exe
-main.cpp → HttpServer.start(8080)
-Server loads data files (cores.csv, materials.csv)
-Server listens on http://localhost:8080
-Frontend opens, user fills form
-Frontend POSTs to /api/material-select
-Server routes → Controller → Service → Core Engine
-Engine calculates, returns JSON
-Frontend displays result
-Repeat for each stage (Ap, Core Selection)
 
+## Key Design Points
+
+- **Separation of concerns:** HTTP parsing (FastAPI routes) is separate from business orchestration (Services) is separate from math (Core Engine). The Core Engine has no knowledge of HTTP or Python.
+- **Why FastAPI + pybind11 instead of a hand-written server:** request/response validation comes for free from Pydantic; FastAPI auto-generates interactive docs at `/docs`; no socket-handling code to write or maintain.
 
 ---
+
 ## Future Extensibility
-To add a new feature (e.g., temperature calculation):
-1. **Add to Core Engine:** Create `src/core/Temperature.cpp`
-2. **Create Service:** Create `src/backend/services/TemperatureService.cpp`
-3. **Create Controller:** Create `src/backend/controllers/TemperatureController.cpp`
-4. **Register Route:** Add route in `Router.cpp`
-5. **Update Frontend:** Add UI field and API call in `app.js`
+
+To add a new feature (e.g., turns calculation):
+1. **Implement in Core Engine:** write the real body of `src/core/TurnsCalculation.cpp` (currently a stub)
+2. **Expose via bindings:** add the function/struct to `src/python_bindings/CoreSelectionBindings.cpp`
+3. **Add a FastAPI route:** new endpoint in `python/routes/core_selection.py` (or a new routes file, included in `app.py`)
+4. **Update frontend:** add the new field(s) in `app.js` and `index.html`
+5. **Rebuild:** re-run the CMake build for `magnetics_cpp`, restart uvicorn
 
 ---
+
 ## Dependencies
-- **std::vector, std::map** — C++ standard library (STL)
-- **sys/socket, ws2_32** — Platform sockets (for HTTP server)
-- **CSV parsing** — Hand-rolled in CoreDatabase.cpp, Materials.cpp
-- **No external libraries** — Everything is built from source
+
+- **pybind11** — C++/Python interop
+- **FastAPI + uvicorn** — HTTP layer
+- **Pydantic** — request/response validation (comes with FastAPI)
+- **std::vector, std::string** — C++ standard library
+- **CSV parsing** — hand-rolled in `CoreDatabase.cpp`, `Materials.cpp`
+- No other external C++ libraries
 
 ---
+
 ## Deployment
-**Single-Server Model:** Backend + Frontend run on same machine/port.
-For cloud deployment, consider:
-- Separating frontend (static hosting) from backend (API server)
-- Adding HTTPS, authentication
-- Scaling the backend across multiple instances
+
+**Current model:** single process — `uvicorn` runs the FastAPI app, which serves both the static frontend and the API, all backed by the in-process `magnetics_cpp` extension. No separate server processes.
