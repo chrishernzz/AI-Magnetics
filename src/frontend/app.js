@@ -1,7 +1,8 @@
 const endpoints = {
     material: "/material-selection",
     areaProduct: "/calculate",
-    coreSelection: "/core-selection"
+    coreSelection: "/core-selection",
+    turns: "/turns-calculation"
 };
 
 function buildPayload() {
@@ -14,27 +15,53 @@ function buildPayload() {
 }
 
 function setStatus(message, isError = false) {
-    const status = document.getElementById("statusMessage");
+
+    const status =
+        document.getElementById("statusMessage");
+
+    if (!status) return;
+
     status.textContent = message;
-    status.className = isError ? "status-message error" : "status-message";
+
+    status.className =
+        isError
+            ? "status-message error"
+            : "status-message";
 }
 
 function clearResults() {
-    document.getElementById("material").innerHTML = "";
-    document.getElementById("core").innerHTML = "";
-    document.getElementById("details").innerHTML = "";
-    document.getElementById("assistant").innerHTML = "";
-    document.getElementById("designSummary").innerHTML = "";
+
+    [
+        "material",
+        "core",
+        "turns",
+        "details",
+        "assistant",
+        "designSummary"
+    ]
+    .forEach(id => {
+
+        const element =
+            document.getElementById(id);
+
+        if (element) {
+            element.innerHTML = "";
+        }
+    });
 }
 
 async function postRequest(endpoint, payload) {
-    const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-    });
+
+    const response =
+        await fetch(endpoint, {
+            method: "POST",
+            headers: {
+                "Content-Type":
+                    "application/json"
+            },
+            body:
+                JSON.stringify(payload)
+        });
 
     if (!response.ok) {
         throw new Error(
@@ -46,23 +73,34 @@ async function postRequest(endpoint, payload) {
 }
 
 function renderMaterial(result) {
-    document.getElementById("material").innerHTML = `
+
+    const element =
+        document.getElementById("material");
+
+    if (!element) return;
+
+    element.innerHTML = `
         <div class="result-block">
+
             <h3>
                 Material Recommendation
             </h3>
+
             <p>
                 <strong>
                     ${result.materialFamily}
                 </strong>
             </p>
+
             <p>
                 Reference μ:
                 ${result.muOpt}
             </p>
+
             <p>
                 ${result.reason}
             </p>
+
             <p>
                 <em>
                     Alternatives:
@@ -76,7 +114,12 @@ function renderMaterial(result) {
 
 function renderCore(result) {
 
-    document.getElementById("core").innerHTML = `
+    const element =
+        document.getElementById("core");
+
+    if (!element) return;
+
+    element.innerHTML = `
         <div class="result-block">
 
             <h3>
@@ -90,33 +133,66 @@ function renderCore(result) {
             </p>
 
             <p>
-                Material:
-                ${result.material}
+                Material: ${result.material}
             </p>
 
             <p>
-                μ:
-                ${result.mu}
+                μ: ${result.mu}
             </p>
 
             <p>
-                AL:
+                AL: ${result.al} nH/T²
+            </p>
+
+            <p>
+                Ae: ${result.ae} mm²
+            </p>
+
+            <p>
+                Wa: ${result.wa} mm²
+            </p>
+
+            <p>
+                Le: ${result.le} mm
+            </p>
+
+        </div>
+    `;
+}
+
+function renderTurns(result) {
+
+    const element =
+        document.getElementById("turns");
+
+    if (!element) {
+        console.error(
+            "Turns element not found"
+        );
+        return;
+    }
+
+    element.innerHTML = `
+        <div class="result-block">
+
+            <h3>
+                Turns Recommendation
+            </h3>
+
+            <p>
+                <strong>
+                    ${result.turns} Turns
+                </strong>
+            </p>
+
+            <p>
+                Target Inductance:
+                ${result.inductanceUH} µH
+            </p>
+
+            <p>
+                Core AL:
                 ${result.al} nH/T²
-            </p>
-
-            <p>
-                Ae:
-                ${result.ae} mm²
-            </p>
-
-            <p>
-                Wa:
-                ${result.wa} mm²
-            </p>
-
-            <p>
-                Le:
-                ${result.le} mm
             </p>
 
         </div>
@@ -125,10 +201,15 @@ function renderCore(result) {
 
 function renderDetails(areaProductResult) {
 
+    const element =
+        document.getElementById("details");
+
+    if (!element) return;
+
     const energy =
         areaProductResult.energy * 1000.0;
 
-    document.getElementById("details").innerHTML = `
+    element.innerHTML = `
         <div class="result-block">
 
             <h3>
@@ -136,31 +217,27 @@ function renderDetails(areaProductResult) {
             </h3>
 
             <p>
+
                 <strong>
                     Stored Energy:
                 </strong>
 
-                ${energy.toFixed(2)} mJ
+                ${energy.toFixed(2)}
+                mJ
+
             </p>
 
             <p>
+
                 <strong>
-                    Area Product (Ap):
+                    Area Product:
                 </strong>
 
                 ${Number(
                     areaProductResult.areaProduct
                 ).toExponential(2)}
                 cm⁴
-            </p>
 
-            <p>
-                <strong>
-                    Allowed Temp Rise:
-                </strong>
-
-                ${buildPayload().allowableTempRiseC}
-                °C
             </p>
 
         </div>
@@ -169,11 +246,18 @@ function renderDetails(areaProductResult) {
 
 function renderDesignSummary(
     material,
-    core
+    core,
+    turns
 ) {
-    document.getElementById(
-        "designSummary"
-    ).innerHTML = `
+
+    const element =
+        document.getElementById(
+            "designSummary"
+        );
+
+    if (!element) return;
+
+    element.innerHTML = `
         <div class="summary-metric">
 
             <div class="summary-label">
@@ -201,14 +285,15 @@ function renderDesignSummary(
         <div class="summary-metric">
 
             <div class="summary-label">
-                Next Step
+                Turns
             </div>
 
             <div class="summary-value">
-                Turns & Loss Design
+                ${turns.turns}
             </div>
 
         </div>
+
     `;
 }
 
@@ -217,8 +302,7 @@ async function generateRecommendation() {
     clearResults();
 
     setStatus(
-        "Generating recommendation...",
-        false
+        "Generating recommendation..."
     );
 
     try {
@@ -232,11 +316,6 @@ async function generateRecommendation() {
                 payload
             );
 
-        console.log(
-            "MATERIAL:",
-            material
-        );
-
         const areaProduct =
             await postRequest(
                 endpoints.areaProduct,
@@ -249,50 +328,67 @@ async function generateRecommendation() {
                 payload
             );
 
-        renderMaterial(
-            material
-        );
+        const turns =
+            await postRequest(
+                endpoints.turns,
+                payload
+            );
 
-        renderCore(
-            core
-        );
+        console.log("Material", material);
+        console.log("Core", core);
+        console.log("Turns", turns);
 
-        renderDetails(
-            areaProduct
-        );
+        renderMaterial(material);
+        renderCore(core);
+        renderTurns(turns);
+        renderDetails(areaProduct);
 
         renderDesignSummary(
             material,
-            core
+            core,
+            turns
         );
 
-        document.getElementById(
-            "assistant"
-        ).innerHTML = `
-            <p>
-                AIMagnetics selected
-                <strong>
-                    ${material.materialFamily}
-                </strong>
-                as the preferred material.
-            </p>
+        const assistant =
+            document.getElementById(
+                "assistant"
+            );
 
-            <p>
-                Core
-                <strong>
-                    ${core.partNumber}
-                </strong>
-                was recommended from the
-                core database.
-            </p>
+        if (assistant) {
 
-            <p>
-                Next stage:
-                turns calculation,
-                wire selection,
-                and loss analysis.
-            </p>
-        `;
+            assistant.innerHTML = `
+                <p>
+
+                    Material:
+
+                    <strong>
+                        ${material.materialFamily}
+                    </strong>
+
+                </p>
+
+                <p>
+
+                    Core:
+
+                    <strong>
+                        ${core.partNumber}
+                    </strong>
+
+                </p>
+
+                <p>
+
+                    Estimated Turns:
+
+                    <strong>
+                        ${turns.turns}
+                    </strong>
+
+                </p>
+
+            `;
+        }
 
         setStatus(
             "Recommendation generated successfully."
@@ -303,25 +399,9 @@ async function generateRecommendation() {
         console.error(error);
 
         setStatus(
-            `Error: ${error.message}`,
+            error.message,
             true
         );
-
-        document.getElementById(
-            "assistant"
-        ).innerHTML = `
-            <div class="error-block">
-
-                <p>
-                    Unable to generate recommendation.
-                </p>
-
-                <p>
-                    ${error.message}
-                </p>
-
-            </div>
-        `;
     }
 }
 

@@ -35,6 +35,10 @@ class CoreSelectionResponse(BaseModel):
     wa: float
     le: float
 
+class TurnsCalculationResponse(BaseModel):
+    turns: int
+    inductanceUH: float
+    al: float
 
 def build_material_input(request: BuckInput):
     input_data = magnetics_cpp.MaterialSelectionInput()
@@ -65,8 +69,6 @@ def material_selection(request: BuckInput) -> MaterialSelectionResponse:
         reason=result.reason,
         alternatives=result.alternatives,
     )
-
-
 @router.post("/calculate", response_model=AreaProductResponse)
 def calculate(request: BuckInput) -> AreaProductResponse:
     input_data = build_area_product_input(request)
@@ -76,8 +78,6 @@ def calculate(request: BuckInput) -> AreaProductResponse:
     )
 
     return AreaProductResponse(areaProduct=area_product, energy=energy)
-
-
 @router.post("/core-selection", response_model=CoreSelectionResponse)
 def core_selection(request: BuckInput) -> CoreSelectionResponse:
     material_result = material_selection(request)
@@ -91,3 +91,40 @@ def core_selection(request: BuckInput) -> CoreSelectionResponse:
     result = service.calculate(input_data)
 
     return CoreSelectionResponse(partNumber=result.partNumber, material=result.material, mu=result.mu, al=result.al, ae=result.ae, wa=result.wa,le=result.le,)
+@router.post("/turns-calculation", response_model=TurnsCalculationResponse)
+def turns_calculation(request: BuckInput) -> TurnsCalculationResponse:
+    core_result = core_selection(request)
+    core_input = magnetics_cpp.CoreSelectionResult()
+
+    core_input.partNumber = \
+        core_result.partNumber
+
+    core_input.material = \
+        core_result.material
+
+    core_input.mu = \
+        core_result.mu
+
+    core_input.al = \
+        core_result.al
+
+    core_input.ae = \
+        core_result.ae
+
+    core_input.wa = \
+        core_result.wa
+
+    core_input.le = \
+        core_result.le
+
+    turns_input = magnetics_cpp.TurnsCalculationInput()
+
+    turns_input.inductanceUH = \
+        request.inductanceUH
+
+    turns_input.core = \
+        core_input
+
+    result = magnetics_cpp.calculate_turns(turns_input)
+    
+    return TurnsCalculationResponse(turns=result.turns, inductanceUH=result.inductanceUH, al=result.al)

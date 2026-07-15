@@ -6,18 +6,19 @@
 #include "../core/CoreSelection.h"
 #include "../core/MaterialSelection.h"
 #include "../core/AreaProduct.h"
+#include "../core/TurnsCalculation.h"
 
 namespace py = pybind11;
 
 PYBIND11_MODULE(magnetics_cpp, m) {
     m.doc() = "AIMagnetics C++ bindings for Python";
 
+    // Core Selection 
     py::class_<CoreSelectionInput>(m, "CoreSelectionInput")
         .def(py::init<>())
         .def_readwrite("areaProduct", &CoreSelectionInput::areaProduct)
         .def_readwrite("peakCurrentA", &CoreSelectionInput::peakCurrentA)
         .def_readwrite("recommendedMaterial", &CoreSelectionInput::recommendedMaterial);
-
     py::class_<CoreSelectionResult>(m, "CoreSelectionResult")
         .def(py::init<>())
         .def_readwrite("partNumber", &CoreSelectionResult::partNumber)
@@ -27,11 +28,11 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("ae", &CoreSelectionResult::ae)
         .def_readwrite("wa", &CoreSelectionResult::wa)
         .def_readwrite("le", &CoreSelectionResult::le);
-
     py::class_<CoreSelectionService>(m, "CoreSelectionService")
         .def(py::init<>())
         .def("calculate", &CoreSelectionService::calculate);
 
+    //Material Selection
     py::class_<MaterialSelectionInput>(m, "MaterialSelectionInput")
         .def(py::init<>())
         .def_readwrite("inductanceH", &MaterialSelectionInput::inductanceH)
@@ -39,18 +40,17 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("switchingFreqHz", &MaterialSelectionInput::switchingFreqHz)
         .def_readwrite("allowableTempRiseC", &MaterialSelectionInput::allowableTempRiseC)
         .def_readwrite("waveformFactor", &MaterialSelectionInput::waveformFactor);
-
     py::class_<MaterialSelectionResult>(m, "MaterialSelectionResult")
         .def(py::init<>())
         .def_readwrite("materialFamily", &MaterialSelectionResult::materialFamily)
         .def_readwrite("muOpt", &MaterialSelectionResult::muOpt)
         .def_readwrite("reason", &MaterialSelectionResult::reason)
         .def_readwrite("alternatives", &MaterialSelectionResult::alternatives);
-
     py::class_<MaterialSelectionService>(m, "MaterialSelectionService")
         .def(py::init<>())
         .def("calculate", &MaterialSelectionService::calculate);
 
+    //Area Product Calculation
     py::class_<AreaProductInput>(m, "AreaProductInput")
         .def(py::init<>())
         .def_readwrite("inductanceH", &AreaProductInput::inductanceH)
@@ -65,4 +65,16 @@ PYBIND11_MODULE(magnetics_cpp, m) {
     m.def("calculate_stored_energy", &calculateStoredEnergy, "Calculate stored energy for the given inductance and current");
 
     m.def("select_core", &selectCore, "Select core by input");
+
+    //Turns Calculation
+     py::class_<TurnsCalculationInput>(m, "TurnsCalculationInput")
+        .def(py::init<>())
+        .def_readwrite("inductanceUH", &TurnsCalculationInput::inductanceUH)
+        .def_readwrite("core", &TurnsCalculationInput::core);
+    py::class_<TurnsCalculationResult>(m, "TurnsCalculationResult")
+        .def(py::init<>())
+        .def_readwrite("turns", &TurnsCalculationResult::turns)
+        .def_readwrite("inductanceUH", &TurnsCalculationResult::inductanceUH)
+        .def_readwrite("al", &TurnsCalculationResult::al);\
+    m.def("calculate_turns", &calculateTurns, "Calculate turns");
 }

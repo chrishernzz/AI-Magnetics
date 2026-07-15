@@ -33,6 +33,7 @@ CoreSelectionResult selectCore(const CoreSelectionInput& input) {
     
     for(const auto& core : cores) {
         double coreAp = coreAreaProductCm4(core.ae, core.wa);
+        //this returns true if the core meets the area product requirement with a 5% margin
         bool passes = (coreAp >= input.areaProduct * 0.95);
         std::cout << "Core " << core.partNumber << " (" << core.material << "): Ap=" << coreAp << " → " << (passes ? "PASS" : "FAIL");
         //require Ap with 5% margin
@@ -73,7 +74,7 @@ CoreSelectionResult selectCore(const CoreSelectionInput& input) {
     const CoreData* bestCore = finalCandidates[0];
     double bestLoss = estimateCopperLossW(*finalCandidates[0], input.peakCurrentA);
     
-    std::cout << "\nLoss comparison:" << std::endl;
+    std::cout << "\n--------------------Loss comparison:" << std::endl;
     std::cout << "  " << finalCandidates[0]->partNumber << ": loss=" << bestLoss << " (init)" << std::endl;
     
     for(const auto* core : finalCandidates) {
