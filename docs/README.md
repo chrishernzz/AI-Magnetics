@@ -46,7 +46,7 @@ See [WORKFLOW.md](WORKFLOW.md) for formulas, worked examples, and the current st
 ---
 
 ## Status
-- ✅ Material selection (frequency-range match against `materials.csv`)
+- ✅ Material selection (frequency-range match against the loaded material database)
 - ✅ Area product calculation
 - ✅ Core selection (Ap filter + material filter + single-metric loss ranking)
 - ❌ Gap design — stubbed, not implemented
@@ -59,4 +59,4 @@ See [WORKFLOW.md](WORKFLOW.md) for formulas, worked examples, and the current st
 ## Resources
 - **Design Reference:** McLyman, *Transformer and Inductor Design Handbook*
 - **Data Format:** See [DATA_FILES.md](DATA_FILES.md) for CSV structure
-- **Vendor References:** Core geometry currently sourced from Magnetics Inc. datasheets (`cores.csv`); one reference design (`i77006`, an IntelliPower part) used for validation
+- **Vendor References:** Core geometry sourced from real manufacturer data (Ferroxcube, TDK, Magnetics, Fair-Rite, and others), originally via PyOpenMagnetics/MAS, bundled as a snapshot in `data/real_cores.csv` (see [ARCHITECTURE.md](ARCHITECTURE.md)); one reference design (`i77006`, an IntelliPower part) used for validation

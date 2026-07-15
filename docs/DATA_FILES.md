@@ -1,15 +1,56 @@
 # Data Files Guide
 
-This document explains the structure of CSV files in `data/` and how to add new entries.
+> **⚠️ `cores.csv` and `materials.csv` (the original hand-typed files) no
+> longer exist.** They've been replaced by **`data/real_materials.csv`**
+> and **`data/real_cores.csv`** — same idea (CSV, read at startup), but the
+> *contents* are real, sourced data instead of hand-typed values. See
+> "real_materials.csv / real_cores.csv" below for the current format, and
+> `docs/ARCHITECTURE.md` → "Data Source" for why they're a bundled
+> snapshot rather than a live query. The sections further down describing
+> the *old* `cores.csv`/`materials.csv` format are kept only as historical
+> reference.
+>
+> `reference_designs.csv` and `test_scenarios.csv` are **unaffected** —
+> they're the validation suite, not a data source, and are still read
+> directly, same as always. Note: `test_scenarios.csv`'s `ExpectedCore`
+> values (e.g. `0077440A7`) are old part numbers from the original CSVs —
+> real data uses different part numbers, so those expected values need to
+> be re-verified and updated, not treated as still valid.
 
 ---
 
-## cores.csv
+## real_materials.csv / real_cores.csv (current, actually used)
+
+**Purpose:** The real material/core database, read at FastAPI startup.
+**Location:** `data/real_materials.csv`, `data/real_cores.csv`
+**Used by:** `python/services/magnetics_data.py`
+**Format:** Same columns as the old `cores.csv`/`materials.csv` described
+below — `PartNumber,Material,Mu,AL,Ae,Wa,Le,PartCost,Vendor,MaxCurrent_A,MaxFreq_kHz`
+and `Name,MuOpt,MinFrequencyHz,MaxFrequencyHz,Reason,Alternatives,BmaxT,CuLossFactor`
+respectively.
+**Currently:** 32 materials, 60 cores — real data (Ferroxcube, TDK,
+Magnetics, Fair-Rite), filtered to power-application materials and
+ungapped cores, spread across vendors.
+**Do not hand-edit these files.** To change what's in them, either adjust
+the filters in `scripts/export_real_data.py` and re-run it (needs
+PyOpenMagnetics installed — Linux/macOS/WSL2 only, see
+`docs/ARCHITECTURE.md`), or send them to someone/somewhere that can run
+that script and swap the resulting files in.
+
+---
+
+This document also explains the structure the *original* CSV files used
+to have — useful background if you're editing `python/services/magnetics_data.py`'s
+field mapping, since that's what these columns became.
+
+---
+
+## cores.csv (historical schema reference only — file no longer exists)
 
 **Purpose:** Database of available inductor cores (part numbers, geometry, materials).
 **Location:** `data/cores.csv`
-**Used by:** `src/data/CoreDatabase.cpp`
-**Currently:** 16 rows, all vendor "Magnetics" (Magnetics Inc.)
+**Used by:** `src/data/CoreDatabase.cpp` (formerly — now populated by `python/services/magnetics_data.py` instead)
+**Currently:** mapped from real data at startup, not from this file
 
 ### Fields (actual header)
 
@@ -38,7 +79,7 @@ This document explains the structure of CSV files in `data/` and how to add new 
 4. Verify:
 - `Material` matches a `Name` in `materials.csv` exactly (case-sensitive)
 - `Ae` and `Wa` are in mm² (not cm²) — this is what `CoreSelection.cpp` expects; it converts internally via `(Ae × Wa) × 1e-4` to get cm⁴
-5. Rebuild the pybind11 extension (core data is loaded at runtime, so a C++ rebuild isn't strictly required for a data-only change — but restart the running `uvicorn` process so it re-reads the CSV)
+5. This exact file (`cores.csv`) is gone and isn't read by the app. If you meant `data/real_cores.csv` (the current file): editing it directly *would* take effect on restart, but don't — it's a generated snapshot. Adjust the filters in `scripts/export_real_data.py` and re-run it instead, so the file stays reproducible.
 
 ### Calculation Tips
 
@@ -153,7 +194,6 @@ When you find a bug or edge case:
 ---
 
 ## Where Data Currently Comes From
-- **cores.csv:** Magnetics Inc. datasheets (all 16 current rows are Magnetics-brand parts)
-- **materials.csv:** material vendor datasheets
+- **Cores and materials:** `data/real_materials.csv` / `data/real_cores.csv` — real manufacturer data (Ferroxcube, TDK, Magnetics, Fair-Rite, and others) originally sourced from PyOpenMagnetics/MAS, exported once via `scripts/export_real_data.py`, read as plain CSV at startup. See `docs/ARCHITECTURE.md`.
 - **reference_designs.csv:** one real IntelliPower part (`i77006`), used for manual validation
 - **test_scenarios.csv:** manually authored scenarios, including the `i77006` reference case

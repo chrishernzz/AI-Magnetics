@@ -36,7 +36,7 @@ Each endpoint only uses the fields it needs internally (e.g. material selection 
 "alternatives": "Ferrite|Powder Iron"
 }
 ```
-Note: `alternatives` is a single pipe-delimited **string**, not a JSON array — it's passed through as-is from `materials.csv`'s `Alternatives` column.
+Note: `alternatives` is a single pipe-delimited **string**, not a JSON array — it's passed through as-is from the material record's `Alternatives` field (currently always `"None"`; the bundled real-data snapshot doesn't populate this yet, see `python/services/magnetics_data.py`).
 
 ---
 
@@ -55,7 +55,7 @@ Note: `alternatives` is a single pipe-delimited **string**, not a JSON array —
 ```
 `energy` is in **joules** (not millijoules — the frontend multiplies by 1000 for display). `areaProduct` is in cm⁴.
 
-**Note:** window utilization (Ku=0.4), max flux density (Bmax=0.30 T), and current density (J=400 A/cm²) are currently hard-coded inside `build_area_product_input()` in `routes/core_selection.py` — they are not part of the request body and not read from `materials.csv`'s per-material `BmaxT`.
+**Note:** window utilization (Ku=0.4), max flux density (Bmax=0.30 T), and current density (J=400 A/cm²) are currently hard-coded inside `build_area_product_input()` in `routes/core_selection.py` — they are not part of the request body and not read from each material's `BmaxT` field (currently unpopulated by real-data loading).
 
 ---
 
@@ -77,7 +77,7 @@ Note: `alternatives` is a single pipe-delimited **string**, not a JSON array —
 "le": 107
 }
 ```
-`ae`, `wa` are in **mm²**; `le` is in **mm** — these match `cores.csv` directly, not cm² as might be assumed.
+`ae`, `wa` are in **mm²**; `le` is in **mm** — these match the real core data's `Ae`/`Wa`/`Le` fields directly (see `python/services/magnetics_data.py`), not cm² as might be assumed.
 
 **No `sort_by` parameter exists.** Core ranking is always by a single internal loss heuristic — cost- and size-based sorting are not implemented.
 
