@@ -56,7 +56,7 @@ def build_area_product_input(request: BuckInput):
     input_data.currentDensityAPerCm2 = 400.0
     return input_data
 
-
+#Material Selction: POST
 @router.post("/material-selection", response_model=MaterialSelectionResponse)
 def material_selection(request: BuckInput) -> MaterialSelectionResponse:
     service = magnetics_cpp.MaterialSelectionService()
@@ -69,6 +69,7 @@ def material_selection(request: BuckInput) -> MaterialSelectionResponse:
         reason=result.reason,
         alternatives=result.alternatives,
     )
+#Ap calculation: POST
 @router.post("/calculate", response_model=AreaProductResponse)
 def calculate(request: BuckInput) -> AreaProductResponse:
     input_data = build_area_product_input(request)
@@ -78,6 +79,7 @@ def calculate(request: BuckInput) -> AreaProductResponse:
     )
 
     return AreaProductResponse(areaProduct=area_product, energy=energy)
+#Core Selction: POST
 @router.post("/core-selection", response_model=CoreSelectionResponse)
 def core_selection(request: BuckInput) -> CoreSelectionResponse:
     material_result = material_selection(request)
@@ -91,6 +93,7 @@ def core_selection(request: BuckInput) -> CoreSelectionResponse:
     result = service.calculate(input_data)
 
     return CoreSelectionResponse(partNumber=result.partNumber, material=result.material, mu=result.mu, al=result.al, ae=result.ae, wa=result.wa,le=result.le,)
+#Turns calculation: POST
 @router.post("/turns-calculation", response_model=TurnsCalculationResponse)
 def turns_calculation(request: BuckInput) -> TurnsCalculationResponse:
     core_result = core_selection(request)

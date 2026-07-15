@@ -7,30 +7,37 @@ const endpoints = {
 
 function buildPayload() {
     return {
-        inductanceUH: Number(document.getElementById("inductance").value),
-        peakCurrentA: Number(document.getElementById("current").value),
-        switchingFreqKHz: Number(document.getElementById("frequency").value),
-        allowableTempRiseC: Number(document.getElementById("tempRise").value)
+        inductanceUH: Number(
+            document.getElementById("inductance").value
+        ),
+        peakCurrentA: Number(
+            document.getElementById("current").value
+        ),
+        switchingFreqKHz: Number(
+            document.getElementById("frequency").value
+        ),
+        allowableTempRiseC: Number(
+            document.getElementById("tempRise").value
+        )
     };
 }
 
 function setStatus(message, isError = false) {
-
     const status =
         document.getElementById("statusMessage");
 
-    if (!status) return;
+    if (!status) {
+        return;
+    }
 
     status.textContent = message;
 
-    status.className =
-        isError
-            ? "status-message error"
-            : "status-message";
+    status.className = isError
+        ? "status-message error"
+        : "status-message";
 }
 
 function clearResults() {
-
     [
         "material",
         "core",
@@ -38,9 +45,7 @@ function clearResults() {
         "details",
         "assistant",
         "designSummary"
-    ]
-    .forEach(id => {
-
+    ].forEach(id => {
         const element =
             document.getElementById(id);
 
@@ -51,17 +56,17 @@ function clearResults() {
 }
 
 async function postRequest(endpoint, payload) {
-
-    const response =
-        await fetch(endpoint, {
+    const response = await fetch(
+        endpoint,
+        {
             method: "POST",
             headers: {
                 "Content-Type":
                     "application/json"
             },
-            body:
-                JSON.stringify(payload)
-        });
+            body: JSON.stringify(payload)
+        }
+    );
 
     if (!response.ok) {
         throw new Error(
@@ -73,11 +78,12 @@ async function postRequest(endpoint, payload) {
 }
 
 function renderMaterial(result) {
-
     const element =
         document.getElementById("material");
 
-    if (!element) return;
+    if (!element) {
+        return;
+    }
 
     element.innerHTML = `
         <div class="result-block">
@@ -94,7 +100,7 @@ function renderMaterial(result) {
 
             <p>
                 Reference μ:
-                ${result.muOpt}
+                ${result.muOpt.toFixed(0)}
             </p>
 
             <p>
@@ -113,11 +119,12 @@ function renderMaterial(result) {
 }
 
 function renderCore(result) {
-
     const element =
         document.getElementById("core");
 
-    if (!element) return;
+    if (!element) {
+        return;
+    }
 
     element.innerHTML = `
         <div class="result-block">
@@ -137,23 +144,23 @@ function renderCore(result) {
             </p>
 
             <p>
-                μ: ${result.mu}
+                μ: ${result.mu.toFixed(0)}
             </p>
 
             <p>
-                AL: ${result.al} nH/T²
+                AL: ${result.al.toFixed(1)} nH/T²
             </p>
 
             <p>
-                Ae: ${result.ae} mm²
+                Ae: ${result.ae.toFixed(1)} mm²
             </p>
 
             <p>
-                Wa: ${result.wa} mm²
+                Wa: ${result.wa.toFixed(1)} mm²
             </p>
 
             <p>
-                Le: ${result.le} mm
+                Le: ${result.le.toFixed(1)} mm
             </p>
 
         </div>
@@ -161,7 +168,6 @@ function renderCore(result) {
 }
 
 function renderTurns(result) {
-
     const element =
         document.getElementById("turns");
 
@@ -192,7 +198,7 @@ function renderTurns(result) {
 
             <p>
                 Core AL:
-                ${result.al} nH/T²
+                ${result.al.toFixed(1)} nH/T²
             </p>
 
         </div>
@@ -200,11 +206,12 @@ function renderTurns(result) {
 }
 
 function renderDetails(areaProductResult) {
-
     const element =
         document.getElementById("details");
 
-    if (!element) return;
+    if (!element) {
+        return;
+    }
 
     const energy =
         areaProductResult.energy * 1000.0;
@@ -217,18 +224,15 @@ function renderDetails(areaProductResult) {
             </h3>
 
             <p>
-
                 <strong>
                     Stored Energy:
                 </strong>
 
                 ${energy.toFixed(2)}
                 mJ
-
             </p>
 
             <p>
-
                 <strong>
                     Area Product:
                 </strong>
@@ -237,7 +241,6 @@ function renderDetails(areaProductResult) {
                     areaProductResult.areaProduct
                 ).toExponential(2)}
                 cm⁴
-
             </p>
 
         </div>
@@ -249,13 +252,14 @@ function renderDesignSummary(
     core,
     turns
 ) {
-
     const element =
         document.getElementById(
             "designSummary"
         );
 
-    if (!element) return;
+    if (!element) {
+        return;
+    }
 
     element.innerHTML = `
         <div class="summary-metric">
@@ -293,12 +297,10 @@ function renderDesignSummary(
             </div>
 
         </div>
-
     `;
 }
 
 async function generateRecommendation() {
-
     clearResults();
 
     setStatus(
@@ -306,7 +308,6 @@ async function generateRecommendation() {
     );
 
     try {
-
         const payload =
             buildPayload();
 
@@ -334,9 +335,20 @@ async function generateRecommendation() {
                 payload
             );
 
-        console.log("Material", material);
-        console.log("Core", core);
-        console.log("Turns", turns);
+        console.log(
+            "Material",
+            material
+        );
+
+        console.log(
+            "Core",
+            core
+        );
+
+        console.log(
+            "Turns",
+            turns
+        );
 
         renderMaterial(material);
         renderCore(core);
@@ -355,38 +367,27 @@ async function generateRecommendation() {
             );
 
         if (assistant) {
-
             assistant.innerHTML = `
                 <p>
-
                     Material:
-
                     <strong>
                         ${material.materialFamily}
                     </strong>
-
                 </p>
 
                 <p>
-
                     Core:
-
                     <strong>
                         ${core.partNumber}
                     </strong>
-
                 </p>
 
                 <p>
-
                     Estimated Turns:
-
                     <strong>
                         ${turns.turns}
                     </strong>
-
                 </p>
-
             `;
         }
 
@@ -395,7 +396,6 @@ async function generateRecommendation() {
         );
     }
     catch (error) {
-
         console.error(error);
 
         setStatus(
@@ -408,7 +408,6 @@ async function generateRecommendation() {
 window.addEventListener(
     "DOMContentLoaded",
     () => {
-
         document
             .getElementById(
                 "generateButton"

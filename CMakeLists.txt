@@ -42,8 +42,6 @@ set(RULES_SOURCES
 )
 
 set(DATA_SOURCES
-    src/data/Materials.cpp
-    src/data/CoreDatabase.cpp
 )
 
 add_library(
