@@ -1,4 +1,5 @@
 # Build folders
+build/
 build_pybind/
 
 # CMake

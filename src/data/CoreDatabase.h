@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
-
+#include "DataCache.h"
 //this is our data that core holds from the database 'cores.csv'
 struct CoreData {
     std::string partNumber;
@@ -15,5 +15,10 @@ struct CoreData {
 
 class CoreDatabase{
 public: 
-    static std::vector<CoreData> load();
+    static const std::vector<CoreData>& load() {
+        return DataCache<CoreData>::load("CoreDatabase");
+    }
+    static void setData(std::vector<CoreData> data){
+        DataCache<CoreData>::setData(std::move(data));
+    }
 };

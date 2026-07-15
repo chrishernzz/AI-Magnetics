@@ -9,11 +9,64 @@ from fastapi.staticfiles import StaticFiles
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 frontend_dir = Path(__file__).resolve().parent.parent / "src" / "frontend"
 
-app = FastAPI(
-    title="AIMagnetics Python API",
-    version="0.1.0",
-)
+app = FastAPI(title="AIMagnetics Python API",version="0.1.0",)
+
 app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+
+def _build_cpp_record(dicts: list[dict], cpp_class, field_map: dict[str, str]) -> list:
+    """Converts a list of plain dicts (from magnetics_data.py) into a list of
+    pybind11-exposed C++ objects. field_map says which dict key goes to 
+    which C++ attribute, e.g. {"muOpt": "MuOpt"}. This replaces what used
+    to be two seperate, nearly-identical loops (one for materials, one for cores)
+    with one function used twice.
+    """
+    records = []
+    for d in dicts:
+        record = cpp_class()
+        for cpp_attr, dict_key in field_map.items():
+            setattr(record, cpp_attr, d[dict_key])
+        records.append(record)
+    return records
+
+@app.on_event("startup")
+def load_real_magnetics_data():
+    """
+    Loads real core/material data from PyOpenMagnetics once, at process startup,
+    and hands it to the C++ engine. There is no CSV fallback - if this fails, it raises and uvicorn will refuse to start,
+    rather than silently starting an app with no core/material data. Check the
+    traceback below to see exactly what failed (missing PyOpenMagnetics install is the most common cause).
+    """
+    import magnetics_cpp
+    from services.magnetics_data import fetch_all
+
+    materials, cores = fetch_all()
+    
+    if not materials or not cores:
+        raise RuntimeError(
+            f"Real data load returned {len(materials)} materials, {len(cores)} cores - "
+            f"refusing to start with an empty database. Check the filters in"
+            f"python/services/magnetics_data.py (ALLOWED_MATERIAL_TYPES, size range, etc.)."
+        )
+    cpp_materials = _build_cpp_record(materials, magnetics_cpp.MaterialData, {
+        "name" : "Name", 
+        "muOpt" : "MuOpt",
+        "minFrequencyHz" : "MinFrequencyHz",
+        "maxFrequencyHz" : "MaxFrequencyHz",
+        "reason" : "Reason",
+        "alternatives" : "Alternatives",
+    })
+    cpp_cores = _build_cpp_record(cores, magnetics_cpp.CoreData, {
+        "partNumber" : "PartNumber",
+        "material" : "Material",
+        "mu" : "Mu",
+        "al" : "AL",
+        "ae" : "Ae",
+        "wa" : "Wa",
+        "le" : "Le",
+    })
+    magnetics_cpp.set_material_database(cpp_materials)
+    magnetics_cpp.set_core_database(cpp_cores)
+    print(f"Loaded real data: {len(cpp_materials)} materials, {len(cpp_cores)} cores. " f"source: PyOpenMagnetics / MAS")
 
 
 @app.get("/", response_class=FileResponse)

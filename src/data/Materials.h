@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
-
+#include "DataCache.h"
 //this is our data that material holds from the database 'material.csv'
 struct MaterialData {
     std::string name;
@@ -14,5 +14,10 @@ struct MaterialData {
 
 class Materials {
 public:
-    static std::vector<MaterialData> load();
+    static const std::vector<MaterialData>& load() {
+        return DataCache<MaterialData>::load("Materials");
+    }
+    static void setData(std::vector<MaterialData> data) {
+        DataCache<MaterialData>::setData(std::move(data));
+    }
 };

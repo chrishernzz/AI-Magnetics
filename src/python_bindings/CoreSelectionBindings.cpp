@@ -7,6 +7,8 @@
 #include "../core/MaterialSelection.h"
 #include "../core/AreaProduct.h"
 #include "../core/TurnsCalculation.h"
+#include "../data/CoreDatabase.h"
+#include "../data/Materials.h"
 
 namespace py = pybind11;
 
@@ -77,4 +79,28 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("inductanceUH", &TurnsCalculationResult::inductanceUH)
         .def_readwrite("al", &TurnsCalculationResult::al);\
     m.def("calculate_turns", &calculateTurns, "Calculate turns");
+
+    /*expose the raw data structs so Python can build real records (from PyOpenMagnetics)
+    and hand them down to the C++ Engine, instead of C++ reading cores.csv/materials.csv itelslf*/
+    py::class_<CoreData>(m, "CoreData")
+        .def(py::init<>())
+        .def_readwrite("partNumber", &CoreData::partNumber)
+        .def_readwrite("material", &CoreData::material)
+        .def_readwrite("mu", &CoreData::mu)
+        .def_readwrite("al", &CoreData::al)
+        .def_readwrite("ae", &CoreData::ae)
+        .def_readwrite("wa", &CoreData::wa)
+        .def_readwrite("le", &CoreData::le);
+    py::class_<MaterialData>(m, "MaterialData")
+        .def(py::init<>())
+        .def_readwrite("name", &MaterialData::name)
+        .def_readwrite("muOpt", &MaterialData::muOpt)
+        .def_readwrite("minFrequencyHz", &MaterialData::minFrequencyHz)
+        .def_readwrite("maxFrequencyHz", &MaterialData::maxFrequencyHz)
+        .def_readwrite("reason", &MaterialData::reason)
+        .def_readwrite("alternatives", &MaterialData::alternatives);
+    //called once at FastAPI startup with real data (see python/app.py)
+    m.def("set_core_database", &CoreDatabase::setData,"Replace the in-memory core database (called once at startup with real data)");
+    m.def("set_material_database", &Materials::setData,"Replace the in-memory material database (called once at startup with real data)");
+
 }
