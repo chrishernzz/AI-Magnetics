@@ -24,6 +24,12 @@ pip install -r python/requirements.txt # fastapi, uvicorn[standard]
 ```
 `pybind11` must be installed *before* running CMake — `CMakeLists.txt` calls `python -m pybind11 --cmakedir` to locate it.
 
+The real core/material data (`data/real_materials.csv`, `data/real_cores.csv`)
+is already checked into the repo — no extra install needed to run the app.
+`PyOpenMagnetics` is only needed if you're regenerating that data via
+`scripts/export_real_data.py`, and only runs on Linux/macOS/WSL2 — see
+`docs/ARCHITECTURE.md` → "Data Source" for why.
+
 ---
 
 ## Build Instructions

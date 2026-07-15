@@ -22,7 +22,7 @@ The tool automates inductor design using McLyman's area-product method. It follo
 - Optimal permeability (µ_opt)
 - Reason + alternatives (pipe-separated string, e.g. `"Ferrite|Kool Mu"`)
 
-**How it works:** loops through `materials.csv` and returns the first material whose `[MinFrequencyHz, MaxFrequencyHz)` range contains the input frequency.
+**How it works:** loops through the loaded material list (`data/real_materials.csv` — see `docs/ARCHITECTURE.md` for how it got there) and returns the first material whose `[MinFrequencyHz, MaxFrequencyHz)` range contains the input frequency.
 
 **Not yet used:** `MaterialSelectionInput` also declares `inductanceH`, `peakCurrentA`, `allowableTempRiseC`, and `waveformFactor`, but the current implementation only reads `switchingFreqHz` — the others are accepted but ignored. Current waveform shape has no effect on material selection yet.
 
@@ -53,7 +53,7 @@ E_max = 0.5 × 250µ × 25 = 3.125 mJ
 Ap ≈ 3 cm⁴ (core must satisfy this minimum)
 ```
 
-**Note:** `windowUtilization`, `fluxDensityT`, and `currentDensityAPerCm2` are currently hard-coded by the caller (`python/routes/core_selection.py` sets Ku=0.4, Bmax=0.30 T, J=400 A/cm²) rather than looked up per-material from `materials.csv`'s `BmaxT` column — worth reconciling, since `materials.csv` already carries a `BmaxT` per material that isn't being read here yet.
+**Note:** `windowUtilization`, `fluxDensityT`, and `currentDensityAPerCm2` are currently hard-coded by the caller (`python/routes/core_selection.py` sets Ku=0.4, Bmax=0.30 T, J=400 A/cm²) rather than looked up per-material — worth reconciling, since each material record has a `BmaxT` field (currently left at 0.0 by `python/services/magnetics_data.py`) that isn't being read here.
 
 ---
 
@@ -65,7 +65,7 @@ Ap ≈ 3 cm⁴ (core must satisfy this minimum)
 
 **Input:**
 - `areaProduct` (from Stage 2), `peakCurrentA`, `recommendedMaterial` (from Stage 1)
-- Cores loaded from `data/cores.csv`
+- Cores loaded from the real database at startup (`data/CoreDatabase.cpp`, populated by `python/services/magnetics_data.py`)
 
 **Output:**
 - Core part number, material, `mu`, `al`, `ae` (mm²), `wa` (mm²), `le` (mm)
@@ -85,7 +85,7 @@ pick the one with lowest estimated copper loss:
 estimatedLossW = peakCurrentA² / (Ae × Wa × 0.01) // simplified heuristic
 ```
 
-**Current limitation:** ranking is by this single loss heuristic only. `cores.csv` includes a `PartCost` column, but cost- and size-based ranking are not implemented yet — there is no `sort_by` option in the current API.
+**Current limitation:** ranking is by this single loss heuristic only. Real core data doesn't include cost (that's the vendor-API step — Mouser/Octopart — not yet integrated), and cost- and size-based ranking are not implemented yet — there is no `sort_by` option in the current API.
 
 **Debug output:** prints candidate pass/fail and the final loss comparison to the console — useful for demoing, not yet surfaced in the API response.
 
@@ -151,7 +151,7 @@ Since Stage 4 isn't implemented, only the material + core selection columns (`Ex
 | Frequency | kHz | 25 – 1000 | Higher f → smaller core, ferrite better |
 | Temp Rise (ΔT) | °C | 25 – 60 | Currently accepted as input but not yet checked against anything (Stage 4 pending) |
 | Window Utilization (Ku) | – | 0.4 (hard-coded) | Not yet configurable per-request |
-| Flux Density (Bmax) | T | 0.30 (hard-coded) | Not yet read from `materials.csv`'s per-material `BmaxT` |
+| Flux Density (Bmax) | T | 0.30 (hard-coded) | Not yet read from each material's `BmaxT` field (currently unpopulated) |
 | Current Density (J) | A/cm² | 400 (hard-coded) | Not yet configurable per-request |
 
 ---
@@ -161,5 +161,4 @@ Since Stage 4 isn't implemented, only the material + core selection columns (`Ex
 | Issue | Likely Cause | Fix |
 |---|---|---|
 | No cores meet Ap | Peak current or L too high for the database's largest core | Tool currently falls back to the largest available core rather than erroring — check the console warning |
-| Material always the same regardless of input | Frequency range in `materials.csv` misconfigured | Check `materials.csv`'s `MinFrequencyHz`/`MaxFrequencyHz` |
-| Core doesn't change between runs | Rebuild not picked up | Re-run the CMake build step (`--target magnetics_cpp`), then restart uvicorn |
+| Material always the same regardless of input | Frequency ranges misconfigured, or filters in `magnetics_data.py` too narrow | Check the loaded materials' `MinFrequencyHz`/`MaxFrequencyHz` |

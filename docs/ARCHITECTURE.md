@@ -87,8 +87,10 @@ CMake builds this as a Python extension module and places the compiled `.pyd`/`.
 | CopperLoss | `CopperLoss.cpp` | ❌ Stub (commented out) |
 | CoreLoss | `CoreLoss.cpp` | ❌ Stub (commented out) |
 | HighFrequencyLosses | `HighFrequencyLosses.cpp` | ❌ Stub (hard-coded return 0.0) |
-| CoreDatabase | `data/CoreDatabase.cpp` | ✅ Implemented — loads `cores.csv` |
-| Materials | `data/Materials.cpp` | ✅ Implemented — loads `materials.csv` |
+| DataCache<T> | `data/DataCache.h` | ✅ Implemented — shared template holding the "cache once, warn if empty" logic that `CoreDatabase` and `Materials` both use, instead of each repeating it |
+| CoreDatabase | `data/CoreDatabase.h` | ✅ Implemented — real data loaded once at startup from a bundled snapshot (`data/real_cores.csv`, sourced from PyOpenMagnetics — see "Data Source" below); no CSV fallback, startup fails loudly if this fails. `load()` returns by `const&`, not by value |
+| Materials | `data/Materials.h` | ✅ Implemented — same pattern as CoreDatabase |
+| TurnsCalculation | `core/TurnsCalculation.cpp` | ✅ Implemented — N = sqrt(L / AL), verified against the real i77006 reference design (65 computed vs. 64 actual) |
 | Validation | `src/validation/Validation.h` | ❌ Header only — `ValidationResult{bool passed}` struct, no `.cpp`, not in `CMakeLists.txt` |
 | DesignRules | `src/rules/DesignRules.h` | ❌ Header only — no `.cpp`, not in `CMakeLists.txt` |
 
@@ -105,7 +107,8 @@ Frontend POSTs to /material-selection with {inductanceUH, peakCurrentA, switchin
 ↓
 FastAPI route builds a MaterialSelectionInput, calls magnetics_cpp.MaterialSelectionService().calculate(...)
 ↓
-C++ engine loads materials.csv, matches frequency range (e.g. Powder Iron)
+C++ engine looks up material from its in-memory database (loaded once at
+startup from a bundled real-data snapshot — see "Data Source" below), matches frequency range
 ↓
 Route returns MaterialSelectionResponse: {materialFamily, muOpt, reason, alternatives}
 ↓
@@ -121,7 +124,8 @@ Frontend POSTs to /core-selection with the same payload
 Route re-runs material selection internally, builds CoreSelectionInput,
 calls magnetics_cpp.CoreSelectionService().calculate(...)
 ↓
-C++ engine loads cores.csv, filters by Ap + material, ranks by loss heuristic
+C++ engine looks up cores from its in-memory database (same startup-loaded
+real data), filters by Ap + material, ranks by loss heuristic
 ↓
 Returns CoreSelectionResponse: {partNumber, material, mu, al, ae, wa, le}
 ↓
@@ -129,6 +133,61 @@ Frontend renders material, core, energy/Ap details, and a summary panel
 whose "Next Step" field literally says "Turns & Loss Design" — the UI
 already acknowledges Stage 4 isn't built yet.
 ```
+
+---
+
+## Data Source: Real Data, Bundled Snapshot — No Live Windows Dependency
+
+`cores.csv` and `materials.csv` (the old hand-typed files) are gone for
+good. In their place: **`data/real_materials.csv`** and **`data/real_cores.csv`**
+— also plain CSVs, but their *contents* are real, sourced data (from
+PyOpenMagnetics/MAS — real manufacturer datasheets: Ferroxcube, TDK,
+Magnetics, Fair-Rite), not hand-typed. (`reference_designs.csv` and
+`test_scenarios.csv` are unrelated to any of this and are still used, for
+validation.)
+
+**Why a bundled snapshot instead of a live PyOpenMagnetics query:**
+PyOpenMagnetics does not support native Windows (Linux/macOS only, or
+Windows via WSL2 — see its own `docs/compatibility.md`), and has no
+published wheel for Python 3.14 on any platform. Since this project runs
+on native Windows with Python 3.14, importing PyOpenMagnetics at runtime
+isn't currently possible here — confirmed by an actual failed install
+(`pip install PyOpenMagnetics` → CMake configuration failed, source build
+attempted because no matching wheel exists).
+
+**The architecture that resulted, and why it still meets the same bar as
+a live query:**
+1. `scripts/export_real_data.py` — a **maintenance script, not part of the
+running app** — queries PyOpenMagnetics for real materials/cores,
+applies the same filters as before (power-application only, ungapped
+only, spread across materials/vendors), and writes the result to
+`data/real_materials.csv` / `data/real_cores.csv`. This only runs
+somewhere PyOpenMagnetics actually installs (Linux, macOS, WSL2) —
+never as part of starting the app.
+2. At FastAPI startup (`python/app.py`, `load_real_magnetics_data()`),
+`python/services/magnetics_data.py` reads those two CSV files —
+**plain file I/O, no PyOpenMagnetics import, works natively on
+Windows** — and maps them into the same `CoreData`/`MaterialData`
+shape the C++ engine has always used.
+3. `magnetics_cpp.set_core_database(...)` / `set_material_database(...)`
+hand that data to `CoreDatabase`/`Materials` in C++, once, cached in
+memory for the life of the process — not re-read per request.
+4. **If any step fails, startup still fails.** `load_real_magnetics_data()`
+still raises rather than catching the error — uvicorn refuses to start
+rather than run with an empty database. This didn't change; only where
+the data comes from changed.
+
+**Trade-off, stated plainly:** this data is a snapshot from whenever
+`export_real_data.py` was last run, not live-queried on every startup.
+Refreshing it is a manual step (re-run the script somewhere PyOpenMagnetics
+installs, replace the two CSV files) rather than automatic. Given native
+Windows can't run the live version at all, this is the trade made to have
+real data working here at all.
+
+`CoreSelection.cpp`/`MaterialSelection.cpp` — the actual Ap-based selection
+logic — did not change through any of this. Only where the candidate list
+comes from changed, twice now: hand-typed CSV → live PyOpenMagnetics query
+→ bundled real-data snapshot.
 
 ---
 
@@ -168,7 +227,7 @@ To add a new feature (e.g., turns calculation):
 - **FastAPI + uvicorn** — HTTP layer
 - **Pydantic** — request/response validation (comes with FastAPI)
 - **std::vector, std::string** — C++ standard library
-- **CSV parsing** — hand-rolled in `CoreDatabase.cpp`, `Materials.cpp`
+- **PyOpenMagnetics** — used only by `scripts/export_real_data.py` (a maintenance script, run manually, somewhere it actually installs) to regenerate the real-data snapshot. NOT a runtime dependency of the running app — see "Data Source" below for why.
 - No other external C++ libraries
 
 ---
