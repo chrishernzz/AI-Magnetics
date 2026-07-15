@@ -1,12 +1,12 @@
-// #include "TurnsCalculation.h"
+#include "TurnsCalculation.h"
 
-// // Implementation placeholder. Single-winding turns count from
-// // Faraday's law / McLyman p.63, using the given L (not derived here).
+//precondition: none
+//postcondition: returns the number of turns required for the inductor based on the inductance and AL value of the core
+TurnsCalculationResult calculateTurns(const TurnsCalculationInput& input) {
+    //get the inductance 
+    double inductanceH = input.inductanceUH * 1000;
+    //Formula for turns: N = sqrt(L / AL)
+    double turns = sqrt(inductanceH / input.core.al);
 
-// int calculateTurns(const CoreParams& core, const GapResult& gap, double inductanceH, double peakCurrentA) {
-//     (void)core;
-//     (void)gap;
-//     (void)inductanceH;
-//     (void)peakCurrentA;
-//     return 0;
-// }
+    return { static_cast<int>(std::round(turns)), input.inductanceUH, input.core.al };
+}
