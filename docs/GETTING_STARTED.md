@@ -61,11 +61,11 @@ Navigate to **http://127.0.0.1:8000** in a browser.
 ```bash
 # C++ unit-conversion and gap/AL formula checks
 cmake --build build_pybind --target magnetics_engine_tests
-ctest --test-dir build_pybind
+ctest --test-dir build_pybind -C Debug -V
 
 # Python: scenario/reference-design checks against data/test_scenarios.csv
 # and data/reference_designs.csv (needs magnetics_cpp built first - Step 2 above)
-pip install -r python/requirements-dev.txt
+pip install -r python/requirements-dev.tno it xt
 pytest tests/python
 ```
 
