@@ -83,6 +83,7 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
         return recommendation;
     }
 
+    //this AreaProduct input will get information from the normalized requirements and the design rules to calculate the required area product for the inductor design
     AreaProductInput apInput;
     apInput.inductanceH = requirements.operatingPoint.inductanceH;
     apInput.peakCurrentA = requirements.operatingPoint.peakCurrentA;
@@ -91,9 +92,10 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
     apInput.windowUtilization = rules.windowUtilization;
     apInput.fluxDensityT = rules.defaultFluxDensityLimitT;
     apInput.currentDensityAPerCm2 = rules.allowableCurrentDensityAperCm2;
-
+    //call the function to calculate the required area product for the inductor design based on the input parameters
     double requiredAreaProductCm4 = calculateAp(apInput);
 
+    
     std::vector<CoreCandidate> cores = findSuitableCores(materials, requiredAreaProductCm4);
 
     double largestAvailableAreaProductCm4 = 0.0;

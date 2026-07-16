@@ -5,32 +5,30 @@
             "name": "Debug FastAPI",
             "type": "debugpy",
             "request": "launch",
-
             "module": "uvicorn",
-
             "args": [
                 "python.app:app",
-                "--reload",
                 "--host",
                 "127.0.0.1",
                 "--port",
                 "8000"
             ],
-
             "cwd": "${workspaceFolder}",
-
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         },
-
+        {
+            "name": "Attach C++ to FastAPI",
+            "type": "cppvsdbg",
+            "request": "attach",
+            "processId": "${command:pickProcess}"
+        },
         {
             "name": "Debug EngineTests (C++)",
             "type": "cppvsdbg",
             "request": "launch",
-
-            "program": "${workspaceFolder}\\build_pybind\\Debug\\magnetics_engine_tests.exe",
-
+            "program": "${workspaceFolder}\\build\\Debug\\magnetics_engine_tests.exe",
             "cwd": "${workspaceFolder}",
-
             "stopAtEntry": false
         }
     ]

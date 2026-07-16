@@ -1,18 +1,17 @@
 #include "MaterialEvaluation.h"
 #include "../data/Materials.h"
 
-// precondition: Materials::load() has been populated
-// postcondition: returns every material whose declared frequency range
-// contains the requested switching frequency, each as an independent
-// candidate - no material is dropped just because another also matches.
+//precondition: Materials::load() has been populated
+//postcondition: returns every material whose declared frequency range, contains the requested switching frequency, each as an independent candidate - no material is dropped just because another also matches.
 std::vector<MaterialCandidate> findSuitableMaterials(const OperatingPoint& operatingPoint) {
     const auto& materials = Materials::load();
     std::vector<MaterialCandidate> candidates;
 
     for (const auto& material : materials) {
-        bool frequencySuitable = operatingPoint.switchingFreqHz >= material.minFrequencyHz &&
-                                  operatingPoint.switchingFreqHz < material.maxFrequencyHz;
+        //get a true/false to see if the material is suitable for the requested switching frequency
+        bool frequencySuitable = operatingPoint.switchingFreqHz >= material.minFrequencyHz && operatingPoint.switchingFreqHz < material.maxFrequencyHz;
 
+        //if false just continue through the data to get the other materials that are suitable for the requested switching frequency
         if (!frequencySuitable) {
             continue;
         }

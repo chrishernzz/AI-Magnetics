@@ -3,13 +3,18 @@
 #include <vector>
 #include "InductorRequirements.h"
 
-// STAGE 1: Material candidate evaluation
-//
-// Replaces the old selectMaterial() single pick (MaterialSelection.h/.cpp,
-// kept for the legacy /material-selection endpoint adapter) with a
-// candidate list, per spec section 8: a material is not excluded solely
-// because another material is ranked first by frequency.
+/*STAGE 1: Material candidate evaluation
 
+This header/cpp file will be able to get all the materials from the database
+'real_materials.csv' and evaluate them against the requested switching frequency and 
+return a list of all the materials that are suitable for the requested switching frequency.
+Each material will be returned as a MaterialCandidate struct, which will contain the material's name, muOpt, 
+and whether it has Bmax and core loss data. It will also contain any missing data warnings for each material. 
+
+*/
+
+//precondition: none
+//postcondition: data will be used to carry the material candidate list through the pipeline
 struct MaterialCandidate {
     std::string materialFamily;
     double muOpt;
@@ -37,9 +42,6 @@ struct MaterialCandidate {
     std::vector<std::string> missingDataWarnings;
 };
 
-// precondition: Materials::load() has been populated (set_material_database
-// called at FastAPI startup)
-// postcondition: returns every material whose declared frequency range
-// contains operatingPoint.switchingFreqHz, each as a full candidate with its
-// own reason and missing-data warnings - not a single winner.
+//precondition: Materials::load() has been populated (set_material_database called at FastAPI startup)
+//postcondition: returns every material whose declared frequency range, contains operatingPoint.switchingFreqHz, each as a full candidate with its own reason and missing-data warnings - not a single winner.
 std::vector<MaterialCandidate> findSuitableMaterials(const OperatingPoint& operatingPoint);
