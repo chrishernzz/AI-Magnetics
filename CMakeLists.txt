@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # GCC/Clang or the final link fails ("recompile with -fPIC"). No effect on
 # MSVC.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 execute_process(
