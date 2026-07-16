@@ -4,14 +4,17 @@ Maps each input/output specified by your boss to the file that owns it, and whet
 
 | Requirement (from boss) | Owned by | Status |
 |---|---|---|
-| L (given) | `AreaProduct.cpp` (consumes it) · `TurnsCalculation.cpp` (would consume it) | ✅ used in Area Product; ❌ Turns not implemented |
-| Peak current | `AreaProduct.cpp` · `CopperLoss.cpp` | ✅ used in Area Product; ❌ Copper Loss not implemented |
-| Current waveform | Declared as `waveformFactor` on `MaterialSelectionInput`; intended for `HighFrequencyLosses.cpp` | ❌ Accepted but not read anywhere yet — has no effect on any current output |
-| Switching frequency | `MaterialSelection.cpp` · `AreaProduct.cpp` (indirectly, via caller) · `CoreLoss.cpp` (would consume it) | ✅ used in Material Selection; ❌ Core Loss not implemented |
-| Allowable temp rise | Accepted by `MaterialSelectionInput`/`AreaProductInput`; intended for `CopperLoss.cpp` and a real validation check | ❌ Currently accepted and echoed back only — nothing checks it against predicted losses yet |
-| Ap / core selection (McLyman p.63) | `AreaProduct.cpp`, `CoreSelection.cpp`, `data/cores.csv` | ✅ Implemented |
-| Gapped core branch | `GapDesign.cpp` | ❌ Stub |
-| Turns | `TurnsCalculation.cpp` | ❌ Stub |
-| Copper / core / high-freq losses | `CopperLoss.cpp`, `CoreLoss.cpp`, `HighFrequencyLosses.cpp` | ❌ All stubs |
-| Fill factor check | Intended for `src/validation/Validation.h` | ❌ Header-only struct, not compiled (`CMakeLists.txt`'s `VALIDATION_SOURCES` is empty) |
-| Flux density check | Intended for `src/validation/Validation.h` | ❌ Same — not implemented |
+| L (given) | `AreaProduct.cpp` · `TurnsCalculation.cpp`/`TurnsAndGapDesign.cpp` | ✅ used in Area Product and in the Phase 1 turns/gap convergence loop |
+| Peak current | `AreaProduct.cpp` · `DesignValidation.cpp` (PeakFluxValidation/SaturationValidation) | ✅ used in Area Product and peak-flux/saturation checks - never used for RMS-dependent checks |
+| RMS current | `RequirementDerivationService.cpp` (direct, or derived from `averageCurrentA`+`rippleCurrentPeakToPeakA` for triangular ripple) · `WindingDesign.cpp` · `CopperLoss.cpp` | ✅ required/derivable input, used for winding sizing and DC copper loss; never inferred from peak current |
+| Current waveform | Declared as `waveformFactor` on the legacy `MaterialSelectionInput` | ❌ Still accepted but not read anywhere - legacy field, unrelated to the Phase 1 ripple/RMS handling above |
+| Switching frequency | `MaterialSelection.cpp`/`MaterialEvaluation.cpp` · `AreaProduct.cpp` · `CoreLoss.cpp` (gated on data) | ✅ used in material candidate evaluation and Area Product; Core Loss implemented but gated on `hasCoreLossData` (never true with today's data) |
+| Ambient temperature | `InductorDesignRequest.ambientTemperatureC` · `ThermalEvaluation.cpp` | ⚠️ Accepted and threaded through; `ThermalEvaluation` always reports `not_evaluated` - no thermal model/data yet |
+| Allowable temp rise | `InductorDesignRequest.allowableTempRiseC` · `ThermalValidation` (`DesignValidation.cpp`) | ⚠️ Real check exists and is called; always reports `not_evaluated` (never an assumed pass) pending thermal model/data |
+| Ap / core selection (McLyman p.63) | `AreaProduct.cpp`, `CoreSelection.cpp`/`CoreEvaluation.cpp`, `data/real_cores.csv` | ✅ Implemented - Phase 1 path never falls back to an oversized core; returns `no_feasible_design` instead |
+| Gapped core branch | `GapDesign.cpp`, `TurnsAndGapDesign.cpp` | ✅ Implemented - series-reluctance model, iterated with turns until convergence |
+| Turns | `TurnsCalculation.cpp` (seed formula, always implemented - previously mis-documented as a stub) / `TurnsAndGapDesign.cpp` (Phase 1 convergence) | ✅ Implemented |
+| Copper loss | `CopperLoss.cpp`, `LossEvaluation.cpp` | ✅ Implemented; `not_evaluated` today because DCR is blocked on missing mean-length-per-turn data (see DATA_FILES.md) |
+| Core / high-freq losses | `CoreLoss.cpp` (implemented, gated on data), `HighFrequencyLosses.cpp` (not implemented) | ⚠️ Core loss: `not_evaluated` (no material coefficients in the data). High-frequency: `not_evaluated` (not implemented in Phase 1) |
+| Fill factor check | `WindingFitValidation` (`DesignValidation.cpp`) | ✅ Implemented and compiled (`VALIDATION_SOURCES` is no longer empty) |
+| Flux density check | `PeakFluxValidation`/`SaturationValidation` (`DesignValidation.cpp`) | ✅ Implemented; uses `DesignRules.defaultFluxDensityLimitT` since no material carries a measured `BmaxT` yet, and flags `usedDefaultLimit: true` when it does |

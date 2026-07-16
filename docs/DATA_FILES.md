@@ -37,6 +37,28 @@ PyOpenMagnetics installed — Linux/macOS/WSL2 only, see
 `docs/ARCHITECTURE.md`), or send them to someone/somewhere that can run
 that script and swap the resulting files in.
 
+**Known Phase 1 data gaps (real limitations, not bugs in the engine):**
+- `real_materials.csv`'s `BmaxT` and `CuLossFactor` columns exist but are
+  **0.0 for every one of the 32 materials** — `scripts/export_real_data.py`
+  never populated them from the source data. Effects: `PeakFluxValidation`/
+  `SaturationValidation` always fall back to `DesignRules.defaultFluxDensityLimitT`
+  (flagged `usedDefaultLimit: true`, never presented as a material fact),
+  and `CoreLoss` is never invoked with real coefficients (`losses.coreLossStatus`
+  is always `NotEvaluated`).
+- `real_cores.csv` has **no mean-length-per-turn (MLT) or bobbin/winding-height
+  column** — only `Ae`, `Wa`, `Le`, `AL`, `Mu`. Fill factor and current
+  density are still fully computed (they only need turns × wire area ÷ Wa),
+  but total wire length and DCR are always `NotEvaluated`
+  (`winding.resistanceStatus`), which also blocks DC copper loss
+  (`losses.copperLossStatus`).
+- `real_cores.csv`'s `PartCost` and `MaxCurrent_A` columns are also 0.0 for
+  every row — not currently used by any Phase 1 check.
+
+Closing these gaps means re-running `scripts/export_real_data.py` with those
+fields actually populated, or adding real per-part datasheet values by
+hand — neither is done in Phase 1; the engine reports the gap honestly
+(`not_evaluated` + a `missingData` explanation) instead of guessing.
+
 ---
 
 This document also explains the structure the *original* CSV files used
@@ -147,13 +169,13 @@ AL ≈ 0.4π × µ₀ × µᵣ × (Ae / Le) × 10⁹ (nH/100T; µ₀ = 4π×10�
 **Note:** this is a much smaller schema than a full design package (no current, frequency, or loss columns) — it exists purely to sanity-check core/turns selection against one known real part, documented in `TESTRESULTSMEAN.md`.
 
 ### How to Use
-Add more real designs here as they become available — each new row is another point to validate the tool's core selection (and eventually turns calculation) against.
+Add more real designs here as they become available — each new row is another point to validate the tool's core selection and turns/gap design against (`tests/python/test_reference_designs.py`). Note that `real_cores.csv` is currently Ferroxcube-only, so a Kool Mu/Powder Iron reference part like `i77006` won't have a matching core in the live database yet — see the data gap note above.
 
 ---
 
 ## test_scenarios.csv
 
-**Purpose:** Test cases for validating the design algorithm, checked manually today (no automated runner exists yet).
+**Purpose:** Test cases for validating the design algorithm, checked automatically by `pytest tests/python/test_reference_designs.py`.
 **Location:** `data/test_scenarios.csv`
 **Currently:** 7 rows
 
@@ -167,20 +189,18 @@ Add more real designs here as they become available — each new row is another 
 | FrequencyKHz | 100 | Input: switching frequency |
 | AllowedTempRiseC | 40 | Input: allowable temperature rise |
 | ExpectedCore | 0077440A7 | Expected core part number |
-| ExpectedTurns | 14-20 | Expected turns range — **can't be checked yet**, Stage 4 isn't implemented |
+| ExpectedTurns | 14-20 | Expected turns range — checked automatically against `run_inductor_design()`'s output |
 | TestDescription | "Real IntelliPower spec; should match" | Why this scenario matters |
 
 ### How to Run Tests (current process)
-1. Enter each row's inputs into the web UI (or `curl` the endpoints directly)
-2. Compare the returned `material` and `partNumber` against `ExpectedCore` / material implied by the description
-3. `ExpectedTurns` can't be verified yet — there's no turns output until Stage 4 is implemented
+Run `pytest tests/python` from the repo root. `test_scenario_produces_a_feasible_or_honestly_infeasible_result` runs every row through `magnetics_cpp.run_inductor_design()` and checks the engine never crashes and always returns a well-formed status. `test_expected_core_and_turns_match_original_catalog` is `xfail`-marked, not skipped: `ExpectedCore`/`ExpectedTurns` values (e.g. `0077440A7`) were calibrated against a Kool Mu/Powder Iron catalog that doesn't exist in `data/real_cores.csv` (Ferroxcube-only) — a real data-source mismatch between this fixture and the live core database, not an engine bug.
 
 ### Adding Test Cases
 When you find a bug or edge case:
 1. Add a row with the failing scenario
 2. Fix the code
-3. Re-check the scenario by hand
-4. Keep the row for future regression checking (once an automated runner exists)
+3. Re-run `pytest tests/python` to confirm
+4. Keep the row for future regression checking
 
 ---
 

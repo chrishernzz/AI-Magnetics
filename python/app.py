@@ -48,12 +48,14 @@ def load_real_magnetics_data():
             f"python/services/magnetics_data.py (ALLOWED_MATERIAL_TYPES, size range, etc.)."
         )
     cpp_materials = _build_cpp_record(materials, magnetics_cpp.MaterialData, {
-        "name" : "Name", 
+        "name" : "Name",
         "muOpt" : "MuOpt",
         "minFrequencyHz" : "MinFrequencyHz",
         "maxFrequencyHz" : "MaxFrequencyHz",
         "reason" : "Reason",
         "alternatives" : "Alternatives",
+        "bmaxT" : "BmaxT",
+        "cuLossFactor" : "CuLossFactor",
     })
     cpp_cores = _build_cpp_record(cores, magnetics_cpp.CoreData, {
         "partNumber" : "PartNumber",
@@ -73,6 +75,9 @@ def load_real_magnetics_data():
 def read_index():
     return FileResponse(frontend_dir / "index.html")
 
+
+from routes.inductor_design import router as inductor_design_router
+app.include_router(inductor_design_router)
 
 from routes.core_selection import router as core_selection_router
 app.include_router(core_selection_router)

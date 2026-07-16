@@ -29,12 +29,12 @@ There is no hand-written HTTP server — FastAPI (via `uvicorn`) handles all HTT
 | `app.js` | Handles form submission, calls the API, renders results |
 | `styles.css` | Styling for the UI |
 
-**Endpoints it calls** (relative paths, no `/api` prefix):
-- `POST /material-selection`
-- `POST /calculate` (area product)
-- `POST /core-selection`
+**Endpoint it calls** (relative path, no `/api` prefix):
+- `POST /inductor-design` — the single, canonical Phase 1 endpoint; runs the whole pipeline once per request
 
-All three requests send the same payload shape: `{ inductanceUH, peakCurrentA, switchingFreqKHz, allowableTempRiseC }`.
+Payload shape: `InductorDesignRequest` — `{ inductanceUH, peakCurrentA, rmsCurrentA, switchingFreqKHz, ambientTemperatureC, allowableTempRiseC, inductanceTolerancePercent, ... }` (see [API_REFERENCE.md](API_REFERENCE.md)).
+
+The four legacy single-stage endpoints (`/material-selection`, `/calculate`, `/core-selection`, `/turns-calculation`) still exist, marked `deprecated=True`, for backward compatibility — the frontend no longer calls them.
 
 ---
 
@@ -44,30 +44,33 @@ All three requests send the same payload shape: `{ inductanceUH, peakCurrentA, s
 
 | File | Purpose |
 |---|---|
-| `app.py` | Creates the FastAPI app, mounts `/static` for the frontend, serves `index.html` at `/`, includes the router |
-| `routes/core_selection.py` | Defines the three POST endpoints; builds C++ input structs and calls into `magnetics_cpp` |
+| `app.py` | Creates the FastAPI app, mounts `/static` for the frontend, serves `index.html` at `/`, includes both routers |
+| `routes/inductor_design.py` | Defines `InductorDesignRequest` (the renamed, extended successor to the old shared `BuckInput`) and the canonical `POST /inductor-design` endpoint; also owns the recursive C++-struct-to-dict serializer used to turn a `DesignRecommendation` into JSON |
+| `routes/core_selection.py` | Deprecated legacy endpoints; imports `InductorDesignRequest` from `inductor_design.py` rather than redefining it, so both route files share exactly one request model |
 
-**Routes defined** (all in `routes/core_selection.py`, no path prefix applied to the router):
+**Routes defined:**
 | Route | Calls into C++ | Returns |
 |---|---|---|
-| `POST /material-selection` | `MaterialSelectionService().calculate(...)` | `MaterialSelectionResponse` |
-| `POST /calculate` | `magnetics_cpp.calculate_ap(...)`, `calculate_stored_energy(...)` | `AreaProductResponse` |
-| `POST /core-selection` | `CoreSelectionService().calculate(...)` (internally also calls material selection again) | `CoreSelectionResponse` |
+| `POST /inductor-design` | `InductorDesignService::run(...)` (via `magnetics_cpp.run_inductor_design`) — the full pipeline, once | `DesignRecommendation` (serialized to a plain dict) |
+| `POST /material-selection` *(deprecated)* | `MaterialSelectionService().calculate(...)` | `MaterialSelectionResponse` |
+| `POST /calculate` *(deprecated)* | `magnetics_cpp.calculate_ap(...)`, `calculate_stored_energy(...)` | `AreaProductResponse` |
+| `POST /core-selection` *(deprecated)* | `CoreSelectionService().calculate(...)` (internally also calls material selection again) | `CoreSelectionResponse` |
+| `POST /turns-calculation` *(deprecated)* | `calculate_turns(...)` (legacy AL-only formula, no gap iteration) | `TurnsCalculationResponse` |
 | `GET /` | — | `index.html` (via `FileResponse`) |
 | `GET /static/*` | — | frontend static files (mounted via `StaticFiles`) |
 
-Request/response validation is handled by Pydantic models declared directly in `routes/core_selection.py` — there are no separate "Controller" classes; the route function bodies do the parsing, calling, and response-shaping in one place.
+Request/response validation is handled by Pydantic models declared directly in the route files — there are no separate "Controller" classes; the route function bodies do the parsing, calling, and response-shaping in one place. Neither route file hard-codes a magnetic-design constant — `Ku`/`Bmax`/`J` are always sourced from `magnetics_cpp.design_rules_phase1_default()` (bound from `DesignRules::phase1Default()` in C++), never hard-coded in Python (spec section 7).
 
 ---
 
 ### Python Bindings Layer — pybind11
 
-**Location:** `src/python_bindings/CoreSelectionBindings.cpp`
+**Location:** `src/python_bindings/InductorDesignBindings.cpp` (renamed from `CoreSelectionBindings.cpp`)
 
 Builds a single pybind11 module, `magnetics_cpp`, exposing:
-- `MaterialSelectionInput` / `MaterialSelectionResult` / `MaterialSelectionService`
-- `AreaProductInput`, `calculate_ap()`, `calculate_stored_energy()`
-- `CoreSelectionInput` / `CoreSelectionResult` / `CoreSelectionService`
+- Legacy (kept for the deprecated endpoints): `MaterialSelectionInput`/`Result`/`Service`, `AreaProductInput` + `calculate_ap()`/`calculate_stored_energy()`, `CoreSelectionInput`/`Result`/`Service`, `TurnsCalculationInput`/`Result` + `calculate_turns()`
+- Raw data: `CoreData`, `MaterialData` (now also carrying `bmaxT`/`cuLossFactor`) + `set_core_database()`/`set_material_database()`
+- Phase 1 engine: `EvaluationStatus` (enum), `DesignRules` + `design_rules_phase1_default()`, `MaterialCandidate`, `CoreCandidate`, `TurnsAndGapResult`, `ValidationResult`, `WindingDesignResult`, `LossEvaluationResult`, `ThermalEvaluationResult`, `RejectionReason`, `InductorCandidate`, `DesignRecommendation`, `InductorDesignRequest`, and the entry point `run_inductor_design()`
 
 CMake builds this as a Python extension module and places the compiled `.pyd`/`.so` directly in `python/`, so `import magnetics_cpp` resolves it as a local module.
 
@@ -79,60 +82,69 @@ CMake builds this as a Python extension module and places the compiled `.pyd`/`.
 
 | Module | File | Status |
 |---|---|---|
-| MaterialSelection | `MaterialSelection.cpp` | ✅ Implemented |
-| AreaProduct | `AreaProduct.cpp` | ✅ Implemented |
-| CoreSelection | `CoreSelection.cpp` | ✅ Implemented |
-| GapDesign | `GapDesign.cpp` | ❌ Stub (commented out) |
-| TurnsCalculation | `TurnsCalculation.cpp` | ❌ Stub (commented out) |
-| CopperLoss | `CopperLoss.cpp` | ❌ Stub (commented out) |
-| CoreLoss | `CoreLoss.cpp` | ❌ Stub (commented out) |
-| HighFrequencyLosses | `HighFrequencyLosses.cpp` | ❌ Stub (hard-coded return 0.0) |
+| MaterialSelection *(legacy single-pick)* | `MaterialSelection.cpp` | ✅ Implemented — kept only for the deprecated `/material-selection` endpoint |
+| AreaProduct | `AreaProduct.cpp` | ✅ Implemented — shared by both the legacy and Phase 1 pipelines |
+| CoreSelection *(legacy single-pick)* | `CoreSelection.cpp` | ✅ Implemented — kept only for the deprecated `/core-selection` endpoint; no longer silently falls back to the largest core when nothing meets Ap (returns a "no match" sentinel instead) |
+| TurnsCalculation | `core/TurnsCalculation.cpp` | ✅ Implemented — `N = round(sqrt(L_nH/AL_nH))`, verified against the real i77006 reference design. This was previously documented (in most other files) as an unimplemented stub — it was not; only the docs were wrong. Reused as the seed-turns estimator inside `TurnsAndGapDesign.cpp` |
+| GapDesign | `GapDesign.cpp` | ✅ Implemented — series-reluctance gapped-core AL formula, verified numerically against `data/real_cores.csv` to <0.03% |
+| TurnsAndGapDesign | `TurnsAndGapDesign.cpp` | ✅ Implemented — iterates turns and gap together until the integer turns count stabilizes or is rejected (impractical gap, non-convergence) |
+| MaterialEvaluation | `MaterialEvaluation.cpp` | ✅ Implemented — `findSuitableMaterials()`, returns every frequency-compatible material as its own candidate |
+| CoreEvaluation | `CoreEvaluation.cpp` | ✅ Implemented — `findSuitableCores()`, returns every material-compatible core with its own `meetsAreaProduct` flag; never silently substitutes an oversized core |
+| DesignValidation | `validation/DesignValidation.cpp` | ✅ Implemented — six named checks (Inductance, PeakFlux, Saturation, WindingFit, CurrentDensity, Thermal), each its own `ValidationResult` |
+| WindingDesign | `WindingDesign.cpp` | ✅ Implemented — AWG wire selection, fill factor, current density always computed; DCR/wire length `not_evaluated` (no mean-length-per-turn data in `real_cores.csv`) |
+| CopperLoss | `CopperLoss.cpp` | ✅ Implemented — `Pcu_dc = Irms^2 * DCR`, only called when DCR is available |
+| CoreLoss | `CoreLoss.cpp` | ✅ Implemented (simplified model) but never invoked with real coefficients today — `CuLossFactor` is 0.0 for every material in `real_materials.csv` |
+| HighFrequencyLosses | `HighFrequencyLosses.cpp` | ❌ Not implemented (returns 0.0) — `LossEvaluation.cpp` wraps this as `not_evaluated`, never presents the 0.0 as a real result |
+| LossEvaluation | `LossEvaluation.cpp` | ✅ Implemented — orchestrates CopperLoss/CoreLoss/HighFrequencyLosses, reports each as `Evaluated`/`NotEvaluated` |
+| ThermalEvaluation | `ThermalEvaluation.cpp` | ⚠️ Real module, always returns `NotEvaluated` — no thermal-resistance model or data exists in either CSV yet |
 | DataCache<T> | `data/DataCache.h` | ✅ Implemented — shared template holding the "cache once, warn if empty" logic that `CoreDatabase` and `Materials` both use, instead of each repeating it |
 | CoreDatabase | `data/CoreDatabase.h` | ✅ Implemented — real data loaded once at startup from a bundled snapshot (`data/real_cores.csv`, sourced from PyOpenMagnetics — see "Data Source" below); no CSV fallback, startup fails loudly if this fails. `load()` returns by `const&`, not by value |
-| Materials | `data/Materials.h` | ✅ Implemented — same pattern as CoreDatabase |
-| TurnsCalculation | `core/TurnsCalculation.cpp` | ✅ Implemented — N = sqrt(L / AL), verified against the real i77006 reference design (65 computed vs. 64 actual) |
-| Validation | `src/validation/Validation.h` | ❌ Header only — `ValidationResult{bool passed}` struct, no `.cpp`, not in `CMakeLists.txt` |
-| DesignRules | `src/rules/DesignRules.h` | ❌ Header only — no `.cpp`, not in `CMakeLists.txt` |
+| Materials | `data/Materials.h` | ✅ Implemented — same pattern as CoreDatabase; `MaterialData` now also carries `bmaxT`/`cuLossFactor` (both 0.0 in the current snapshot) |
+| Validation | `src/validation/Validation.h` | ✅ Implemented — `ValidationResult{passed, checkName, calculatedValue, limitValue, unit, explanation, usedDefaultLimit}`, compiled via `VALIDATION_SOURCES` |
+| DesignRules | `src/rules/DesignRules.h`/`.cpp` | ✅ Implemented — `DesignRules::phase1Default()` is the single source of Ku/Bmax/J/tolerance defaults, compiled via `RULES_SOURCES` |
+| RequirementDerivationService | `backend/services/RequirementDerivationService.cpp` | ✅ Implemented — unit conversion + RMS-current-from-ripple derivation (triangular ripple only) |
+| InductorDesignService | `backend/services/InductorDesignService.cpp` | ✅ Implemented — the single orchestrator behind `POST /inductor-design` |
 
-The **Services** layer (`src/backend/services/`) sits directly between the pybind11 bindings and the core engine — e.g. `CoreSelectionService::calculate()` calls `selectCore()` from `CoreSelection.cpp`. There is no separate "Controller" layer in C++; HTTP parsing happens entirely in the Python route functions.
+The **Services** layer (`src/backend/services/`) sits directly between the pybind11 bindings and the core engine — e.g. `InductorDesignService::run()` orchestrates `MaterialEvaluation` → `AreaProduct` → `CoreEvaluation` → `TurnsAndGapDesign` → `DesignValidation` → `WindingDesign` → `LossEvaluation` → `ThermalEvaluation`. There is no separate "Controller" layer in C++; HTTP parsing happens entirely in the Python route functions.
 
 ---
 
 ## Data Flow: From User Input to Result
 
 ```
-User enters: L=250µH, Ipk=5A, f=100kHz, ΔT=40°C
+User enters: L=250µH, Ipk=5A, Irms=3.5A, f=100kHz, Tambient=25°C, ΔT=40°C
 ↓
-Frontend POSTs to /material-selection with {inductanceUH, peakCurrentA, switchingFreqKHz, allowableTempRiseC}
+Frontend POSTs to /inductor-design with the InductorDesignRequest payload
 ↓
-FastAPI route builds a MaterialSelectionInput, calls magnetics_cpp.MaterialSelectionService().calculate(...)
+FastAPI route (routes/inductor_design.py) builds a C++ InductorDesignRequest,
+calls magnetics_cpp.run_inductor_design(...)
 ↓
-C++ engine looks up material from its in-memory database (loaded once at
-startup from a bundled real-data snapshot — see "Data Source" below), matches frequency range
+InductorDesignService::run() (C++):
+  1. RequirementDerivationService::derive() - unit conversion, RMS-current
+     derivation if needed (never inferred from peak current alone)
+  2. findSuitableMaterials() - every frequency-compatible material, not just
+     the first match
+  3. calculateAp() using DesignRules::phase1Default() (no hidden constants)
+  4. findSuitableCores() - every material-compatible core, each flagged
+     meetsAreaProduct; if none pass -> return status "no_feasible_design"
+     with requiredAreaProductCm4 / largestAvailableAreaProductCm4, not a
+     silent oversized substitute
+  5. For each feasible core: designTurnsAndGap() (iterates turns and gap
+     together), then DesignValidation's six checks, designWinding(),
+     evaluateLosses(), evaluateThermal()
+  6. Passing candidates ranked (area product ascending, Phase 1 default);
+     everything else goes to rejectedCandidates with every failed check listed
 ↓
-Route returns MaterialSelectionResponse: {materialFamily, muOpt, reason, alternatives}
+Route serializes the returned DesignRecommendation to JSON and responds
 ↓
-Frontend displays material, then POSTs to /calculate with the same payload
-↓
-Route builds AreaProductInput (Ku=0.4, Bmax=0.30T, J=400 A/cm² are hard-coded here),
-calls magnetics_cpp.calculate_ap() and calculate_stored_energy()
-↓
-Returns AreaProductResponse: {areaProduct, energy}
-↓
-Frontend POSTs to /core-selection with the same payload
-↓
-Route re-runs material selection internally, builds CoreSelectionInput,
-calls magnetics_cpp.CoreSelectionService().calculate(...)
-↓
-C++ engine looks up cores from its in-memory database (same startup-loaded
-real data), filters by Ap + material, ranks by loss heuristic
-↓
-Returns CoreSelectionResponse: {partNumber, material, mu, al, ae, wa, le}
-↓
-Frontend renders material, core, energy/Ap details, and a summary panel
-whose "Next Step" field literally says "Turns & Loss Design" — the UI
-already acknowledges Stage 4 isn't built yet.
+Frontend renders candidates, rejected candidates (with rejection reasons and
+missing-data warnings), and the active DesignRules - no field is a hidden
+assumption.
 ```
+
+The four legacy single-stage endpoints still exist (deprecated) and follow
+the old, simpler flow described in earlier revisions of this document - each
+re-running upstream stages internally, no gap/validation/winding/loss steps.
 
 ---
 
@@ -194,10 +206,11 @@ comes from changed, twice now: hand-typed CSV → live PyOpenMagnetics query
 ## Build Configuration
 
 `CMakeLists.txt` defines:
-- `magnetics_engine` — static library: all of `src/core/` + `src/data/`
+- `magnetics_engine` — static library: all of `src/core/` + `src/validation/` + `src/rules/` + `src/data/`
 - `magnetics_services` — static library: `src/backend/services/`, links against `magnetics_engine`
-- `magnetics_cpp` — the pybind11 extension module, links against `magnetics_services`, output directed into `python/`
-- `VALIDATION_SOURCES` and `RULES_SOURCES` are both **empty lists** — `Validation.h` and `DesignRules.h` are declared but not compiled into anything yet
+- `magnetics_cpp` — the pybind11 extension module (`src/python_bindings/InductorDesignBindings.cpp`), links against `magnetics_services`, output directed into `python/`
+- `magnetics_engine_tests` — a small `assert()`-based executable (`tests/cpp/EngineTests.cpp`), registered with `add_test()`; run via `ctest`
+- `VALIDATION_SOURCES` and `RULES_SOURCES` are no longer empty — `validation/DesignValidation.cpp` (using the `ValidationResult` struct declared in `Validation.h`) and `rules/DesignRules.cpp` are compiled into `magnetics_engine`
 
 There is no `magnetics_server` target — that name (and the standalone-C++-HTTP-server approach) belongs to an earlier plan and no longer reflects the build.
 
@@ -212,12 +225,16 @@ There is no `magnetics_server` target — that name (and the standalone-C++-HTTP
 
 ## Future Extensibility
 
-To add a new feature (e.g., turns calculation):
-1. **Implement in Core Engine:** write the real body of `src/core/TurnsCalculation.cpp` (currently a stub)
-2. **Expose via bindings:** add the function/struct to `src/python_bindings/CoreSelectionBindings.cpp`
-3. **Add a FastAPI route:** new endpoint in `python/routes/core_selection.py` (or a new routes file, included in `app.py`)
-4. **Update frontend:** add the new field(s) in `app.js` and `index.html`
+To add a new feature (e.g., real Steinmetz-coefficient core loss once the data exists):
+1. **Implement in Core Engine:** write/extend the relevant `src/core/*.cpp` module
+2. **Expose via bindings:** add the function/struct to `src/python_bindings/InductorDesignBindings.cpp`
+3. **Wire into the orchestrator:** call it from `src/backend/services/InductorDesignService.cpp`
+4. **Update frontend:** add the new field(s) in `app.js` (the recommendation is walked generically from `DesignRecommendation`, so most new fields just need a render line)
 5. **Rebuild:** re-run the CMake build for `magnetics_cpp`, restart uvicorn
+
+Buck/Boost/Buck-Boost topology requirement derivation is explicitly deferred
+until the direct inductor path above is complete and validated — see the
+Phase 1 scope notes carried in this repo's planning discussion.
 
 ---
 

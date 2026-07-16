@@ -56,6 +56,21 @@ Navigate to **http://127.0.0.1:8000** in a browser.
 
 ---
 
+## Running Tests
+
+```bash
+# C++ unit-conversion and gap/AL formula checks
+cmake --build build_pybind --target magnetics_engine_tests
+ctest --test-dir build_pybind
+
+# Python: scenario/reference-design checks against data/test_scenarios.csv
+# and data/reference_designs.csv (needs magnetics_cpp built first - Step 2 above)
+pip install -r python/requirements-dev.txt
+pytest tests/python
+```
+
+---
+
 ## Day-to-Day Workflow
 
 - **Only changed Python code (routes, `app.py`)?** Just re-run Step 3 — `--reload` picks it up automatically.

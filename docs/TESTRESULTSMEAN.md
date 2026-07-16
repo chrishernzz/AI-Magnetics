@@ -1,6 +1,6 @@
 # AIMagnetics Test Case: Heavy-Duty Powder Iron Design
 
-**Covers Stages 1–3 only** (Material Selection, Area Product, Core Selection) — this is the current extent of what the tool computes. Turns and losses are not part of this test since Stage 4 isn't implemented yet.
+**Covers the legacy Stages 1–3 pipeline** (Material Selection, Area Product, Core Selection — still live behind the deprecated `/material-selection`/`/calculate`/`/core-selection` endpoints and `CoreSelection.cpp`'s single-pick logic). For the current Phase 1 pipeline (candidate lists, turns/gap design, magnetic validation, winding, losses via `POST /inductor-design`), see [WORKFLOW.md](WORKFLOW.md)'s "Stage 4+" section and `tests/python/test_reference_designs.py` for an automated equivalent of this worked example.
 
 ## Test 3: Heavy-Duty Design (Primary Validation Test)
 
@@ -119,7 +119,7 @@ Selected: 0077443 (Powder Iron)
 |---|---|---|
 | Material is "Kool Mu" (wrong) | Frequency ranges in `materials.csv` misconfigured, or file order changed | Check Powder Iron's range covers 1000–100000 Hz and precedes Kool Mu in the file |
 | Energy shows 0.00 mJ | Input not reaching the C++ engine correctly | Check the payload sent by `app.js`'s `buildPayload()` |
-| Core is always the largest one | No core met Ap, silent fallback triggered | Check console for the fallback warning; this is current, expected behavior, not a bug |
+| Core is always the largest one | No core met Ap | This legacy endpoint no longer silently falls back — it returns `partNumber: "No compatible core found"` instead. If you're on `/inductor-design`, check for `status: "no_feasible_design"` and `requiredAreaProductCm4`/`largestAvailableAreaProductCm4` in the response |
 | Core doesn't change between tests | Extension not rebuilt / server not restarted | Re-run the CMake build for `magnetics_cpp`, restart uvicorn |
 
 ## Technical Definitions

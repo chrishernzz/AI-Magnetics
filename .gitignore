@@ -18,6 +18,10 @@ Debug/
 
 # Compiled Python extension
 *.pyd
+python/magnetics_cpp*.so
+
+# pytest
+.pytest_cache/
 
 # Debug symbols
 *.pdb

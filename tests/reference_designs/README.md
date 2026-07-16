@@ -1,8 +1,7 @@
 # tests/reference_designs/
 
-KEPT from the original structure, same purpose: worked examples (from
-McLyman and from real AMETEK designs) as plain JSON, used as
-"did I get this right" checks.
-
-Content will need to shift from flyback worked examples to buck
-inductor / Ap-method worked examples to match the new scope.
+This directory is intentionally empty. The automated test suite added for
+Phase 1 reads reference/scenario data directly from
+`data/reference_designs.csv` and `data/test_scenarios.csv` instead of
+duplicating worked examples here as JSON - see `tests/python/test_reference_designs.py`
+and `tests/cpp/EngineTests.cpp`.

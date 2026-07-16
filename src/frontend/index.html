@@ -10,17 +10,17 @@
     <div class="hero">
         <div>
             <h1>AIMagnetics</h1>
-            <p>Engineer-focused buck inductor recommendation tool.</p>
+            <p>Engineer-focused single-winding power inductor design tool.</p>
         </div>
         <div class="hero-note">
-            Enter your known buck requirements and get a recommended core and material.
+            Enter your known inductor requirements and get explainable, physics-checked candidate designs.
         </div>
     </div>
 
     <div class="main-grid">
         <section class="card requirements-card">
             <h2>Design Requirements</h2>
-            <p class="section-description">Provide the buck converter inputs below.</p>
+            <p class="section-description">Direct inductor inputs (no topology assumed).</p>
 
             <label for="inductance">Inductance (µH)</label>
             <input id="inductance" type="number" value="250" min="0" step="1">
@@ -28,11 +28,20 @@
             <label for="current">Peak Current (A)</label>
             <input id="current" type="number" value="2" min="0" step="0.1">
 
+            <label for="rmsCurrent">RMS Current (A)</label>
+            <input id="rmsCurrent" type="number" value="1.4" min="0" step="0.1">
+
             <label for="frequency">Switching Frequency (kHz)</label>
             <input id="frequency" type="number" value="100" min="0" step="1">
 
-            <label for="tempRise">Temperature Rise (°C)</label>
+            <label for="ambientTemp">Ambient Temperature (°C)</label>
+            <input id="ambientTemp" type="number" value="25" min="-40" step="1">
+
+            <label for="tempRise">Allowable Temperature Rise (°C)</label>
             <input id="tempRise" type="number" value="40" min="0" step="1">
+
+            <label for="tolerance">Inductance Tolerance (%, optional)</label>
+            <input id="tolerance" type="number" placeholder="default 10" min="0" step="1">
 
             <div class="button-row">
                 <button id="generateButton" class="primary-button" type="button">
@@ -41,30 +50,30 @@
             </div>
 
             <div id="statusMessage" class="status-message">
-                Ready to generate a core recommendation.
+                Ready to generate an inductor design recommendation.
             </div>
         </section>
 
         <section class="card summary-card">
             <h2>Design Summary</h2>
             <div id="designSummary" class="summary-placeholder">
-                Run the recommendation to see the selected material, core, and key metrics.
+                Run the recommendation to see the top passing candidate.
             </div>
         </section>
 
         <section class="card assistant-card">
-            <h2>Assistant Notes</h2>
+            <h2>Active Rules &amp; Assumptions</h2>
             <div id="assistant">
-                The tool will compute material selection, stored energy, and recommended core automatically.
+                The active DesignRules (Ku, Bmax, J, tolerances) used for this run will appear here - never hidden constants.
             </div>
         </section>
     </div>
 
+    <div id="feasibility" class="card result-panel"></div>
+
     <div class="results-grid">
-        <div id="material" class="card result-panel"></div>
-        <div id="core" class="card result-panel"></div>
-        <div id="turns" class="card result-panel"></div>
-        <div id="details" class="card result-panel"></div>
+        <div id="candidates" class="card result-panel"></div>
+        <div id="rejected" class="card result-panel"></div>
     </div>
     <script src="/static/app.js"></script>
 </body>
