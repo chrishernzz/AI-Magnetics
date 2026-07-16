@@ -4,13 +4,13 @@ This document explains each stage of the inductor sizing process, what parameter
 
 ## Overview
 
-The tool automates inductor design using McLyman's area-product method. Stages 1-3 below describe the **legacy** single-pick pipeline (still live behind the deprecated `/material-selection`, `/calculate`, `/core-selection`, `/turns-calculation` endpoints). The canonical Phase 1 pipeline behind `POST /inductor-design` runs candidate evaluation, turns/gap design, magnetic validation, winding design, and loss evaluation end to end - see Stage 4+ below, which is now **implemented**, not a future plan. Formulas for what remains data-gapped (core loss, thermal) are still documented ahead of the data existing.
+The tool automates inductor design using McLyman's area-product method. Stages 1-3 below explain the underlying frequency-matching and Ap formulas - originally implemented as a single-pick in `MaterialSelection.cpp`/`CoreSelection.cpp`, now superseded by `MaterialEvaluation.cpp`/`CoreEvaluation.cpp`, which apply the same formulas but return every compatible candidate instead of just the first. The formulas themselves didn't change; only the candidate-selection behavior did. The canonical Phase 1 pipeline behind `POST /inductor-design` runs candidate evaluation, turns/gap design, magnetic validation, winding design, and loss evaluation end to end - see Stage 4+ below, which is **implemented**, not a future plan. Formulas for what remains data-gapped (core loss, thermal) are still documented ahead of the data existing.
 
 ---
 
-## Stage 1: Material Selection (legacy single-pick) — ✅ Implemented
+## Stage 1: Material Selection — ✅ Implemented
 
-**File:** `src/core/MaterialSelection.cpp`. The Phase 1 pipeline (`/inductor-design`) uses `MaterialEvaluation.cpp`'s `findSuitableMaterials()` instead, which returns every frequency-compatible material as its own candidate rather than the first match - see Stage 4+ below.
+**File:** `src/core/MaterialEvaluation.cpp` (`findSuitableMaterials()`). Originally a single-pick in `MaterialSelection.cpp`, which has since been removed - the frequency-matching logic below is unchanged, but it now returns every frequency-compatible material as its own candidate instead of just the first match.
 
 **Purpose:** Choose the best magnetic material for the operating frequency.
 
@@ -57,37 +57,39 @@ Ap ≈ 3 cm⁴ (core must satisfy this minimum)
 
 ---
 
-## Stage 3: Core Selection (legacy single-pick) — ✅ Implemented
+## Stage 3: Core Selection — ✅ Implemented
 
-**File:** `src/core/CoreSelection.cpp`. The Phase 1 pipeline uses `CoreEvaluation.cpp`'s `findSuitableCores()` instead, which returns every material-compatible core (each flagged `meetsAreaProduct`) rather than one pick - see Stage 4+ below.
+**File:** `src/core/CoreEvaluation.cpp` (`findSuitableCores()`). Originally a single-pick in `CoreSelection.cpp`, which has since been removed - the Ap-matching logic below is unchanged, but it now returns every material-compatible core (each flagged `meetsAreaProduct`) instead of one pick, and never falls back to an oversized core.
 
 **Purpose:** Find a real, available inductor core from the database that satisfies the Ap requirement.
 
 **Input:**
 - `areaProduct` (from Stage 2), `peakCurrentA`, `recommendedMaterial` (from Stage 1)
-- Cores loaded from the real database at startup (`data/CoreDatabase.cpp`, populated by `python/services/magnetics_data.py`)
+- Cores loaded from the real database at startup (`data/CoreDatabase.h`'s `setData()`/`load()`, populated by `python/services/magnetics_data.py` - the old CSV-reading `CoreDatabase.cpp` was fully dead code and has been deleted)
 
 **Output:**
 - Core part number, material, `mu`, `al`, `ae` (mm²), `wa` (mm²), `le` (mm)
 
-**Selection Logic (as implemented):**
+**Selection Logic (as implemented in `findSuitableCores()`):**
 ```
 For each core in database:
 coreAp = (Ae_mm² × Wa_mm²) × 1e-4 // convert to cm⁴
-if coreAp >= input.areaProduct × 0.95: // 5% safety margin
-add to candidates
+materialCompatible = core.material is one of the compatible material candidates
+meetsAreaProduct = coreAp >= requiredAreaProductCm4 × 0.95 // 5% safety margin
 
-if candidates is empty:
-fall back to the single largest-Ap core in the database (with a console warning)
-else:
-prefer candidates matching recommendedMaterial (if none match, keep all candidates)
-pick the one with lowest estimated copper loss:
-estimatedLossW = peakCurrentA² / (Ae × Wa × 0.01) // simplified heuristic
+if materialCompatible:
+add to candidates, flagged with its own areaProductCm4 and meetsAreaProduct
 ```
 
-**Current limitation:** ranking is by this single loss heuristic only. Real core data doesn't include cost (that's the vendor-API step — Mouser/Octopart — not yet integrated), and cost- and size-based ranking are not implemented yet — there is no `sort_by` option in the current API.
-
-**Debug output:** prints candidate pass/fail and the final loss comparison to the console — useful for demoing, not yet surfaced in the API response.
+Every material-compatible core is returned - passing or not - so the
+caller (`InductorDesignService`) can build an honest `no_feasible_design`
+report (required vs. largest-available Ap) if nothing passes, instead of
+the old behavior of silently substituting the largest core. Ranking
+among passing candidates happens one stage later, after turns/gap,
+validation, winding, and loss evaluation have all run - the old
+loss-proxy heuristic (`peakCurrentA^2 / (Ae × Wa × 0.01)`) that used to
+rank cores by size alone was removed along with `CoreSelection.cpp`, not
+carried forward.
 
 ---
 

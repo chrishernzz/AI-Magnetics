@@ -23,11 +23,11 @@
         },
 
         {
-            "name": "Debug AIMagnetics C++",
+            "name": "Debug EngineTests (C++)",
             "type": "cppvsdbg",
             "request": "launch",
 
-            "program": "${workspaceFolder}\\build_pybind\\Debug\\magnetics_server.exe",
+            "program": "${workspaceFolder}\\build_pybind\\Debug\\magnetics_engine_tests.exe",
 
             "cwd": "${workspaceFolder}",
 

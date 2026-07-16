@@ -1,6 +1,6 @@
 # AIMagnetics Test Case: Heavy-Duty Powder Iron Design
 
-**Covers the legacy Stages 1–3 pipeline** (Material Selection, Area Product, Core Selection — still live behind the deprecated `/material-selection`/`/calculate`/`/core-selection` endpoints and `CoreSelection.cpp`'s single-pick logic). For the current Phase 1 pipeline (candidate lists, turns/gap design, magnetic validation, winding, losses via `POST /inductor-design`), see [WORKFLOW.md](WORKFLOW.md)'s "Stage 4+" section and `tests/python/test_reference_designs.py` for an automated equivalent of this worked example.
+**Historical worked example - not reproducible against the live app anymore.** This walks through Stages 1-3 (Material Selection, Area Product, Core Selection) using the math as it worked when this document was written, back when `/material-selection`/`/calculate`/`/core-selection` and `CoreSelection.cpp`'s single-pick logic existed. Those endpoints and that file have since been deleted (see [ARCHITECTURE.md](ARCHITECTURE.md)) - the underlying Ap formula is unchanged and still correct as a hand-check, but you can no longer `curl` these exact steps or see this exact debug output, since there's only one endpoint now (`POST /inductor-design`) and it returns every compatible candidate rather than one core selected by this document's loss heuristic. For a live, automated equivalent, see `tests/python/test_reference_designs.py` and [WORKFLOW.md](WORKFLOW.md)'s "Stage 4+" section.
 
 ## Test 3: Heavy-Duty Design (Primary Validation Test)
 
@@ -87,11 +87,11 @@ Safety margin: 9.79 × 0.95 = 9.30 cm⁴ minimum.
 
 **Winner:** 0077443
 
-## How to Verify Results
+## How to Verify Results (historical - see the framing note at the top)
 
-**In browser:** material = Powder Iron, core = 0055500F or 0077443, energy ≈ 23.5 mJ, Ap ≈ 9.79 cm⁴.
+**In browser, back when these endpoints existed:** material = Powder Iron, core = 0055500F or 0077443, energy ≈ 23.5 mJ, Ap ≈ 9.79 cm⁴.
 
-**In terminal (debug output from `CoreSelection.cpp`):**
+**In terminal, back when `CoreSelection.cpp` existed (this file is now deleted, so this output can no longer be reproduced):**
 ```
 === CORE SELECTION DEBUG ===
 Input Ap requirement: 9.79167 cm⁴
@@ -112,6 +112,8 @@ Loss comparison:
 
 Selected: 0077443 (Powder Iron)
 ```
+
+**To verify the equivalent today:** POST the same inputs to `/inductor-design` and inspect `activeRules`/`candidates` in the JSON response, or run `tests/python/test_reference_designs.py`.
 
 ## Troubleshooting
 
