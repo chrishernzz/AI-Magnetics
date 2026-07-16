@@ -131,8 +131,8 @@ AL ≈ 0.4π × µ₀ × µᵣ × (Ae / Le) × 10⁹ (nH/100T; µ₀ = 4π×10�
 | MaxFrequencyHz | Hz | 250000 | Maximum operating frequency |
 | Reason | — | "Balanced performance 50-250kHz..." | Why this material suits its range |
 | Alternatives | — | `Ferrite\|Powder Iron` | Pipe-separated alternatives; passed through as a raw string by the API, not parsed into a list |
-| BmaxT | T | 1.0 | Max flux density — **not currently read by `AreaProduct.cpp`**, which uses a hard-coded 0.30 T instead |
-| CuLossFactor | — | 1.15 | Multiplier for AC copper loss — not yet consumed anywhere (Stage 4 is a stub) |
+| BmaxT | T | 1.0 | Max flux density — as of today's Phase 1 engine, `PeakFluxValidation`/`SaturationValidation` (`DesignValidation.cpp`) prefer a material's own `BmaxT` over the `DesignRules` default (0.30 T) whenever it's populated - currently none are, in the real data snapshot, so the default is what's actually used. Not a hard-coded value in `AreaProduct.cpp` anymore - see [FORMULAS.md](FORMULAS.md) section 7 |
+| CuLossFactor | — | 1.15 | Multiplier for AC copper loss — `CoreLoss.cpp` is implemented and would use it, but is gated on this being populated, which it isn't in the real data snapshot; see [FORMULAS.md](FORMULAS.md) section 9 |
 
 ### Frequency Ranges (current data)
 - **Powder Iron:** 1–100 kHz — reason text notes "good for buck inductors" specifically; worth genericizing if the tool is meant to be topology-agnostic

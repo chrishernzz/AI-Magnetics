@@ -24,8 +24,6 @@ Given your inductor requirements (inductance, peak/RMS current, switching freque
 | **Worked example / manual test** | [TESTRESULTSMEAN.md](TESTRESULTSMEAN.md) |
 | **Day-to-day run commands** | [WHEN_TO_RUN_PROGRAM.md](WHEN_TO_RUN_PROGRAM.md) |
 
-*(`DEVELOPMENT.md` is linked from nowhere else and doesn't exist yet — either write it or remove this line.)*
-
 ---
 ## The Design Workflow (Phase 1)
 1. **Material candidates** — every material whose frequency range covers the request (not just the first match)
@@ -58,7 +56,7 @@ See [WORKFLOW.md](WORKFLOW.md) for formulas and the current status of each stage
 - ✅ Winding design (`WindingDesign.cpp`) — AWG wire selection, fill factor, current density
 - ✅ DC copper loss (`CopperLoss.cpp`), called from `LossEvaluation.cpp`
 - ⚠️ DCR / total wire length — `not_evaluated`: `data/real_cores.csv` has no mean-length-per-turn column (data gap, not a code gap)
-- ⚠️ Core loss (`CoreLoss.cpp`) — `not_evaluated`: `data/real_materials.csv`'s `CuLossFactor` is 0.0 for every material (data gap, not a code gap)
+- ⚠️ Core loss (`CoreLoss.cpp`) — `not_evaluated`: `data/real_materials.csv`'s `CuLossFactor` is 0.0 for every material, and flux-density swing isn't threaded into `LossEvaluation.cpp` yet either (data gap, not a code gap — see [FORMULAS.md](FORMULAS.md) section 9)
 - ⚠️ High-frequency (skin/proximity) loss — not implemented in Phase 1, reported `not_evaluated`
 - ⚠️ Thermal evaluation (`ThermalEvaluation.cpp`) — `not_evaluated`: no thermal-resistance model or data yet
 - ✅ `TurnsCalculation.cpp` is fully implemented (`N = round(sqrt(L/AL))`) — this was previously mis-documented as a stub in several files; it's used as the seed estimate inside `TurnsAndGapDesign.cpp`'s convergence loop

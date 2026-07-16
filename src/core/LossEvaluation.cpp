@@ -18,8 +18,11 @@ LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const Win
                                                                     : winding.missingData.front()));
     }
 
-    // Core loss (Stage B): only when the material carries a validated
-    // core-loss coefficient - never true for real_materials.csv today.
+    // Core loss (Stage B): would need material.hasCoreLossData AND a
+    // flux-density-swing value (not currently passed into this function).
+    // Never true for real_materials.csv today, so this stays an
+    // unconditional not_evaluated rather than a conditional that can never
+    // take its other branch - see LossEvaluation.h.
     result.coreLossStatus = EvaluationStatus::NotEvaluated;
     result.missingData.push_back("core loss not evaluated: material '" + material.materialFamily +
                                   "' has no validated core-loss coefficients");
