@@ -15,6 +15,7 @@ Given your inductor requirements (inductance, peak/RMS current, switching freque
 |---|---|
 | **Build and run the tool** | [GETTING_STARTED.md](GETTING_STARTED.md) |
 | **Understand the design method** | [WORKFLOW.md](WORKFLOW.md) |
+| **Understand every formula and why it's used** | [FORMULAS.md](FORMULAS.md) |
 | **See the system architecture** | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | **Use the web UI** | [FRONTEND_GUIDE.md](FRONTEND_GUIDE.md) |
 | **Call the API** | [API_REFERENCE.md](API_REFERENCE.md) |
