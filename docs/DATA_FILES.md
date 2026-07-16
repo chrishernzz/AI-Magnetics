@@ -71,7 +71,7 @@ field mapping, since that's what these columns became.
 
 **Purpose:** Database of available inductor cores (part numbers, geometry, materials).
 **Location:** `data/cores.csv`
-**Used by:** `src/data/CoreDatabase.cpp` (formerly — now populated by `python/services/magnetics_data.py` instead)
+**Used by:** formerly `src/data/CoreDatabase.cpp` (now deleted - it was fully dead code, `DATA_SOURCES` was always empty in `CMakeLists.txt`); real data is populated by `python/services/magnetics_data.py` via `CoreDatabase.h`'s `setData()`/`load()` instead
 **Currently:** mapped from real data at startup, not from this file
 
 ### Fields (actual header)
@@ -118,7 +118,7 @@ AL ≈ 0.4π × µ₀ × µᵣ × (Ae / Le) × 10⁹ (nH/100T; µ₀ = 4π×10�
 
 **Purpose:** Database of magnetic materials and their properties.
 **Location:** `data/materials.csv`
-**Used by:** `src/data/Materials.cpp`, `MaterialEvaluation.cpp` (formerly `MaterialSelection.cpp`, since removed)
+**Used by:** formerly `src/data/Materials.cpp` (now deleted, same reason as `CoreDatabase.cpp` above); `MaterialEvaluation.cpp` (formerly `MaterialSelection.cpp`, since removed) does the real work today via `Materials.h`
 **Currently:** 4 rows — Powder Iron, Kool Mu, Ferrite 3C90, High Frequency Ferrite
 
 ### Fields (actual header)

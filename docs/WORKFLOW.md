@@ -65,7 +65,7 @@ Ap ≈ 3 cm⁴ (core must satisfy this minimum)
 
 **Input:**
 - `areaProduct` (from Stage 2), `peakCurrentA`, `recommendedMaterial` (from Stage 1)
-- Cores loaded from the real database at startup (`data/CoreDatabase.cpp`, populated by `python/services/magnetics_data.py`)
+- Cores loaded from the real database at startup (`data/CoreDatabase.h`'s `setData()`/`load()`, populated by `python/services/magnetics_data.py` - the old CSV-reading `CoreDatabase.cpp` was fully dead code and has been deleted)
 
 **Output:**
 - Core part number, material, `mu`, `al`, `ae` (mm²), `wa` (mm²), `le` (mm)
