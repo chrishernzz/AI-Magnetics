@@ -1,21 +1,16 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "../backend/services/CoreSelectionService.h"
 #include "../backend/services/InductorDesignService.h"
-#include "../backend/services/MaterialSelectionService.h"
 #include "../core/AreaProduct.h"
 #include "../core/CoreEvaluation.h"
-#include "../core/CoreSelection.h"
 #include "../core/DesignRecommendation.h"
 #include "../core/InductorDesignRequest.h"
 #include "../core/LossEvaluation.h"
 #include "../core/MaterialEvaluation.h"
-#include "../core/MaterialSelection.h"
 #include "../core/RejectionReason.h"
 #include "../core/ThermalEvaluation.h"
 #include "../core/TurnsAndGapDesign.h"
-#include "../core/TurnsCalculation.h"
 #include "../core/WindingDesign.h"
 #include "../data/CoreDatabase.h"
 #include "../data/Materials.h"
@@ -29,45 +24,11 @@ PYBIND11_MODULE(magnetics_cpp, m) {
     m.doc() = "AIMagnetics C++ bindings for Python";
 
     // ============================================================
-    // Legacy single-stage bindings (kept for the deprecated
-    // /material-selection, /calculate, /core-selection,
-    // /turns-calculation endpoints - see python/routes/core_selection.py)
+    // Area product / stored energy - shared by the Phase 1 pipeline
+    // (called internally in C++ by InductorDesignService) and by
+    // tests/python/test_unit_conversions.py, which calls these directly
+    // to verify the formula independently of the full pipeline.
     // ============================================================
-
-    py::class_<CoreSelectionInput>(m, "CoreSelectionInput")
-        .def(py::init<>())
-        .def_readwrite("areaProduct", &CoreSelectionInput::areaProduct)
-        .def_readwrite("peakCurrentA", &CoreSelectionInput::peakCurrentA)
-        .def_readwrite("recommendedMaterial", &CoreSelectionInput::recommendedMaterial);
-    py::class_<CoreSelectionResult>(m, "CoreSelectionResult")
-        .def(py::init<>())
-        .def_readwrite("partNumber", &CoreSelectionResult::partNumber)
-        .def_readwrite("material", &CoreSelectionResult::material)
-        .def_readwrite("mu", &CoreSelectionResult::mu)
-        .def_readwrite("al", &CoreSelectionResult::al)
-        .def_readwrite("ae", &CoreSelectionResult::ae)
-        .def_readwrite("wa", &CoreSelectionResult::wa)
-        .def_readwrite("le", &CoreSelectionResult::le);
-    py::class_<CoreSelectionService>(m, "CoreSelectionService")
-        .def(py::init<>())
-        .def("calculate", &CoreSelectionService::calculate);
-
-    py::class_<MaterialSelectionInput>(m, "MaterialSelectionInput")
-        .def(py::init<>())
-        .def_readwrite("inductanceH", &MaterialSelectionInput::inductanceH)
-        .def_readwrite("peakCurrentA", &MaterialSelectionInput::peakCurrentA)
-        .def_readwrite("switchingFreqHz", &MaterialSelectionInput::switchingFreqHz)
-        .def_readwrite("allowableTempRiseC", &MaterialSelectionInput::allowableTempRiseC)
-        .def_readwrite("waveformFactor", &MaterialSelectionInput::waveformFactor);
-    py::class_<MaterialSelectionResult>(m, "MaterialSelectionResult")
-        .def(py::init<>())
-        .def_readwrite("materialFamily", &MaterialSelectionResult::materialFamily)
-        .def_readwrite("muOpt", &MaterialSelectionResult::muOpt)
-        .def_readwrite("reason", &MaterialSelectionResult::reason)
-        .def_readwrite("alternatives", &MaterialSelectionResult::alternatives);
-    py::class_<MaterialSelectionService>(m, "MaterialSelectionService")
-        .def(py::init<>())
-        .def("calculate", &MaterialSelectionService::calculate);
 
     py::class_<AreaProductInput>(m, "AreaProductInput")
         .def(py::init<>())
@@ -81,18 +42,6 @@ PYBIND11_MODULE(magnetics_cpp, m) {
 
     m.def("calculate_ap", &calculateAp, "Calculate the area product (Ap) from input");
     m.def("calculate_stored_energy", &calculateStoredEnergy, "Calculate stored energy for the given inductance and current");
-    m.def("select_core", &selectCore, "Select core by input (legacy single-pick)");
-
-    py::class_<TurnsCalculationInput>(m, "TurnsCalculationInput")
-        .def(py::init<>())
-        .def_readwrite("inductanceUH", &TurnsCalculationInput::inductanceUH)
-        .def_readwrite("core", &TurnsCalculationInput::core);
-    py::class_<TurnsCalculationResult>(m, "TurnsCalculationResult")
-        .def(py::init<>())
-        .def_readwrite("turns", &TurnsCalculationResult::turns)
-        .def_readwrite("inductanceUH", &TurnsCalculationResult::inductanceUH)
-        .def_readwrite("al", &TurnsCalculationResult::al);
-    m.def("calculate_turns", &calculateTurns, "Calculate turns (legacy AL-only, no gap iteration)");
 
     // Raw data structs, populated once at FastAPI startup with real data
     // (see python/app.py) - both Materials and Cores are loaded here.

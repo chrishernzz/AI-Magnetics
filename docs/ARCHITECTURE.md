@@ -34,7 +34,7 @@ There is no hand-written HTTP server — FastAPI (via `uvicorn`) handles all HTT
 
 Payload shape: `InductorDesignRequest` — `{ inductanceUH, peakCurrentA, rmsCurrentA, switchingFreqKHz, ambientTemperatureC, allowableTempRiseC, inductanceTolerancePercent, ... }` (see [API_REFERENCE.md](API_REFERENCE.md)).
 
-The four legacy single-stage endpoints (`/material-selection`, `/calculate`, `/core-selection`, `/turns-calculation`) still exist, marked `deprecated=True`, for backward compatibility — the frontend no longer calls them.
+The four old single-stage endpoints (`/material-selection`, `/calculate`, `/core-selection`, `/turns-calculation`) have been removed - once the frontend stopped calling them, they were deleted outright along with the single-pick C++ they were backed by, rather than left as permanent dead weight.
 
 ---
 
@@ -44,22 +44,19 @@ The four legacy single-stage endpoints (`/material-selection`, `/calculate`, `/c
 
 | File | Purpose |
 |---|---|
-| `app.py` | Creates the FastAPI app, mounts `/static` for the frontend, serves `index.html` at `/`, includes both routers |
-| `routes/inductor_design.py` | Defines `InductorDesignRequest` (the renamed, extended successor to the old shared `BuckInput`) and the canonical `POST /inductor-design` endpoint; also owns the recursive C++-struct-to-dict serializer used to turn a `DesignRecommendation` into JSON |
-| `routes/core_selection.py` | Deprecated legacy endpoints; imports `InductorDesignRequest` from `inductor_design.py` rather than redefining it, so both route files share exactly one request model |
+| `app.py` | Creates the FastAPI app, mounts `/static` for the frontend, serves `index.html` at `/`, includes the router |
+| `routes/inductor_design.py` | Defines `InductorDesignRequest` (the renamed, extended successor to the old shared `BuckInput`) and the `POST /inductor-design` endpoint; also owns the recursive C++-struct-to-dict serializer used to turn a `DesignRecommendation` into JSON |
+
+`routes/core_selection.py` (the old deprecated single-stage endpoints) was deleted once nothing called it anymore.
 
 **Routes defined:**
 | Route | Calls into C++ | Returns |
 |---|---|---|
 | `POST /inductor-design` | `InductorDesignService::run(...)` (via `magnetics_cpp.run_inductor_design`) — the full pipeline, once | `DesignRecommendation` (serialized to a plain dict) |
-| `POST /material-selection` *(deprecated)* | `MaterialSelectionService().calculate(...)` | `MaterialSelectionResponse` |
-| `POST /calculate` *(deprecated)* | `magnetics_cpp.calculate_ap(...)`, `calculate_stored_energy(...)` | `AreaProductResponse` |
-| `POST /core-selection` *(deprecated)* | `CoreSelectionService().calculate(...)` (internally also calls material selection again) | `CoreSelectionResponse` |
-| `POST /turns-calculation` *(deprecated)* | `calculate_turns(...)` (legacy AL-only formula, no gap iteration) | `TurnsCalculationResponse` |
 | `GET /` | — | `index.html` (via `FileResponse`) |
 | `GET /static/*` | — | frontend static files (mounted via `StaticFiles`) |
 
-Request/response validation is handled by Pydantic models declared directly in the route files — there are no separate "Controller" classes; the route function bodies do the parsing, calling, and response-shaping in one place. Neither route file hard-codes a magnetic-design constant — `Ku`/`Bmax`/`J` are always sourced from `magnetics_cpp.design_rules_phase1_default()` (bound from `DesignRules::phase1Default()` in C++), never hard-coded in Python (spec section 7).
+Request/response validation is handled by a Pydantic model declared directly in the route file — there is no separate "Controller" class; the route function body does the parsing, calling, and response-shaping in one place. The route hard-codes no magnetic-design constant — `Ku`/`Bmax`/`J` are always sourced from `magnetics_cpp.design_rules_phase1_default()` (bound from `DesignRules::phase1Default()` in C++), never hard-coded in Python (spec section 7).
 
 ---
 
@@ -68,9 +65,14 @@ Request/response validation is handled by Pydantic models declared directly in t
 **Location:** `src/python_bindings/InductorDesignBindings.cpp` (renamed from `CoreSelectionBindings.cpp`)
 
 Builds a single pybind11 module, `magnetics_cpp`, exposing:
-- Legacy (kept for the deprecated endpoints): `MaterialSelectionInput`/`Result`/`Service`, `AreaProductInput` + `calculate_ap()`/`calculate_stored_energy()`, `CoreSelectionInput`/`Result`/`Service`, `TurnsCalculationInput`/`Result` + `calculate_turns()`
-- Raw data: `CoreData`, `MaterialData` (now also carrying `bmaxT`/`cuLossFactor`) + `set_core_database()`/`set_material_database()`
+- `AreaProductInput` + `calculate_ap()`/`calculate_stored_energy()` — used internally by the Phase 1 pipeline and directly by `tests/python/test_unit_conversions.py`
+- Raw data: `CoreData`, `MaterialData` (carrying `bmaxT`/`cuLossFactor`) + `set_core_database()`/`set_material_database()`
 - Phase 1 engine: `EvaluationStatus` (enum), `DesignRules` + `design_rules_phase1_default()`, `MaterialCandidate`, `CoreCandidate`, `TurnsAndGapResult`, `ValidationResult`, `WindingDesignResult`, `LossEvaluationResult`, `ThermalEvaluationResult`, `RejectionReason`, `InductorCandidate`, `DesignRecommendation`, `InductorDesignRequest`, and the entry point `run_inductor_design()`
+
+The old single-pick bindings (`MaterialSelectionInput`/`Result`/`Service`,
+`CoreSelectionInput`/`Result`/`Service`, `TurnsCalculationInput`/`Result` +
+`calculate_turns()`, `select_core()`) were removed along with the
+deprecated endpoints they existed only to serve.
 
 CMake builds this as a Python extension module and places the compiled `.pyd`/`.so` directly in `python/`, so `import magnetics_cpp` resolves it as a local module.
 
@@ -82,9 +84,7 @@ CMake builds this as a Python extension module and places the compiled `.pyd`/`.
 
 | Module | File | Status |
 |---|---|---|
-| MaterialSelection *(legacy single-pick)* | `MaterialSelection.cpp` | ✅ Implemented — kept only for the deprecated `/material-selection` endpoint |
-| AreaProduct | `AreaProduct.cpp` | ✅ Implemented — shared by both the legacy and Phase 1 pipelines |
-| CoreSelection *(legacy single-pick)* | `CoreSelection.cpp` | ✅ Implemented — kept only for the deprecated `/core-selection` endpoint; no longer silently falls back to the largest core when nothing meets Ap (returns a "no match" sentinel instead) |
+| AreaProduct | `AreaProduct.cpp` | ✅ Implemented — energy/Ap sizing, called directly by `InductorDesignService` |
 | TurnsCalculation | `core/TurnsCalculation.cpp` | ✅ Implemented — `N = round(sqrt(L_nH/AL_nH))`, verified against the real i77006 reference design. This was previously documented (in most other files) as an unimplemented stub — it was not; only the docs were wrong. Reused as the seed-turns estimator inside `TurnsAndGapDesign.cpp` |
 | GapDesign | `GapDesign.cpp` | ✅ Implemented — series-reluctance gapped-core AL formula, verified numerically against `data/real_cores.csv` to <0.03% |
 | TurnsAndGapDesign | `TurnsAndGapDesign.cpp` | ✅ Implemented — iterates turns and gap together until the integer turns count stabilizes or is rejected (impractical gap, non-convergence) |
@@ -106,6 +106,8 @@ CMake builds this as a Python extension module and places the compiled `.pyd`/`.
 | InductorDesignService | `backend/services/InductorDesignService.cpp` | ✅ Implemented — the single orchestrator behind `POST /inductor-design` |
 
 The **Services** layer (`src/backend/services/`) sits directly between the pybind11 bindings and the core engine — e.g. `InductorDesignService::run()` orchestrates `MaterialEvaluation` → `AreaProduct` → `CoreEvaluation` → `TurnsAndGapDesign` → `DesignValidation` → `WindingDesign` → `LossEvaluation` → `ThermalEvaluation`. There is no separate "Controller" layer in C++; HTTP parsing happens entirely in the Python route functions.
+
+**Removed:** `MaterialSelection.cpp/h` and `CoreSelection.cpp` (the old single-pick logic, superseded by `MaterialEvaluation.cpp`/`CoreEvaluation.cpp`), `MaterialSelectionService`/`CoreSelectionService` (thin wrappers around the above, with nothing left to wrap), and `AreaProductService.h/.cpp` (never actually bound to Python in either the old or new bindings file - dead code from before this Phase 1 work even started). `CoreSelection.h` stays, header-only, because `TurnsCalculation.h` still embeds its `CoreSelectionResult` struct.
 
 ---
 
@@ -142,9 +144,9 @@ missing-data warnings), and the active DesignRules - no field is a hidden
 assumption.
 ```
 
-The four legacy single-stage endpoints still exist (deprecated) and follow
-the old, simpler flow described in earlier revisions of this document - each
-re-running upstream stages internally, no gap/validation/winding/loss steps.
+The four old single-stage endpoints, which followed a simpler flow (each
+re-running upstream stages internally, no gap/validation/winding/loss
+steps), have been removed - `POST /inductor-design` is the only entry point.
 
 ---
 
@@ -196,10 +198,11 @@ installs, replace the two CSV files) rather than automatic. Given native
 Windows can't run the live version at all, this is the trade made to have
 real data working here at all.
 
-`CoreSelection.cpp`/`MaterialSelection.cpp` — the actual Ap-based selection
-logic — did not change through any of this. Only where the candidate list
-comes from changed, twice now: hand-typed CSV → live PyOpenMagnetics query
-→ bundled real-data snapshot.
+The actual Ap-based selection logic (originally `CoreSelection.cpp`/
+`MaterialSelection.cpp`, now `CoreEvaluation.cpp`/`MaterialEvaluation.cpp`
+after the Phase 1 rewrite) did not change through any of this. Only where
+the candidate list comes from changed, twice now: hand-typed CSV → live
+PyOpenMagnetics query → bundled real-data snapshot.
 
 ---
 

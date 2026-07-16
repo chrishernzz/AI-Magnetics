@@ -96,104 +96,20 @@ bugs — the engine reports them explicitly rather than inventing a number.
 
 ---
 
-## Legacy endpoints (deprecated)
+## Removed: the old single-stage endpoints
 
-The four endpoints below predate the Phase 1 engine and are kept only for
-backward compatibility (`deprecated=True` in FastAPI, so they're flagged in
-`/docs`). None of them perform turns/gap convergence, magnetic validation,
-winding design, or loss evaluation — use `POST /inductor-design` above.
-They share the same `InductorDesignRequest` model (so `ambientTemperatureC`
-etc. are required in the request body even though these routes' internal
-logic doesn't read them), but internally still run the old single-pick
-C++ path unchanged.
-
-### Shared Request Body (legacy)
-
-```json
-{
-"inductanceUH": 250,
-"peakCurrentA": 2.0,
-"switchingFreqKHz": 100,
-"ambientTemperatureC": 25,
-"allowableTempRiseC": 40
-}
-```
-
-Each endpoint only uses the fields it needs internally (e.g. material selection only reads `switchingFreqKHz`), but the same full body is expected on every call.
-
----
-
-## POST /material-selection *(deprecated — see above)*
-
-**Purpose:** Choose the best magnetic material for a given switching frequency.
-
-**Request:** the shared body above.
-
-**Response** (`MaterialSelectionResponse`):
-```json
-{
-"materialFamily": "Kool Mu",
-"muOpt": 26,
-"reason": "Balanced performance 50-250kHz; low core loss; good saturation margin",
-"alternatives": "Ferrite|Powder Iron"
-}
-```
-Note: `alternatives` is a single pipe-delimited **string**, not a JSON array — it's passed through as-is from the material record's `Alternatives` field (currently always `"None"`; the bundled real-data snapshot doesn't populate this yet, see `python/services/magnetics_data.py`).
-
----
-
-## POST /calculate *(deprecated — see above)*
-
-**Purpose:** Calculate stored energy and the minimum core area product (Ap).
-
-**Request:** the legacy shared body above.
-
-**Response** (`AreaProductResponse`):
-```json
-{
-"areaProduct": 3.2,
-"energy": 0.0005
-}
-```
-`energy` is in **joules** (not millijoules — the frontend multiplies by 1000 for display). `areaProduct` is in cm⁴.
-
-**Note:** window utilization (Ku), max flux density (Bmax), and current density (J) are sourced from `magnetics_cpp.design_rules_phase1_default()` (the same named ruleset `/inductor-design` uses) inside `build_area_product_input()` in `routes/core_selection.py` — no constant is hard-coded in the Python route (spec section 7). They are still not part of the request body and not read from each material's `BmaxT` field (0.0/unpopulated in the current real-data snapshot).
-
----
-
-## POST /core-selection *(deprecated — see above)*
-
-**Purpose:** Find a real core from the database that meets the Ap requirement (legacy single pick).
-
-**Request:** the legacy shared body above (internally re-runs material selection, then area product, then core selection).
-
-**Response** (`CoreSelectionResponse`):
-```json
-{
-"partNumber": "E100/60/28-3C90",
-"material": "3C90",
-"mu": 2249.28,
-"al": 7584.86,
-"ae": 735.05,
-"wa": 2138.7,
-"le": 273.92
-}
-```
-`ae`, `wa` are in **mm²**; `le` is in **mm** — these match the real core data's `Ae`/`Wa`/`Le` fields directly (see `python/services/magnetics_data.py`), not cm² as might be assumed.
-
-**No `sort_by` parameter exists.** Core ranking is always by a single internal loss heuristic — cost- and size-based sorting are not implemented.
-
-**No silent oversized fallback.** If no core in the database meets the Ap requirement (even with the 5% margin), this legacy endpoint returns `{"partNumber": "No compatible core found", "material": "Unknown", ...}` rather than silently substituting the largest available core. (This changed in Phase 1 — it previously did fall back silently.) `POST /inductor-design` reports the same situation as `status: "no_feasible_design"` with the required/largest-available area product.
-
----
-
-## POST /turns-calculation *(deprecated — see above)*
-
-**Purpose:** Legacy AL-only turns formula (`N = round(sqrt(L/AL))` against the *ungapped* catalog AL) — no gap iteration, unlike `/inductor-design`'s `TurnsAndGapDesign`.
-
-**Request:** the legacy shared body above (internally re-runs core selection, which re-runs material selection).
-
-**Response** (`TurnsCalculationResponse`): `{"turns": 42, "inductanceUH": 250, "al": 7584.86}`
+Earlier revisions of this API had four separate endpoints
+(`/material-selection`, `/calculate`, `/core-selection`,
+`/turns-calculation`) that each re-ran every prior stage internally and,
+in `/core-selection`'s case, used to silently substitute an oversized core
+when nothing actually fit. They were kept for a while as deprecated
+wrappers, then removed outright once nothing (including the frontend)
+called them anymore — `POST /inductor-design` above is the only endpoint
+now, and it does everything those four used to do plus the parts they
+never did (turns/gap convergence, magnetic validation, winding design,
+loss evaluation). The C++ they were backed by
+(`MaterialSelection.cpp`, `CoreSelection.cpp`, `MaterialSelectionService`,
+`CoreSelectionService`) was deleted along with them.
 
 ---
 
@@ -232,21 +148,6 @@ There is no custom error envelope (no `{"status": "error", "message": ...}` patt
 curl -X POST http://127.0.0.1:8000/inductor-design \
 -H "Content-Type: application/json" \
 -d '{"inductanceUH": 250, "peakCurrentA": 5.0, "rmsCurrentA": 3.5, "switchingFreqKHz": 100, "ambientTemperatureC": 25, "allowableTempRiseC": 40}'
-```
-
-```bash
-# Legacy single-stage calls (deprecated)
-curl -X POST http://127.0.0.1:8000/material-selection \
--H "Content-Type: application/json" \
--d '{"inductanceUH": 250, "peakCurrentA": 2.0, "switchingFreqKHz": 100, "ambientTemperatureC": 25, "allowableTempRiseC": 40}'
-
-curl -X POST http://127.0.0.1:8000/calculate \
--H "Content-Type: application/json" \
--d '{"inductanceUH": 250, "peakCurrentA": 2.0, "switchingFreqKHz": 100, "ambientTemperatureC": 25, "allowableTempRiseC": 40}'
-
-curl -X POST http://127.0.0.1:8000/core-selection \
--H "Content-Type: application/json" \
--d '{"inductanceUH": 250, "peakCurrentA": 2.0, "switchingFreqKHz": 100, "ambientTemperatureC": 25, "allowableTempRiseC": 40}'
 ```
 
 FastAPI also auto-generates interactive docs at **http://127.0.0.1:8000/docs** — useful for testing without `curl`.

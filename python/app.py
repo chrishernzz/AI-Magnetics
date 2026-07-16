@@ -78,6 +78,3 @@ def read_index():
 
 from routes.inductor_design import router as inductor_design_router
 app.include_router(inductor_design_router)
-
-from routes.core_selection import router as core_selection_router
-app.include_router(core_selection_router)

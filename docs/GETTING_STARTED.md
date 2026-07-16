@@ -44,7 +44,7 @@ cmake -S . -B build_pybind
 ```bash
 cmake --build build_pybind --config Debug --target magnetics_cpp
 ```
-This compiles `magnetics_engine` → `magnetics_services` → the `magnetics_cpp` pybind11 module, and places the compiled extension directly in `python/` (per `CMakeLists.txt`'s `LIBRARY_OUTPUT_DIRECTORY` setting), where `python/routes/core_selection.py` imports it as `import magnetics_cpp`.
+This compiles `magnetics_engine` → `magnetics_services` → the `magnetics_cpp` pybind11 module, and places the compiled extension directly in `python/` (per `CMakeLists.txt`'s `LIBRARY_OUTPUT_DIRECTORY` setting), where `python/routes/inductor_design.py` imports it as `import magnetics_cpp`.
 
 ### Step 3: Run the app
 ```bash

@@ -31,9 +31,7 @@ find_package(pybind11 CONFIG REQUIRED PATHS "${pybind11_DIR}")
 # ============================================================
 
 set(CORE_SOURCES
-    src/core/MaterialSelection.cpp
     src/core/AreaProduct.cpp
-    src/core/CoreSelection.cpp
     src/core/GapDesign.cpp
     src/core/TurnsCalculation.cpp
     src/core/CopperLoss.cpp
@@ -77,9 +75,6 @@ target_include_directories(
 # ============================================================
 
 set(BACKEND_SERVICE_SOURCES
-    src/backend/services/AreaProductService.cpp
-    src/backend/services/MaterialSelectionService.cpp
-    src/backend/services/CoreSelectionService.cpp
     src/backend/services/RequirementDerivationService.cpp
     src/backend/services/InductorDesignService.cpp
 )

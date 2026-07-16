@@ -3,18 +3,20 @@
 inductor_design.py
 
 The Phase 1 direct-entry inductor design pipeline. InductorDesignRequest is
-the renamed successor to the old shared BuckInput model (see
-python/routes/core_selection.py, which imports it from here rather than
-redefining it) - the old name described this as a buck-specific input even
-though every field is a direct inductor specification with no topology
-knowledge (spec section 6).
+the renamed successor to the old shared BuckInput model - the old name
+described this as a buck-specific input even though every field is a
+direct inductor specification with no topology knowledge (spec section 6).
 
-POST /inductor-design is the single, canonical entry point: it runs the
-full C++ pipeline (materials -> area product -> cores -> turns/gap ->
-magnetic validation -> winding -> losses -> thermal -> ranking) exactly
-once per request and returns one explainable DesignRecommendation. The
-legacy endpoints in core_selection.py are kept only for backward
-compatibility and are marked deprecated.
+POST /inductor-design is the single entry point: it runs the full C++
+pipeline (materials -> area product -> cores -> turns/gap -> magnetic
+validation -> winding -> losses -> thermal -> ranking) exactly once per
+request and returns one explainable DesignRecommendation. The old
+single-stage endpoints (/material-selection, /calculate, /core-selection,
+/turns-calculation) and the single-pick C++ logic behind them
+(MaterialSelection.cpp, CoreSelection.cpp, MaterialSelectionService,
+CoreSelectionService) have been removed - they only ever re-ran earlier
+stages redundantly and, in CoreSelection.cpp's case, used to silently
+fall back to an oversized core when nothing actually fit.
 """
 from typing import Optional
 
