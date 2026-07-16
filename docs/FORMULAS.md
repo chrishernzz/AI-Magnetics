@@ -502,11 +502,15 @@ Pv = CuLossFactor * (f / 100000) * (Bswing / 0.1)^2
 
 ### Current status
 
-This is gated on `MaterialCandidate.hasCoreLossData`, which is **never
-true** with the current data snapshot — so this formula is never actually
-invoked with real numbers today. `coreLossStatus` reports `not_evaluated`.
-Closing this gap means sourcing real per-material Steinmetz coefficients
-from datasheets, not writing more code.
+`LossEvaluation.cpp` reports `coreLossStatus: not_evaluated`
+unconditionally - it doesn't call `calculateCoreLoss()` at all, rather
+than calling it behind an `if (material.hasCoreLossData)` check, because
+that flag is **never true** with the current data snapshot *and* this
+function also needs a flux-density-swing value that isn't threaded through
+to the loss-evaluation stage yet. Closing this gap means two things:
+sourcing real per-material Steinmetz coefficients from datasheets, and
+wiring flux-density swing into `evaluateLosses()` so the formula above can
+actually be called - neither is done today.
 
 ---
 

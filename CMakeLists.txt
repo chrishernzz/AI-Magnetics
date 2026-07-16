@@ -53,15 +53,11 @@ set(RULES_SOURCES
     src/rules/DesignRules.cpp
 )
 
-set(DATA_SOURCES
-)
-
 add_library(
     magnetics_engine
     ${CORE_SOURCES}
     ${VALIDATION_SOURCES}
     ${RULES_SOURCES}
-    ${DATA_SOURCES}
 )
 
 target_include_directories(
@@ -154,5 +150,6 @@ add_test(NAME EngineTests COMMAND magnetics_engine_tests)
 # Status Messages
 # ============================================================
 message(STATUS "AIMagnetics configured")
-message(STATUS "Server executable: magnetics_server")
+message(STATUS "Python extension target: magnetics_cpp (built into python/)")
+message(STATUS "Test executable: magnetics_engine_tests")
 message(STATUS "Frontend folder: src/frontend")

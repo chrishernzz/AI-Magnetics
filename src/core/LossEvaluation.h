@@ -27,8 +27,12 @@ struct LossEvaluationResult {
 
 // precondition: none
 // postcondition: computes DC copper loss only when winding.resistanceStatus
-// == Evaluated (uses rmsCurrentA, never peak current); computes core loss
-// only when material.hasCoreLossData; high-frequency (skin/proximity) loss
-// is not implemented in Phase 1 and always reported not_evaluated.
+// == Evaluated (uses rmsCurrentA, never peak current). Core loss and
+// high-frequency (skin/proximity) loss are always reported not_evaluated
+// in Phase 1 - core loss because no material in the current data snapshot
+// has hasCoreLossData set, AND because the flux-density-swing value
+// calculateCoreLoss() needs isn't threaded through to this function yet;
+// high-frequency loss because no skin/proximity model is implemented at
+// all. See docs/FORMULAS.md sections 9-10 for the full explanation.
 LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const WindingDesignResult& winding,
                                      double rmsCurrentA, double switchingFreqHz);
