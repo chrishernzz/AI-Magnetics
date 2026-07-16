@@ -4,7 +4,7 @@
 
 Just start the Python app:
 ```bash
-cd "C:\Users\chernandez1\OneDrive - AMETEK Inc\Desktop\AIMagnetics"
+cd /path/to/AIMagnetics
 python -m uvicorn python.app:app --reload --host 127.0.0.1 --port 8000
 ```
 That's the normal run flow.
@@ -13,7 +13,7 @@ That's the normal run flow.
 
 Rebuild the Python extension first, then run uvicorn:
 ```bash
-cd "C:\Users\chernandez1\OneDrive - AMETEK Inc\Desktop\AIMagnetics"
+cd /path/to/AIMagnetics
 python -m cmake -S . -B build_pybind
 python -m cmake --build build_pybind --config Debug --target magnetics_cpp
 python -m uvicorn python.app:app --reload --host 127.0.0.1 --port 8000
