@@ -123,12 +123,69 @@ button:hover {
 .results-grid {
     padding: 0 35px 35px;
     display: grid;
-    grid-template-columns: repeat(3, minmax(280px, 1fr));
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
     gap: 20px;
 }
 
 .result-panel {
     min-height: 220px;
+}
+
+#feasibility {
+    margin: 0 35px 20px;
+}
+
+.candidate-block {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.candidate-block:last-child {
+    border-bottom: none;
+}
+
+.muted {
+    color: #94a3b8;
+    font-weight: 400;
+    font-size: 0.9rem;
+}
+
+.check-list {
+    list-style: none;
+    margin-top: 10px;
+}
+
+.check-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.check-pass {
+    color: #4ade80;
+}
+
+.check-fail {
+    color: #f87171;
+}
+
+.check-warn {
+    color: #fbbf24;
+}
+
+.check-explanation {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    margin-top: 4px;
+}
+
+details {
+    margin-top: 12px;
+}
+
+summary {
+    cursor: pointer;
+    color: #60a5fa;
 }
 
 .result-block h3 {

@@ -5,6 +5,11 @@ project(AIMagnetics LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# magnetics_engine/magnetics_services are static libraries linked into the
+# magnetics_cpp shared module (pybind11 extension) - needs -fPIC on
+# GCC/Clang or the final link fails ("recompile with -fPIC"). No effect on
+# MSVC.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 execute_process(
@@ -33,12 +38,20 @@ set(CORE_SOURCES
     src/core/CopperLoss.cpp
     src/core/CoreLoss.cpp
     src/core/HighFrequencyLosses.cpp
+    src/core/MaterialEvaluation.cpp
+    src/core/CoreEvaluation.cpp
+    src/core/TurnsAndGapDesign.cpp
+    src/core/WindingDesign.cpp
+    src/core/LossEvaluation.cpp
+    src/core/ThermalEvaluation.cpp
 )
 
 set(VALIDATION_SOURCES
+    src/validation/DesignValidation.cpp
 )
 
 set(RULES_SOURCES
+    src/rules/DesignRules.cpp
 )
 
 set(DATA_SOURCES
@@ -66,6 +79,8 @@ set(BACKEND_SERVICE_SOURCES
     src/backend/services/AreaProductService.cpp
     src/backend/services/MaterialSelectionService.cpp
     src/backend/services/CoreSelectionService.cpp
+    src/backend/services/RequirementDerivationService.cpp
+    src/backend/services/InductorDesignService.cpp
 )
 
 add_library(
@@ -90,7 +105,7 @@ target_include_directories(
 # ============================================================
 
 pybind11_add_module(magnetics_cpp
-    src/python_bindings/CoreSelectionBindings.cpp
+    src/python_bindings/InductorDesignBindings.cpp
 )
 
 target_link_libraries(
@@ -114,6 +129,30 @@ set_target_properties(magnetics_cpp PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/python
 )
 
+
+# ============================================================
+# Tests
+# ============================================================
+
+enable_testing()
+
+add_executable(magnetics_engine_tests
+    tests/cpp/EngineTests.cpp
+)
+
+target_link_libraries(
+    magnetics_engine_tests
+    PRIVATE
+    magnetics_engine
+)
+
+target_include_directories(
+    magnetics_engine_tests
+    PRIVATE
+    src
+)
+
+add_test(NAME EngineTests COMMAND magnetics_engine_tests)
 
 # ============================================================
 # Status Messages

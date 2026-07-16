@@ -10,6 +10,15 @@ struct MaterialData {
     double maxFrequencyHz;
     std::string reason;
     std::string alternatives;
+
+    // Material-specific saturation flux density (T) and core-loss
+    // coefficient. 0.0 means "no data" (real_materials.csv has these
+    // columns but every row is currently 0.0 - see docs/DATA_FILES.md) -
+    // callers must treat 0.0 as missing data, never as a real material
+    // property, and fall back to DesignRules::defaultFluxDensityLimitT /
+    // report core loss as not_evaluated accordingly.
+    double bmaxT = 0.0;
+    double cuLossFactor = 0.0;
 };
 
 class Materials {

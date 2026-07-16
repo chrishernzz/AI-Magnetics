@@ -51,18 +51,15 @@ CoreSelectionResult selectCore(const CoreSelectionInput& input) {
 
     std::cout << "Total candidates: " << candidates.size() << std::endl;
 
-    //if no candidates meet Ap, fallback to largest core
+    //if no candidates meet Ap, this is a legacy single-pick function
+    //(kept only for the raw select_core Python binding - the real pipeline
+    //uses findSuitableCores/CoreEvaluation.cpp, which never falls back to
+    //an oversized core either). Returning the largest core as if it passed
+    //would silently misrepresent an infeasible design as feasible, so this
+    //returns an explicit "no match" sentinel instead.
     if (candidates.empty()) {
-        std::cout << "WARNING: No core meets Ap requirements. " << "Using largest available core." << std::endl;
-
-        const CoreData* largestCore = &cores[0];
-        for (const auto& core : cores) {
-            if (coreAreaProductCm4(core.ae, core.wa) > coreAreaProductCm4(largestCore->ae, largestCore->wa)) {
-                largestCore = &core;
-            }
-        }
-
-        return {largestCore->partNumber, largestCore->material, largestCore->mu, largestCore->al, largestCore->ae, largestCore->wa, largestCore->le};
+        std::cout << "WARNING: No core meets Ap requirements. No fallback core returned." << std::endl;
+        return {"No compatible core found", "Unknown", 0, 0, 0, 0, 0};
     }
 
     //Step 2: Prefer cores matching recommended material
