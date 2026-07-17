@@ -11,7 +11,22 @@ frontend_dir = Path(__file__).resolve().parent.parent / "src" / "frontend"
 
 app = FastAPI(title="AIMagnetics Python API",version="0.1.0",)
 
-app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+
+class NoCacheStaticFiles(StaticFiles):
+    """Plain StaticFiles sends no Cache-Control header at all, which leaves
+    browsers free to apply their own heuristic caching (commonly based on
+    Last-Modified) and can silently keep serving an old app.js/styles.css
+    after a git pull with no way to tell short of comparing bytes by hand.
+    Forcing revalidation on every request costs one cheap conditional GET
+    (304 if unchanged) and makes that entire failure mode impossible."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.mount("/static", NoCacheStaticFiles(directory=frontend_dir), name="static")
 
 def _build_cpp_record(dicts: list[dict], cpp_class, field_map: dict[str, str]) -> list:
     """Converts a list of plain dicts (from magnetics_data.py) into a list of
@@ -73,7 +88,7 @@ def load_real_magnetics_data():
 
 @app.get("/", response_class=FileResponse)
 def read_index():
-    return FileResponse(frontend_dir / "index.html")
+    return FileResponse(frontend_dir / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 from routes.inductor_design import router as inductor_design_router
