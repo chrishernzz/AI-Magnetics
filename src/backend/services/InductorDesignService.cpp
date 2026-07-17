@@ -14,8 +14,7 @@
 
 namespace {
 
-InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCandidate& material,
-                                     const InductorRequirements& requirements, const DesignRules& rules) {
+InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCandidate& material, const InductorRequirements& requirements, const DesignRules& rules) {
     InductorCandidate candidate;
     candidate.material = material;
     candidate.core = core;
@@ -64,10 +63,8 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
 
 }  // namespace
 
-// precondition: Materials::load()/CoreDatabase::load() have been populated
-// postcondition: returns an explainable DesignRecommendation - either at
-// least one fully-passing candidate, or status="no_feasible_design" with
-// the reason (never a silent fallback to an unsafe design).
+//precondition: Materials::load()/CoreDatabase::load() have been populated
+//postcondition: returns an explainable DesignRecommendation - either at least one fully-passing candidate, or status="no_feasible_design" with the reason (never a silent fallback to an unsafe design).
 DesignRecommendation InductorDesignService::run(const InductorDesignRequest& request) {
     DesignRecommendation recommendation;
     DesignRules rules = DesignRules::phase1Default();
@@ -95,7 +92,7 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
     //call the function to calculate the required area product for the inductor design based on the input parameters
     double requiredAreaProductCm4 = calculateAp(apInput);
 
-    
+    //CoreCandiate now gets get picked based on if they meet the required area product and if they are compatible with the suitable materials from stage 1   
     std::vector<CoreCandidate> cores = findSuitableCores(materials, requiredAreaProductCm4);
 
     double largestAvailableAreaProductCm4 = 0.0;
@@ -134,24 +131,17 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
         }
     }
 
-    // Phase 1 ranking: no cost/loss data exists to rank by, so passing
-    // candidates are ordered by area product ascending (smallest adequate
-    // core first) - a plain sizing preference, not a hidden magnetic
-    // constant.
-    std::sort(recommendation.candidates.begin(), recommendation.candidates.end(),
-              [](const InductorCandidate& a, const InductorCandidate& b) {
-                  return a.core.areaProductCm4 < b.core.areaProductCm4;
-              });
+    //Phase 1 ranking: no cost/loss data exists to rank by, so passing candidates are ordered by area product ascending (smallest adequate core first) - a plain sizing preference, not a hidden magnetic constant.
+    std::sort(recommendation.candidates.begin(), recommendation.candidates.end(),[](const InductorCandidate& a, const InductorCandidate& b) {return a.core.areaProductCm4 < b.core.areaProductCm4;});
 
     if (recommendation.candidates.empty()) {
         recommendation.status = "no_feasible_design";
         recommendation.message = "Cores met the area-product requirement, but none passed every magnetic/winding "
                                   "validation check - see rejectedCandidates for details.";
-    } else {
+    } 
+    else {
         recommendation.status = "ok";
-        recommendation.message = std::to_string(recommendation.candidates.size()) +
-                                  " candidate(s) passed every check; " +
-                                  std::to_string(recommendation.rejectedCandidates.size()) + " rejected.";
+        recommendation.message = std::to_string(recommendation.candidates.size()) + " candidate(s) passed every check; " + std::to_string(recommendation.rejectedCandidates.size()) + " rejected.";
     }
 
     return recommendation;
