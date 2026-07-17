@@ -349,50 +349,90 @@ summary {
 
 .table-scroll {
     overflow-x: auto;
+    max-height: 70vh;
+    overflow-y: auto;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.12);
 }
 
 .candidate-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
 }
 
 .candidate-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     text-align: left;
-    padding: 10px 14px;
-    color: #94a3b8;
-    font-size: 0.8rem;
+    padding: 12px 16px;
+    color: #cbd5e1;
+    font-size: 0.78rem;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    letter-spacing: 0.04em;
+    background: #16213d;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
     cursor: pointer;
     white-space: nowrap;
+    user-select: none;
 }
 
 .candidate-table thead th:hover {
-    color: #e2e8f0;
+    color: #93c5fd;
+}
+
+.candidate-table thead th.numeric,
+.candidate-table tbody td.numeric {
+    text-align: right;
 }
 
 .candidate-table tbody td {
-    padding: 12px 14px;
+    padding: 11px 16px;
     color: #e2e8f0;
     white-space: nowrap;
 }
 
 .candidate-row {
     cursor: pointer;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.07);
+    border-left: 3px solid transparent;
+    transition: background 0.12s ease;
+}
+
+/* Each candidate occupies two <tr> slots (the row itself, then its
+   hidden detail row), so every other *candidate* is 4 nth-child steps
+   apart, not 2. */
+.candidate-row:nth-child(4n + 1) {
+    background: rgba(148, 163, 184, 0.035);
+}
+
+.candidate-row.row-pass {
+    border-left-color: rgba(74, 222, 128, 0.55);
+}
+
+.candidate-row.row-reject {
+    border-left-color: rgba(248, 113, 113, 0.4);
 }
 
 .candidate-row:hover {
-    background: rgba(96, 165, 250, 0.06);
+    background: rgba(96, 165, 250, 0.1);
+}
+
+.cell-muted {
+    color: #64748b;
+    font-style: italic;
+    font-size: 0.88em;
 }
 
 .detail-row td {
     white-space: normal;
     background: #0b1424;
-    padding: 18px 20px;
+    padding: 18px 22px;
     border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    border-left: 3px solid rgba(96, 165, 250, 0.3);
 }
 
 .table-empty {
