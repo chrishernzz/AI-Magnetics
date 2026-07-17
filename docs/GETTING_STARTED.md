@@ -42,9 +42,11 @@ cmake -S . -B build_pybind
 
 ### Step 2: Build the Python extension
 ```bash
-cmake --build build_pybind --config Debug --target magnetics_cpp
+cmake --build build_pybind --config Release --target magnetics_cpp
 ```
 This compiles `magnetics_engine` → `magnetics_services` → the `magnetics_cpp` pybind11 module, and places the compiled extension directly in `python/` (per `CMakeLists.txt`'s `LIBRARY_OUTPUT_DIRECTORY` setting), where `python/routes/inductor_design.py` imports it as `import magnetics_cpp`.
+
+**Use `--config Release`, not `Debug`, especially on Windows.** `--config` only matters for multi-configuration generators (Visual Studio on Windows); on a single-config generator (Makefiles/Ninja, the Mac/Linux default) it's silently ignored, which is why this never showed up there. On Windows, MSVC's Debug configuration turns on full STL iterator/container checking (`_ITERATOR_DEBUG_LEVEL=2`), and this engine builds and copies a lot of `std::vector<...>` candidate lists and strings per request - under Debug that can run an order of magnitude slower than Release for no benefit (Phase 1 has no native debugger workflow that needs it). If the tool feels sluggish only on Windows, rebuild with `--config Release`.
 
 ### Step 3: Run the app
 ```bash

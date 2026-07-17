@@ -3,6 +3,17 @@ cmake_policy(SET CMP0074 NEW)
 
 project(AIMagnetics LANGUAGES CXX)
 
+# Single-config generators (Makefiles/Ninja - the Mac/Linux default) build
+# with no optimization at all if CMAKE_BUILD_TYPE is unset, which is silent
+# and easy to not notice. Multi-config generators (Visual Studio) pick their
+# config via --config at build time instead (see docs/GETTING_STARTED.md -
+# use --config Release, not Debug: MSVC's Debug STL iterator/container
+# checking makes this candidate-list-heavy engine dramatically slower for
+# no benefit here), so this only applies to the single-config case.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # magnetics_engine/magnetics_services are static libraries linked into the
