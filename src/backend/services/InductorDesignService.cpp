@@ -75,8 +75,7 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
     std::vector<MaterialCandidate> materials = findSuitableMaterials(requirements.operatingPoint);
     if (materials.empty()) {
         recommendation.status = "no_feasible_design";
-        recommendation.message = "No material candidate has a frequency range covering the requested switching "
-                                  "frequency.";
+        recommendation.message = "No material candidate has a frequency range covering the requested switching frequency.";
         return recommendation;
     }
 
@@ -95,11 +94,14 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
     //CoreCandiate now gets get picked based on if they meet the required area product and if they are compatible with the suitable materials from stage 1   
     std::vector<CoreCandidate> cores = findSuitableCores(materials, requiredAreaProductCm4);
 
+
+    //find the largest Ap among the avilable compatible cores and this value is used to explain how close the available cores are to the required Ap for the inductor design
     double largestAvailableAreaProductCm4 = 0.0;
     for (const auto& core : cores) {
         largestAvailableAreaProductCm4 = std::max(largestAvailableAreaProductCm4, core.areaProductCm4);
     }
 
+    //will keep the cores that meet or exceed the required Ap; Note these cores will continue to the detailed winding and magnetic validation stage
     std::vector<CoreCandidate> feasibleCores;
     for (const auto& core : cores) {
         if (core.meetsAreaProduct) {
@@ -107,6 +109,7 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
         }
     }
 
+    //if there is no core that has a large enough area product to meet the requirements, return a no feasible design recommendation with the required and largest available area product values
     if (feasibleCores.empty()) {
         recommendation.status = "no_feasible_design";
         recommendation.message = "No core met the area-product requirement.";
@@ -136,8 +139,7 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
 
     if (recommendation.candidates.empty()) {
         recommendation.status = "no_feasible_design";
-        recommendation.message = "Cores met the area-product requirement, but none passed every magnetic/winding "
-                                  "validation check - see rejectedCandidates for details.";
+        recommendation.message = "Cores met the area-product requirement, but none passed every magnetic/winding : validation check - see rejectedCandidates for details.";
     } 
     else {
         recommendation.status = "ok";
