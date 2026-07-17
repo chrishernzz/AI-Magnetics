@@ -159,6 +159,15 @@ function formatLoss(status, watts) {
     return `${watts.toFixed(3)} W`;
 }
 
+// Same not_evaluated fact as formatLoss, but as quiet inline text rather
+// than a loud chip - in the dense table this status is the common case
+// (most/all rows), so a chip repeated on every row is noise rather than
+// a useful signal. The chip form is kept for one-off mentions (detail view).
+function formatLossCell(status, watts) {
+    if (status !== "Evaluated") return '<span class="cell-muted">not evaluated</span>';
+    return `${watts.toFixed(3)} W`;
+}
+
 function renderValidationList(validations) {
     return validations
         .map((v) => {
@@ -261,18 +270,18 @@ function renderCandidateTable(result) {
         { key: "status", label: "Status" },
         { key: "core", label: "Core" },
         { key: "material", label: "Material" },
-        { key: "turns", label: "Turns" },
-        { key: "gap", label: "Gap (mm)" },
-        { key: "calcL", label: "Calc L (µH)" },
-        { key: "error", label: "Error %" },
-        { key: "fill", label: "Fill %" },
-        { key: "cuLoss", label: "Cu Loss" },
+        { key: "turns", label: "Turns", numeric: true },
+        { key: "gap", label: "Gap (mm)", numeric: true },
+        { key: "calcL", label: "Calc L (µH)", numeric: true },
+        { key: "error", label: "Error %", numeric: true },
+        { key: "fill", label: "Fill %", numeric: true },
+        { key: "cuLoss", label: "Cu Loss", numeric: true },
     ];
 
     const headerHtml = headers
         .map((h) => {
             const active = h.key === sortKey ? (sortAscending ? " ▲" : " ▼") : "";
-            return `<th data-sort-key="${h.key}">${h.label}${active}</th>`;
+            return `<th data-sort-key="${h.key}"${h.numeric ? ' class="numeric"' : ""}>${h.label}${active}</th>`;
         })
         .join("");
 
@@ -283,16 +292,16 @@ function renderCandidateTable(result) {
                 ? '<span class="chip chip-pass">PASS</span>'
                 : '<span class="chip chip-fail">REJECT</span>';
             return `
-                <tr class="candidate-row" data-row-index="${index}">
+                <tr class="candidate-row ${row.passed ? "row-pass" : "row-reject"}" data-row-index="${index}">
                     <td>${badge}</td>
                     <td>${c.core.partNumber}</td>
                     <td>${c.material.materialFamily}</td>
-                    <td>${c.turnsAndGap.turns}</td>
-                    <td>${c.turnsAndGap.gapMm.toFixed(2)}</td>
-                    <td>${c.turnsAndGap.calculatedInductanceUH.toFixed(2)}</td>
-                    <td>${c.turnsAndGap.inductanceErrorPercent.toFixed(2)}</td>
-                    <td>${(c.winding.fillFactor * 100).toFixed(1)}</td>
-                    <td>${formatLoss(c.losses.copperLossStatus, c.losses.copperLossW)}</td>
+                    <td class="numeric">${c.turnsAndGap.turns}</td>
+                    <td class="numeric">${c.turnsAndGap.gapMm.toFixed(2)}</td>
+                    <td class="numeric">${c.turnsAndGap.calculatedInductanceUH.toFixed(2)}</td>
+                    <td class="numeric">${c.turnsAndGap.inductanceErrorPercent.toFixed(2)}</td>
+                    <td class="numeric">${(c.winding.fillFactor * 100).toFixed(1)}</td>
+                    <td class="numeric">${formatLossCell(c.losses.copperLossStatus, c.losses.copperLossW)}</td>
                 </tr>
                 <tr class="detail-row" data-detail-index="${index}" hidden>
                     <td colspan="9">${renderCandidateDetail(c)}</td>
