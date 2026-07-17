@@ -1,15 +1,15 @@
 #include "InductorDesignService.h"
 #include <algorithm>
 #include <unordered_map>
-#include "../../core/AreaProduct.h"
-#include "../../core/CoreEvaluation.h"
-#include "../../core/LossEvaluation.h"
-#include "../../core/MaterialEvaluation.h"
-#include "../../core/ThermalEvaluation.h"
-#include "../../core/TurnsAndGapDesign.h"
-#include "../../core/WindingDesign.h"
-#include "../../rules/DesignRules.h"
-#include "../../validation/DesignValidation.h"
+#include "core/sizing/AreaProduct.h"
+#include "core/sizing/CoreEvaluation.h"
+#include "core/losses/LossEvaluation.h"
+#include "core/sizing/MaterialEvaluation.h"
+#include "core/thermal/ThermalEvaluation.h"
+#include "core/magnetics/TurnsAndGapDesign.h"
+#include "core/winding/WindingDesign.h"
+#include "rules/DesignRules.h"
+#include "validation/DesignValidation.h"
 #include "RequirementDerivationService.h"
 
 namespace {

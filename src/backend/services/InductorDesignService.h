@@ -1,6 +1,6 @@
 #pragma once
-#include "../../core/DesignRecommendation.h"
-#include "../../core/InductorDesignRequest.h"
+#include "core/model/DesignRecommendation.h"
+#include "core/model/InductorDesignRequest.h"
 
 /*
 

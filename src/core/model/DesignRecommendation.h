@@ -1,8 +1,8 @@
 #pragma once
 #include <string>
 #include <vector>
-#include "InductorCandidate.h"
-#include "../rules/DesignRules.h"
+#include "core/model/InductorCandidate.h"
+#include "rules/DesignRules.h"
 
 /*
 

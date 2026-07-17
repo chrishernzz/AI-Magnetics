@@ -1,6 +1,6 @@
-#include "TurnsAndGapDesign.h"
-#include "GapDesign.h"
-#include "TurnsCalculation.h"
+#include "core/magnetics/TurnsAndGapDesign.h"
+#include "core/magnetics/GapDesign.h"
+#include "core/magnetics/TurnsCalculation.h"
 #include <algorithm>
 #include <cmath>
 

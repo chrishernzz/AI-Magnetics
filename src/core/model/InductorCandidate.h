@@ -1,13 +1,13 @@
 #pragma once
 #include <vector>
-#include "CoreEvaluation.h"
-#include "LossEvaluation.h"
-#include "MaterialEvaluation.h"
-#include "RejectionReason.h"
-#include "ThermalEvaluation.h"
-#include "TurnsAndGapDesign.h"
-#include "WindingDesign.h"
-#include "../validation/Validation.h"
+#include "core/sizing/CoreEvaluation.h"
+#include "core/losses/LossEvaluation.h"
+#include "core/sizing/MaterialEvaluation.h"
+#include "core/model/RejectionReason.h"
+#include "core/thermal/ThermalEvaluation.h"
+#include "core/magnetics/TurnsAndGapDesign.h"
+#include "core/winding/WindingDesign.h"
+#include "validation/Validation.h"
 
 // One fully evaluated material+core pairing, carrying every stage's
 // result plus an overall pass/fail (spec sections 8-10): a candidate is

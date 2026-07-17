@@ -1,4 +1,4 @@
-#include "AreaProduct.h"
+#include "core/sizing/AreaProduct.h"
 
 //precondition: none
 //postcondition: returns the Energy Max Formula so we can see how much mJ it needs

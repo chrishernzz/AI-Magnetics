@@ -4,13 +4,13 @@ This document explains each stage of the inductor sizing process, what parameter
 
 ## Overview
 
-The tool automates inductor design using McLyman's area-product method. Stages 1-3 below explain the underlying frequency-matching and Ap formulas - originally implemented as a single-pick in `MaterialSelection.cpp`/`CoreSelection.cpp`, now superseded by `MaterialEvaluation.cpp`/`CoreEvaluation.cpp`, which apply the same formulas but return every compatible candidate instead of just the first. The formulas themselves didn't change; only the candidate-selection behavior did. The canonical Phase 1 pipeline behind `POST /inductor-design` runs candidate evaluation, turns/gap design, magnetic validation, winding design, and loss evaluation end to end - see Stage 4+ below, which is **implemented**, not a future plan. Formulas for what remains data-gapped (core loss, thermal) are still documented ahead of the data existing.
+The tool automates inductor design using McLyman's area-product method. Stages 1-3 below explain the underlying frequency-matching and Ap formulas - originally implemented as a single-pick in `MaterialSelection.cpp`/`CoreSelection.cpp`, now superseded by `src/core/sizing/MaterialEvaluation.cpp`/`CoreEvaluation.cpp`, which apply the same formulas but return every compatible candidate instead of just the first. The formulas themselves didn't change; only the candidate-selection behavior did. The canonical Phase 1 pipeline behind `POST /inductor-design` runs candidate evaluation, turns/gap design, magnetic validation, winding design, and loss evaluation end to end - see Stage 4+ below, which is **implemented**, not a future plan. Formulas for what remains data-gapped (core loss, thermal) are still documented ahead of the data existing.
 
 ---
 
 ## Stage 1: Material Selection — ✅ Implemented
 
-**File:** `src/core/MaterialEvaluation.cpp` (`findSuitableMaterials()`). Originally a single-pick in `MaterialSelection.cpp`, which has since been removed - the frequency-matching logic below is unchanged, but it now returns every frequency-compatible material as its own candidate instead of just the first match.
+**File:** `src/core/sizing/MaterialEvaluation.cpp` (`findSuitableMaterials()`). Originally a single-pick in `MaterialSelection.cpp`, which has since been removed - the frequency-matching logic below is unchanged, but it now returns every frequency-compatible material as its own candidate instead of just the first match.
 
 **Purpose:** Choose the best magnetic material for the operating frequency.
 
@@ -30,7 +30,7 @@ The tool automates inductor design using McLyman's area-product method. Stages 1
 
 ## Stage 2: Area Product (Ap) Calculation — ✅ Implemented
 
-**File:** `src/core/AreaProduct.cpp`
+**File:** `src/core/sizing/AreaProduct.cpp`
 
 **Purpose:** Determine the minimum physical core size needed to store energy without overheating.
 
@@ -59,7 +59,7 @@ Ap ≈ 3 cm⁴ (core must satisfy this minimum)
 
 ## Stage 3: Core Selection — ✅ Implemented
 
-**File:** `src/core/CoreEvaluation.cpp` (`findSuitableCores()`). Originally a single-pick in `CoreSelection.cpp`, which has since been removed - the Ap-matching logic below is unchanged, but it now returns every material-compatible core (each flagged `meetsAreaProduct`) instead of one pick, and never falls back to an oversized core.
+**File:** `src/core/sizing/CoreEvaluation.cpp` (`findSuitableCores()`). Originally a single-pick in `CoreSelection.cpp`, which has since been removed - the Ap-matching logic below is unchanged, but it now returns every material-compatible core (each flagged `meetsAreaProduct`) instead of one pick, and never falls back to an oversized core.
 
 **Purpose:** Find a real, available inductor core from the database that satisfies the Ap requirement.
 
@@ -95,7 +95,7 @@ carried forward.
 
 ## Stage 4+: Turns/Gap, Magnetic Validation, Winding, Losses, Thermal — ✅ Implemented (data-gapped in places)
 
-**Files:** `src/core/GapDesign.cpp`, `src/core/TurnsAndGapDesign.cpp`, `src/validation/DesignValidation.cpp`, `src/core/WindingDesign.cpp`, `src/core/LossEvaluation.cpp` (calling `CopperLoss.cpp`/`CoreLoss.cpp`/`HighFrequencyLosses.cpp`), `src/core/ThermalEvaluation.cpp`, orchestrated by `src/backend/services/InductorDesignService.cpp` behind `POST /inductor-design`.
+**Files:** `src/core/magnetics/GapDesign.cpp`, `src/core/magnetics/TurnsAndGapDesign.cpp`, `src/validation/DesignValidation.cpp`, `src/core/winding/WindingDesign.cpp`, `src/core/losses/LossEvaluation.cpp` (calling `src/core/losses/CopperLoss.cpp`/`src/core/losses/CoreLoss.cpp`/`src/core/losses/HighFrequencyLosses.cpp`), `src/core/thermal/ThermalEvaluation.cpp`, orchestrated by `src/backend/services/InductorDesignService.cpp` behind `POST /inductor-design`.
 
 **Turns and gap (implemented, iterated together):**
 ```
@@ -103,23 +103,23 @@ AL0(nH/turn^2) = 0.4*pi * muR * Ae_cm2 / Le_cm * 10                       (ungap
 lg_cm          = 0.4*pi * N^2 * Ae_cm2 * 10 / L_target_nH - Le_cm/muR      (required gap for N turns)
 AL_eff(nH/turn^2) = 0.4*pi * Ae_cm2 * 10 / (Le_cm/muR + gapCm)             (gapped AL)
 ```
-`TurnsAndGapDesign.cpp` seeds turns from the existing `TurnsCalculation.cpp` formula (`N = round(sqrt(L/AL))` against the ungapped AL - this file was previously mis-documented elsewhere as a stub; it has always been implemented), then iterates gap -> effective AL -> turns until the integer turns count stabilizes (2-4 iterations typical) or is rejected (gap exceeds 40% of the core's magnetic path length, or no convergence within 15 iterations). Verified against `data/real_cores.csv`'s `E100/60/28-3C90` row to <0.03% (see `tests/cpp/EngineTests.cpp`).
+`src/core/magnetics/TurnsAndGapDesign.cpp` seeds turns from the existing `src/core/magnetics/TurnsCalculation.cpp` formula (`N = round(sqrt(L/AL))` against the ungapped AL - this file was previously mis-documented elsewhere as a stub; it has always been implemented), then iterates gap -> effective AL -> turns until the integer turns count stabilizes (2-4 iterations typical) or is rejected (gap exceeds 40% of the core's magnetic path length, or no convergence within 15 iterations). Verified against `data/real_cores.csv`'s `E100/60/28-3C90` row to <0.03% (see `tests/cpp/EngineTests.cpp`).
 
 **Magnetic validation (six named checks, `DesignValidation.cpp`):** InductanceValidation, PeakFluxValidation (`Bpk = L*Ipk/(N*Ae)` vs. the applicable flux limit), SaturationValidation (margin vs. `DesignRules.minimumSaturationMarginPercent`), WindingFitValidation, CurrentDensityValidation, ThermalValidation. Every failed check is reported, not just the first.
 
-**Winding design (`WindingDesign.cpp`):** required conductor area from RMS current and `DesignRules.allowableCurrentDensityAperCm2`, AWG gauge selection (`src/data/AwgTable.h`, standard NEMA MW1000 reference geometry) with parallel strands when a single strand would be impractically thick, fill factor, current density - all computed. DCR and total wire length are reported `not_evaluated`: `data/real_cores.csv` has no mean-length-per-turn column.
+**Winding design (`src/core/winding/WindingDesign.cpp`):** required conductor area from RMS current and `DesignRules.allowableCurrentDensityAperCm2`, AWG gauge selection (`src/data/AwgTable.h`, standard NEMA MW1000 reference geometry) with parallel strands when a single strand would be impractically thick, fill factor, current density - all computed. DCR and total wire length are reported `not_evaluated`: `data/real_cores.csv` has no mean-length-per-turn column.
 
-**Copper Loss (`CopperLoss.cpp`, implemented):**
+**Copper Loss (`src/core/losses/CopperLoss.cpp`, implemented):**
 ```
 P_cu = I_rms^2 * DCR
 ```
 Only computed when `WindingDesign` produced a real DCR - currently never, per the data gap above, so `losses.copperLossStatus` is `not_evaluated` for every candidate today.
 
-**Core Loss (`CoreLoss.cpp`, implemented but unused with real data):** a simplified, documented-as-non-Steinmetz loss-density model, gated on `MaterialCandidate.hasCoreLossData`. Every material's `CuLossFactor` is 0.0 in `data/real_materials.csv`, so this is never invoked with real coefficients today - `losses.coreLossStatus` is `not_evaluated`.
+**Core Loss (`src/core/losses/CoreLoss.cpp`, implemented but unused with real data):** a simplified, documented-as-non-Steinmetz loss-density model, gated on `MaterialCandidate.hasCoreLossData`. Every material's `CuLossFactor` is 0.0 in `data/real_materials.csv`, so this is never invoked with real coefficients today - `losses.coreLossStatus` is `not_evaluated`.
 
-**High-frequency (skin/proximity) loss:** not implemented in Phase 1 (`HighFrequencyLosses.cpp` still returns 0.0) - always reported `not_evaluated`, never presented as a real 0 W result.
+**High-frequency (skin/proximity) loss:** not implemented in Phase 1 (`src/core/losses/HighFrequencyLosses.cpp` still returns 0.0) - always reported `not_evaluated`, never presented as a real 0 W result.
 
-**Thermal evaluation (`ThermalEvaluation.cpp`):** always `not_evaluated` - no thermal-resistance model or surface-area data exists in either CSV yet.
+**Thermal evaluation (`src/core/thermal/ThermalEvaluation.cpp`):** always `not_evaluated` - no thermal-resistance model or surface-area data exists in either CSV yet.
 
 **Turns count sanity, once real turns exist:** the tool doesn't flag turns < 5 or > 100 as impractical yet - only the six named validation checks above run.
 

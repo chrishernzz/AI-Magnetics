@@ -48,18 +48,18 @@ See [WORKFLOW.md](WORKFLOW.md) for formulas and the current status of each stage
 ---
 
 ## Status
-- ✅ Material candidate evaluation (`MaterialEvaluation.cpp` — `findSuitableMaterials()`, replaces the old single-pick)
+- ✅ Material candidate evaluation (`src/core/sizing/MaterialEvaluation.cpp` — `findSuitableMaterials()`, replaces the old single-pick)
 - ✅ Area product calculation, sourced from the named `DesignRules::phase1Default()` ruleset
-- ✅ Core candidate evaluation (`CoreEvaluation.cpp` — `findSuitableCores()`); no silent oversized fallback — returns `no_feasible_design` with the required/largest-available area product instead
-- ✅ Gap design (`GapDesign.cpp`) and turns/gap convergence (`TurnsAndGapDesign.cpp`) — implemented and iterated together
+- ✅ Core candidate evaluation (`src/core/sizing/CoreEvaluation.cpp` — `findSuitableCores()`); no silent oversized fallback — returns `no_feasible_design` with the required/largest-available area product instead
+- ✅ Gap design (`src/core/magnetics/GapDesign.cpp`) and turns/gap convergence (`src/core/magnetics/TurnsAndGapDesign.cpp`) — implemented and iterated together
 - ✅ Magnetic validation (`DesignValidation.cpp`) — InductanceValidation, PeakFluxValidation, SaturationValidation, WindingFitValidation, CurrentDensityValidation, ThermalValidation
-- ✅ Winding design (`WindingDesign.cpp`) — AWG wire selection, fill factor, current density
-- ✅ DC copper loss (`CopperLoss.cpp`), called from `LossEvaluation.cpp`
+- ✅ Winding design (`src/core/winding/WindingDesign.cpp`) — AWG wire selection, fill factor, current density
+- ✅ DC copper loss (`src/core/losses/CopperLoss.cpp`), called from `src/core/losses/LossEvaluation.cpp`
 - ⚠️ DCR / total wire length — `not_evaluated`: `data/real_cores.csv` has no mean-length-per-turn column (data gap, not a code gap)
-- ⚠️ Core loss (`CoreLoss.cpp`) — `not_evaluated`: `data/real_materials.csv`'s `CuLossFactor` is 0.0 for every material, and flux-density swing isn't threaded into `LossEvaluation.cpp` yet either (data gap, not a code gap — see [FORMULAS.md](FORMULAS.md) section 9)
+- ⚠️ Core loss (`src/core/losses/CoreLoss.cpp`) — `not_evaluated`: `data/real_materials.csv`'s `CuLossFactor` is 0.0 for every material, and flux-density swing isn't threaded into `src/core/losses/LossEvaluation.cpp` yet either (data gap, not a code gap — see [FORMULAS.md](FORMULAS.md) section 9)
 - ⚠️ High-frequency (skin/proximity) loss — not implemented in Phase 1, reported `not_evaluated`
-- ⚠️ Thermal evaluation (`ThermalEvaluation.cpp`) — `not_evaluated`: no thermal-resistance model or data yet
-- ✅ `TurnsCalculation.cpp` is fully implemented (`N = round(sqrt(L/AL))`) — this was previously mis-documented as a stub in several files; it's used as the seed estimate inside `TurnsAndGapDesign.cpp`'s convergence loop
+- ⚠️ Thermal evaluation (`src/core/thermal/ThermalEvaluation.cpp`) — `not_evaluated`: no thermal-resistance model or data yet
+- ✅ `src/core/magnetics/TurnsCalculation.cpp` is fully implemented (`N = round(sqrt(L/AL))`) — this was previously mis-documented as a stub in several files; it's used as the seed estimate inside `src/core/magnetics/TurnsAndGapDesign.cpp`'s convergence loop
 - ✅ Automated tests — `ctest` (C++ unit-conversion + gap/AL formula checks) and `pytest tests/python` (scenario/reference-design checks against `data/test_scenarios.csv` / `data/reference_designs.csv`, with a documented `xfail` for the core-part-number data mismatch — see [DATA_FILES.md](DATA_FILES.md))
 
 ---

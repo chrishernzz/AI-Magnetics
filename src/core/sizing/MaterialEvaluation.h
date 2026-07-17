@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include "InductorRequirements.h"
+#include "core/model/InductorRequirements.h"
 
 /*STAGE 1: Material candidate evaluation
 

@@ -93,7 +93,7 @@ Winding design (Section 6) and DC copper loss (Section 8).
 
 ## 2. Stored Energy and Required Area Product (Ap)
 
-**File:** `src/core/AreaProduct.cpp` — this is the **McLyman area-product
+**File:** `src/core/sizing/AreaProduct.cpp` — this is the **McLyman area-product
 method**, from Colonel William McLyman's *Transformer and Inductor Design
 Handbook*, the standard reference text for this kind of sizing.
 
@@ -150,7 +150,7 @@ Core candidate evaluation (Section 3).
 
 ## 3. Core-Side Area Product (Does This Core Meet the Requirement?)
 
-**File:** `src/core/CoreEvaluation.cpp`
+**File:** `src/core/sizing/CoreEvaluation.cpp`
 
 ### What it's for
 
@@ -196,7 +196,7 @@ Turns and gap design (Section 4) — but only for cores that pass this check.
 
 ## 4. Turns and Air Gap (Gapped-Core Magnetic Circuit)
 
-**Files:** `src/core/GapDesign.cpp` (the physics), `src/core/
+**Files:** `src/core/magnetics/GapDesign.cpp` (the physics), `src/core/
 TurnsAndGapDesign.cpp` (the process that uses it)
 
 ### What it's for
@@ -350,7 +350,7 @@ candidate and its explanation appears in `rejectionReasons`.
 
 ## 6. Winding Design
 
-**File:** `src/core/WindingDesign.cpp`, using the standard AWG (American
+**File:** `src/core/winding/WindingDesign.cpp`, using the standard AWG (American
 Wire Gauge) reference table in `src/data/AwgTable.h`
 
 ### What it's for
@@ -429,7 +429,7 @@ true` in its result.
 
 ## 8. DC Copper Loss
 
-**File:** `src/core/CopperLoss.cpp`, orchestrated by `src/core/
+**File:** `src/core/losses/CopperLoss.cpp`, orchestrated by `src/core/
 LossEvaluation.cpp`
 
 ### What it's for
@@ -472,7 +472,7 @@ rather than presenting `0 W` as if it were a real, computed answer.
 
 ## 9. Core Loss (Implemented, Not Currently Used With Real Data)
 
-**File:** `src/core/CoreLoss.cpp`
+**File:** `src/core/losses/CoreLoss.cpp`
 
 ### What it's for
 
@@ -502,7 +502,7 @@ Pv = CuLossFactor * (f / 100000) * (Bswing / 0.1)^2
 
 ### Current status
 
-`LossEvaluation.cpp` reports `coreLossStatus: not_evaluated`
+`src/core/losses/LossEvaluation.cpp` reports `coreLossStatus: not_evaluated`
 unconditionally - it doesn't call `calculateCoreLoss()` at all, rather
 than calling it behind an `if (material.hasCoreLossData)` check, because
 that flag is **never true** with the current data snapshot *and* this
@@ -519,11 +519,11 @@ actually be called - neither is done today.
 Two results the engine could eventually produce aren't implemented at all
 yet, for different reasons than the data gaps above:
 
-- **Skin/proximity effect loss** (`src/core/HighFrequencyLosses.cpp`) —
+- **Skin/proximity effect loss** (`src/core/losses/HighFrequencyLosses.cpp`) —
   the AC resistance increase caused by high-frequency current crowding
   toward the outside of a conductor. No model is coded yet; this is a
   genuine scope gap, not a data gap.
-- **Thermal rise** (`src/core/ThermalEvaluation.cpp`) — predicting
+- **Thermal rise** (`src/core/thermal/ThermalEvaluation.cpp`) — predicting
   temperature rise from total loss needs a thermal-resistance model (how
   effectively a given core sheds heat to ambient air), and no such model
   or supporting data exists in this project yet.

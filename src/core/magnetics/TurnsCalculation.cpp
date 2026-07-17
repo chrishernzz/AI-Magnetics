@@ -1,4 +1,4 @@
-#include "TurnsCalculation.h"
+#include "core/magnetics/TurnsCalculation.h"
 #include <cmath>
 //precondition: none
 //postcondition: returns the number of turns required for the inductor based on the inductance and AL value of the core

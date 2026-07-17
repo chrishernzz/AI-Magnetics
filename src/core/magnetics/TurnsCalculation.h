@@ -1,7 +1,7 @@
 #pragma once
 
-#include "CoreSelection.h"
-#include "GapDesign.h"
+#include "core/sizing/CoreSelection.h"
+#include "core/magnetics/GapDesign.h"
 
 // STAGE 5: Turns
 /*

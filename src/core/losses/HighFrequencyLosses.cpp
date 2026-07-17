@@ -1,4 +1,4 @@
-#include "HighFrequencyLosses.h"
+#include "core/losses/HighFrequencyLosses.h"
 
 double calculateHighFrequencyLoss(double switchingFreqHz, double wireDiameterCm) {
     (void)switchingFreqHz;

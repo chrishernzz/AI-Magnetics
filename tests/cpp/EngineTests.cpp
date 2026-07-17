@@ -6,8 +6,8 @@
 #include <cassert>
 #include <cmath>
 #include <cstdio>
-#include "core/GapDesign.h"
-#include "core/ThermalEvaluation.h"
+#include "core/magnetics/GapDesign.h"
+#include "core/thermal/ThermalEvaluation.h"
 #include "validation/DesignValidation.h"
 
 namespace {
