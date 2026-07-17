@@ -1,4 +1,4 @@
-#include "GapDesign.h"
+#include "core/magnetics/GapDesign.h"
 
 namespace {
 constexpr double kPi = 3.14159265358979323846;

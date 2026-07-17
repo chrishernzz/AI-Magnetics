@@ -1,5 +1,10 @@
 const ENDPOINT = "/inductor-design";
 
+let lastResult = null;
+let currentFilter = "all"; // all | passing | rejected
+let sortKey = "status";
+let sortAscending = true;
+
 function buildPayload() {
     const toleranceRaw = document.getElementById("tolerance").value;
 
@@ -19,6 +24,20 @@ function buildPayload() {
     return payload;
 }
 
+function checkCurrentSanity() {
+    const warningElement = document.getElementById("currentWarning");
+    if (!warningElement) return;
+
+    const peak = Number(document.getElementById("current").value);
+    const rms = Number(document.getElementById("rmsCurrent").value);
+
+    if (peak > 0 && rms > 0 && rms > peak) {
+        warningElement.textContent = "RMS current is higher than peak current - double check these values.";
+    } else {
+        warningElement.textContent = "";
+    }
+}
+
 function setStatus(message, isError = false) {
     const status = document.getElementById("statusMessage");
     if (!status) return;
@@ -27,10 +46,14 @@ function setStatus(message, isError = false) {
 }
 
 function clearResults() {
-    ["feasibility", "candidates", "rejected", "designSummary", "assistant"].forEach((id) => {
+    ["feasibility", "triageStrip", "designSummary", "assistant"].forEach((id) => {
         const element = document.getElementById(id);
         if (element) element.innerHTML = "";
     });
+    const table = document.getElementById("candidateTable");
+    if (table) table.innerHTML = "";
+    const chips = document.getElementById("filterChips");
+    if (chips) chips.innerHTML = "";
 }
 
 async function postRequest(endpoint, payload) {
@@ -91,6 +114,51 @@ function renderFeasibility(result) {
     }
 }
 
+// Tallies why candidates were rejected so an engineer can triage a batch
+// of failures at a glance instead of opening each one individually.
+function renderTriageStrip(result) {
+    const element = document.getElementById("triageStrip");
+    if (!element) return;
+
+    const total = result.candidates.length + result.rejectedCandidates.length;
+    if (total === 0) {
+        element.innerHTML = "";
+        return;
+    }
+
+    const tally = new Map();
+    result.rejectedCandidates.forEach((candidate) => {
+        candidate.rejectionReasons.forEach((reason) => {
+            tally.set(reason.checkName, (tally.get(reason.checkName) || 0) + 1);
+        });
+    });
+
+    const chips = [...tally.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, count]) => `<span class="tally-chip">${name} × ${count}</span>`)
+        .join("");
+
+    element.innerHTML = `
+        <div class="triage-counts">
+            <span class="triage-count triage-total"><strong>${total}</strong> evaluated</span>
+            <span class="triage-count triage-pass"><strong>${result.candidates.length}</strong> passing</span>
+            <span class="triage-count triage-fail"><strong>${result.rejectedCandidates.length}</strong> rejected</span>
+        </div>
+        ${chips ? `<div class="triage-tally"><span class="triage-tally-label">Why they were rejected:</span> ${chips}</div>` : ""}
+    `;
+}
+
+function statusChip(status) {
+    if (status === "Evaluated") return "";
+    if (status === "NotEvaluated") return '<span class="chip chip-warn">not evaluated</span>';
+    return `<span class="chip chip-fail">${status}</span>`;
+}
+
+function formatLoss(status, watts) {
+    if (status !== "Evaluated") return statusChip(status);
+    return `${watts.toFixed(3)} W`;
+}
+
 function renderValidationList(validations) {
     return validations
         .map((v) => {
@@ -108,67 +176,179 @@ function renderValidationList(validations) {
         .join("");
 }
 
-function renderCandidate(candidate) {
-    const warnings = candidate.material.missingDataWarnings.concat(candidate.winding.missingData, candidate.losses.missingData);
+function candidateRows(result) {
+    const passing = result.candidates.map((c) => ({ candidate: c, passed: true }));
+    const rejected = result.rejectedCandidates.map((c) => ({ candidate: c, passed: false }));
+    return passing.concat(rejected);
+}
+
+function sortValue(row, key) {
+    const c = row.candidate;
+    switch (key) {
+        case "status":
+            return row.passed ? 0 : 1;
+        case "core":
+            return c.core.partNumber;
+        case "material":
+            return c.material.materialFamily;
+        case "turns":
+            return c.turnsAndGap.turns;
+        case "gap":
+            return c.turnsAndGap.gapMm;
+        case "calcL":
+            return c.turnsAndGap.calculatedInductanceUH;
+        case "error":
+            return Math.abs(c.turnsAndGap.inductanceErrorPercent);
+        case "fill":
+            return c.winding.fillFactor;
+        case "cuLoss":
+            return c.losses.copperLossStatus === "Evaluated" ? c.losses.copperLossW : -1;
+        default:
+            return 0;
+    }
+}
+
+function renderCandidateDetail(candidate) {
+    const warnings = candidate.material.missingDataWarnings
+        .concat(candidate.winding.missingData || [])
+        .concat(candidate.losses.missingData || []);
 
     return `
-        <div class="result-block candidate-block">
-            <h3>${candidate.core.partNumber} <span class="muted">(${candidate.material.materialFamily})</span></h3>
-            <p>Turns: <strong>${candidate.turnsAndGap.turns}</strong>, Gap: <strong>${candidate.turnsAndGap.gapMm.toFixed(2)} mm</strong></p>
-            <p>Calculated inductance: <strong>${candidate.turnsAndGap.calculatedInductanceUH.toFixed(2)} µH</strong>
-               (error ${candidate.turnsAndGap.inductanceErrorPercent.toFixed(2)}%)</p>
-            <p>Winding: <strong>${candidate.winding.wireDescription}</strong>,
-               fill factor ${(candidate.winding.fillFactor * 100).toFixed(1)}%,
-               current density ${candidate.winding.currentDensityAperMm2.toFixed(2)} A/mm²</p>
-            <p>DC copper loss: <strong>${
-                candidate.losses.copperLossStatus === "Evaluated"
-                    ? candidate.losses.copperLossW.toFixed(3) + " W"
-                    : "not evaluated"
-            }</strong>,
-               core loss: <strong>${candidate.losses.coreLossStatus === "Evaluated" ? candidate.losses.coreLossW.toFixed(3) + " W" : "not evaluated"}</strong></p>
-            <details>
-                <summary>Validation checks</summary>
-                <ul class="check-list">${renderValidationList(candidate.validations)}</ul>
-            </details>
-            ${
-                candidate.rejectionReasons.length
-                    ? `<details open><summary>Rejection reasons</summary><ul class="check-list">${candidate.rejectionReasons
-                          .map((r) => `<li class="check-fail">${r.checkName}: ${r.explanation}</li>`)
-                          .join("")}</ul></details>`
-                    : ""
-            }
-            ${
-                warnings.length
-                    ? `<details><summary>Missing-data warnings</summary><ul>${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
-                    : ""
-            }
-        </div>
+        <p>Winding: <strong>${candidate.winding.wireDescription}</strong>,
+           fill factor ${(candidate.winding.fillFactor * 100).toFixed(1)}%,
+           current density ${candidate.winding.currentDensityAperMm2.toFixed(2)} A/mm²</p>
+        <p>Core loss: <strong>${formatLoss(candidate.losses.coreLossStatus, candidate.losses.coreLossW)}</strong></p>
+        <details>
+            <summary>Validation checks (${candidate.validations.length})</summary>
+            <ul class="check-list">${renderValidationList(candidate.validations)}</ul>
+        </details>
+        ${
+            candidate.rejectionReasons.length
+                ? `<details open><summary>Rejection reasons</summary><ul class="check-list">${candidate.rejectionReasons
+                      .map((r) => `<li class="check-fail">${r.checkName}: ${r.explanation}</li>`)
+                      .join("")}</ul></details>`
+                : ""
+        }
+        ${
+            warnings.length
+                ? `<details><summary>Missing-data warnings</summary><ul>${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
+                : ""
+        }
     `;
 }
 
-function renderCandidates(candidates) {
-    const element = document.getElementById("candidates");
-    if (!element) return;
+function renderCandidateTable(result) {
+    const table = document.getElementById("candidateTable");
+    if (!table) return;
 
-    if (candidates.length === 0) {
-        element.innerHTML = `<div class="result-block"><h3>Passing Candidates</h3><p>None.</p></div>`;
+    let rows = candidateRows(result);
+    if (currentFilter === "passing") rows = rows.filter((r) => r.passed);
+    if (currentFilter === "rejected") rows = rows.filter((r) => !r.passed);
+
+    rows.sort((a, b) => {
+        const av = sortValue(a, sortKey);
+        const bv = sortValue(b, sortKey);
+        const cmp = typeof av === "string" ? av.localeCompare(bv) : av - bv;
+        return sortAscending ? cmp : -cmp;
+    });
+
+    if (rows.length === 0) {
+        table.innerHTML = `<tbody><tr><td class="table-empty">No candidates match this filter.</td></tr></tbody>`;
         return;
     }
 
-    element.innerHTML = `<h3>Passing Candidates (${candidates.length})</h3>` + candidates.map(renderCandidate).join("");
+    const headers = [
+        { key: "status", label: "Status" },
+        { key: "core", label: "Core" },
+        { key: "material", label: "Material" },
+        { key: "turns", label: "Turns" },
+        { key: "gap", label: "Gap (mm)" },
+        { key: "calcL", label: "Calc L (µH)" },
+        { key: "error", label: "Error %" },
+        { key: "fill", label: "Fill %" },
+        { key: "cuLoss", label: "Cu Loss" },
+    ];
+
+    const headerHtml = headers
+        .map((h) => {
+            const active = h.key === sortKey ? (sortAscending ? " ▲" : " ▼") : "";
+            return `<th data-sort-key="${h.key}">${h.label}${active}</th>`;
+        })
+        .join("");
+
+    const bodyHtml = rows
+        .map((row, index) => {
+            const c = row.candidate;
+            const badge = row.passed
+                ? '<span class="chip chip-pass">PASS</span>'
+                : '<span class="chip chip-fail">REJECT</span>';
+            return `
+                <tr class="candidate-row" data-row-index="${index}">
+                    <td>${badge}</td>
+                    <td>${c.core.partNumber}</td>
+                    <td>${c.material.materialFamily}</td>
+                    <td>${c.turnsAndGap.turns}</td>
+                    <td>${c.turnsAndGap.gapMm.toFixed(2)}</td>
+                    <td>${c.turnsAndGap.calculatedInductanceUH.toFixed(2)}</td>
+                    <td>${c.turnsAndGap.inductanceErrorPercent.toFixed(2)}</td>
+                    <td>${(c.winding.fillFactor * 100).toFixed(1)}</td>
+                    <td>${formatLoss(c.losses.copperLossStatus, c.losses.copperLossW)}</td>
+                </tr>
+                <tr class="detail-row" data-detail-index="${index}" hidden>
+                    <td colspan="9">${renderCandidateDetail(c)}</td>
+                </tr>
+            `;
+        })
+        .join("");
+
+    table.innerHTML = `<thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody>`;
+
+    table.querySelectorAll("th[data-sort-key]").forEach((th) => {
+        th.addEventListener("click", () => {
+            const key = th.dataset.sortKey;
+            if (sortKey === key) {
+                sortAscending = !sortAscending;
+            } else {
+                sortKey = key;
+                sortAscending = true;
+            }
+            renderCandidateTable(lastResult);
+        });
+    });
+
+    table.querySelectorAll(".candidate-row").forEach((tr) => {
+        tr.addEventListener("click", () => {
+            const detailRow = table.querySelector(`.detail-row[data-detail-index="${tr.dataset.rowIndex}"]`);
+            if (detailRow) detailRow.hidden = !detailRow.hidden;
+        });
+    });
 }
 
-function renderRejected(rejectedCandidates) {
-    const element = document.getElementById("rejected");
+function renderFilterChips(result) {
+    const element = document.getElementById("filterChips");
     if (!element) return;
 
-    if (rejectedCandidates.length === 0) {
-        element.innerHTML = "";
-        return;
-    }
+    const counts = {
+        all: result.candidates.length + result.rejectedCandidates.length,
+        passing: result.candidates.length,
+        rejected: result.rejectedCandidates.length,
+    };
+    const labels = { all: "All", passing: "Passing", rejected: "Rejected" };
 
-    element.innerHTML =
-        `<h3>Rejected Candidates (${rejectedCandidates.length})</h3>` + rejectedCandidates.map(renderCandidate).join("");
+    element.innerHTML = Object.keys(labels)
+        .map(
+            (key) =>
+                `<button type="button" class="filter-chip${key === currentFilter ? " active" : ""}" data-filter="${key}">${labels[key]} (${counts[key]})</button>`
+        )
+        .join("");
+
+    element.querySelectorAll(".filter-chip").forEach((button) => {
+        button.addEventListener("click", () => {
+            currentFilter = button.dataset.filter;
+            renderFilterChips(lastResult);
+            renderCandidateTable(lastResult);
+        });
+    });
 }
 
 function renderDesignSummary(result) {
@@ -176,7 +356,7 @@ function renderDesignSummary(result) {
     if (!element) return;
 
     if (result.candidates.length === 0) {
-        element.innerHTML = `<p>No passing candidate - see the feasibility panel and rejected candidates for why.</p>`;
+        element.innerHTML = `<p>No passing candidate - see the triage panel and candidate table for why.</p>`;
         return;
     }
 
@@ -201,16 +381,25 @@ async function generateRecommendation() {
     clearResults();
     setStatus("Generating recommendation...");
 
+    const button = document.getElementById("generateButton");
+    button.disabled = true;
+    button.textContent = "Generating...";
+
     try {
         const payload = buildPayload();
         const result = await postRequest(ENDPOINT, payload);
+        lastResult = result;
+        currentFilter = "all";
+        sortKey = "status";
+        sortAscending = true;
 
         console.log("DesignRecommendation", result);
 
         renderRules(result.activeRules);
         renderFeasibility(result);
-        renderCandidates(result.candidates);
-        renderRejected(result.rejectedCandidates);
+        renderTriageStrip(result);
+        renderFilterChips(result);
+        renderCandidateTable(result);
         renderDesignSummary(result);
 
         setStatus(
@@ -221,9 +410,15 @@ async function generateRecommendation() {
     } catch (error) {
         console.error(error);
         setStatus(error.message, true);
+    } finally {
+        button.disabled = false;
+        button.textContent = "Generate Recommendation";
     }
 }
 
 window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("generateButton").addEventListener("click", generateRecommendation);
+    ["current", "rmsCurrent"].forEach((id) => {
+        document.getElementById(id).addEventListener("input", checkCurrentSanity);
+    });
 });

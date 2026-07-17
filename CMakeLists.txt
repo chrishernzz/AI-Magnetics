@@ -31,18 +31,18 @@ find_package(pybind11 CONFIG REQUIRED PATHS "${pybind11_DIR}")
 # ============================================================
 
 set(CORE_SOURCES
-    src/core/AreaProduct.cpp
-    src/core/GapDesign.cpp
-    src/core/TurnsCalculation.cpp
-    src/core/CopperLoss.cpp
-    src/core/CoreLoss.cpp
-    src/core/HighFrequencyLosses.cpp
-    src/core/MaterialEvaluation.cpp
-    src/core/CoreEvaluation.cpp
-    src/core/TurnsAndGapDesign.cpp
-    src/core/WindingDesign.cpp
-    src/core/LossEvaluation.cpp
-    src/core/ThermalEvaluation.cpp
+    src/core/sizing/AreaProduct.cpp
+    src/core/sizing/MaterialEvaluation.cpp
+    src/core/sizing/CoreEvaluation.cpp
+    src/core/magnetics/GapDesign.cpp
+    src/core/magnetics/TurnsCalculation.cpp
+    src/core/magnetics/TurnsAndGapDesign.cpp
+    src/core/winding/WindingDesign.cpp
+    src/core/losses/CopperLoss.cpp
+    src/core/losses/CoreLoss.cpp
+    src/core/losses/HighFrequencyLosses.cpp
+    src/core/losses/LossEvaluation.cpp
+    src/core/thermal/ThermalEvaluation.cpp
 )
 
 set(VALIDATION_SOURCES

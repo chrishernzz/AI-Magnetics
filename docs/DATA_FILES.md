@@ -100,12 +100,12 @@ field mapping, since that's what these columns became.
 ```
 4. Verify:
 - `Material` matches a `Name` in `materials.csv` exactly (case-sensitive)
-- `Ae` and `Wa` are in mm² (not cm²) — this is what `CoreEvaluation.cpp` (formerly `CoreSelection.cpp`, since removed) expects; it converts internally via `(Ae × Wa) × 1e-4` to get cm⁴
+- `Ae` and `Wa` are in mm² (not cm²) — this is what `src/core/sizing/CoreEvaluation.cpp` (formerly `CoreSelection.cpp`, since removed) expects; it converts internally via `(Ae × Wa) × 1e-4` to get cm⁴
 5. This exact file (`cores.csv`) is gone and isn't read by the app. If you meant `data/real_cores.csv` (the current file): editing it directly *would* take effect on restart, but don't — it's a generated snapshot. Adjust the filters in `scripts/export_real_data.py` and re-run it instead, so the file stays reproducible.
 
 ### Calculation Tips
 
-`CoreEvaluation.cpp`'s core-side area product: `Ap_cm4 = (Ae_mm² × Wa_mm²) × 1e-4`. This is a different Ap than the one computed by `AreaProduct.cpp` (which computes the *required* Ap from L, Ipk, Ku, Bmax, J) — the two are compared against each other in Stage 3, not the same calculation.
+`src/core/sizing/CoreEvaluation.cpp`'s core-side area product: `Ap_cm4 = (Ae_mm² × Wa_mm²) × 1e-4`. This is a different Ap than the one computed by `src/core/sizing/AreaProduct.cpp` (which computes the *required* Ap from L, Ipk, Ku, Bmax, J) — the two are compared against each other in Stage 3, not the same calculation.
 
 If a datasheet gives µ instead of AL:
 ```
@@ -118,7 +118,7 @@ AL ≈ 0.4π × µ₀ × µᵣ × (Ae / Le) × 10⁹ (nH/100T; µ₀ = 4π×10�
 
 **Purpose:** Database of magnetic materials and their properties.
 **Location:** `data/materials.csv`
-**Used by:** formerly `src/data/Materials.cpp` (now deleted, same reason as `CoreDatabase.cpp` above); `MaterialEvaluation.cpp` (formerly `MaterialSelection.cpp`, since removed) does the real work today via `Materials.h`
+**Used by:** formerly `src/data/Materials.cpp` (now deleted, same reason as `CoreDatabase.cpp` above); `src/core/sizing/MaterialEvaluation.cpp` (formerly `MaterialSelection.cpp`, since removed) does the real work today via `Materials.h`
 **Currently:** 4 rows — Powder Iron, Kool Mu, Ferrite 3C90, High Frequency Ferrite
 
 ### Fields (actual header)
@@ -131,8 +131,8 @@ AL ≈ 0.4π × µ₀ × µᵣ × (Ae / Le) × 10⁹ (nH/100T; µ₀ = 4π×10�
 | MaxFrequencyHz | Hz | 250000 | Maximum operating frequency |
 | Reason | — | "Balanced performance 50-250kHz..." | Why this material suits its range |
 | Alternatives | — | `Ferrite\|Powder Iron` | Pipe-separated alternatives; passed through as a raw string by the API, not parsed into a list |
-| BmaxT | T | 1.0 | Max flux density — as of today's Phase 1 engine, `PeakFluxValidation`/`SaturationValidation` (`DesignValidation.cpp`) prefer a material's own `BmaxT` over the `DesignRules` default (0.30 T) whenever it's populated - currently none are, in the real data snapshot, so the default is what's actually used. Not a hard-coded value in `AreaProduct.cpp` anymore - see [FORMULAS.md](FORMULAS.md) section 7 |
-| CuLossFactor | — | 1.15 | Multiplier for AC copper loss — `CoreLoss.cpp` is implemented and would use it, but is gated on this being populated, which it isn't in the real data snapshot; see [FORMULAS.md](FORMULAS.md) section 9 |
+| BmaxT | T | 1.0 | Max flux density — as of today's Phase 1 engine, `PeakFluxValidation`/`SaturationValidation` (`DesignValidation.cpp`) prefer a material's own `BmaxT` over the `DesignRules` default (0.30 T) whenever it's populated - currently none are, in the real data snapshot, so the default is what's actually used. Not a hard-coded value in `src/core/sizing/AreaProduct.cpp` anymore - see [FORMULAS.md](FORMULAS.md) section 7 |
+| CuLossFactor | — | 1.15 | Multiplier for AC copper loss — `src/core/losses/CoreLoss.cpp` is implemented and would use it, but is gated on this being populated, which it isn't in the real data snapshot; see [FORMULAS.md](FORMULAS.md) section 9 |
 
 ### Frequency Ranges (current data)
 - **Powder Iron:** 1–100 kHz — reason text notes "good for buck inductors" specifically; worth genericizing if the tool is meant to be topology-agnostic
@@ -145,7 +145,7 @@ AL ≈ 0.4π × µ₀ × µᵣ × (Ae / Le) × 10⁹ (nH/100T; µ₀ = 4π×10�
 1. Get the datasheet (µ, Bmax, loss curves)
 2. Open `data/materials.csv`
 3. Add a new row matching the 8-field order above
-4. Check frequency range overlaps deliberately — `MaterialEvaluation.cpp` now returns every material whose range contains the request as its own candidate, not just the first match in file order (that was the old `MaterialSelection.cpp` behavior, since removed)
+4. Check frequency range overlaps deliberately — `src/core/sizing/MaterialEvaluation.cpp` now returns every material whose range contains the request as its own candidate, not just the first match in file order (that was the old `MaterialSelection.cpp` behavior, since removed)
 5. Restart the running app to pick up the new row
 
 ---

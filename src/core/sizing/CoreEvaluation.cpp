@@ -1,5 +1,5 @@
-#include "CoreEvaluation.h"
-#include "../data/CoreDatabase.h"
+#include "core/sizing/CoreEvaluation.h"
+#include "data/CoreDatabase.h"
 #include <algorithm>
 
 //precondition: Ap formula converts catalog core dimensions (mm^2 x mm^2) to cm^4

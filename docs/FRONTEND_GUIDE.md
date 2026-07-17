@@ -64,8 +64,11 @@ The full `DesignRules::phase1Default()` ruleset used for this run (Ku, Bmax defa
 ### Feasibility panel
 Either `status: "ok"` with a summary message, or `status: "no_feasible_design"` with the reason and, for an area-product shortfall, the required vs. largest-available area product.
 
-### Passing / Rejected Candidates panels
-Each candidate shows material, core, turns/gap (with calculated inductance and error %), winding (wire gauge, fill factor, current density), DC copper/core loss (or `not_evaluated`), all six validation checks (expandable), rejection reasons for anything that failed, and missing-data warnings.
+### Triage panel
+The first thing to look at when candidates come back. Shows how many candidates were evaluated, how many passed, and how many were rejected, plus a tally of *why* — every rejected candidate's failed check names, counted and sorted (e.g. `PeakFluxValidation × 19`). This exists specifically so a batch of mostly-rejected results (the common case with the current Ferroxcube-only core snapshot) is scannable in one glance instead of requiring every candidate to be opened individually.
+
+### Candidates table
+One row per evaluated candidate — passing and rejected together, filterable to All / Passing / Rejected and sortable by clicking any column header (status, core, material, turns, gap, calculated inductance, error %, fill factor, copper loss). Any field the engine reports `not_evaluated` for (DC copper loss, core loss) shows as an amber "not evaluated" chip in the table rather than a blank or a fabricated 0. Clicking a row expands it in place to show winding detail, core loss, every validation check (`Validation checks`, expandable), rejection reasons, and missing-data warnings — the same information the old per-candidate cards showed, just collapsed by default so 20+ rejected candidates don't flood the page.
 
 ### Design Summary panel
 Recommended material, core, and turns/gap for the top-ranked passing candidate (or a note that nothing passed).
@@ -75,13 +78,13 @@ Recommended material, core, and turns/gap for the top-ranked passing candidate (
 ## Troubleshooting Results
 
 ### `status: "no_feasible_design"`
-This is a real, structured result now, not a console-only warning — check the feasibility panel for the reason (e.g. `requiredAreaProductCm4` vs. `largestAvailableAreaProductCm4` for an area-product shortfall) and the rejected-candidates panel for per-check failures.
+This is a real, structured result now, not a console-only warning — check the feasibility panel for the reason (e.g. `requiredAreaProductCm4` vs. `largestAvailableAreaProductCm4` for an area-product shortfall) and the candidates table (filtered to Rejected) for per-check failures.
 
 ### A candidate's winding/loss fields say "not evaluated"
-Expected for every candidate today: `data/real_cores.csv` has no mean-length-per-turn column (blocks DCR and DC copper loss), and `data/real_materials.csv`'s `BmaxT`/`CuLossFactor` are 0.0 for every material (blocks material-specific flux limits and core loss). See [DATA_FILES.md](DATA_FILES.md) — these are data gaps, not bugs, and the tool says so explicitly via `missingData`/`missingDataWarnings`.
+Expected for every candidate today: `data/real_cores.csv` has no mean-length-per-turn column (blocks DCR and DC copper loss), and `data/real_materials.csv`'s `BmaxT`/`CuLossFactor` are 0.0 for every material (blocks material-specific flux limits and core loss). See [DATA_FILES.md](DATA_FILES.md) — these are data gaps, not bugs, and the tool says so explicitly via `missingData`/`missingDataWarnings`, surfaced in the UI as amber "not evaluated" chips rather than blank cells or fake zeros.
 
-### Alternatives field shows a raw string with a `|` in it
-This is expected right now — the API returns `alternatives` as a single pipe-delimited string, and the frontend doesn't currently split it into a list.
+### RMS current shows a warning under the input
+The form flags (but does not block) RMS current entered higher than peak current — physically that would mean the waveform's average heating effect exceeds its own instantaneous maximum, which cannot happen. It's a sanity check on typos, not a hard validation rule.
 
 ---
 

@@ -1,9 +1,9 @@
 #pragma once
 #include <string>
 #include <vector>
-#include "../validation/EvaluationStatus.h"
-#include "MaterialEvaluation.h"
-#include "WindingDesign.h"
+#include "validation/EvaluationStatus.h"
+#include "core/sizing/MaterialEvaluation.h"
+#include "core/winding/WindingDesign.h"
 
 // STAGE 8: Loss evaluation
 //

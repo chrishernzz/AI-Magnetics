@@ -1,5 +1,5 @@
-#include "LossEvaluation.h"
-#include "CopperLoss.h"
+#include "core/losses/LossEvaluation.h"
+#include "core/losses/CopperLoss.h"
 
 // precondition: see header
 // postcondition: see header

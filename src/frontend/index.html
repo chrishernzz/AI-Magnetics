@@ -13,7 +13,8 @@
             <p>Engineer-focused single-winding power inductor design tool.</p>
         </div>
         <div class="hero-note">
-            Enter your known inductor requirements and get explainable, physics-checked candidate designs.
+            Enter your known inductor requirements and get explainable, physics-checked candidate designs -
+            every pass and every rejection comes with the reason.
         </div>
     </div>
 
@@ -22,26 +23,45 @@
             <h2>Design Requirements</h2>
             <p class="section-description">Direct inductor inputs (no topology assumed).</p>
 
-            <label for="inductance">Inductance (µH)</label>
-            <input id="inductance" type="number" value="250" min="0" step="1">
+            <fieldset class="field-group">
+                <legend>Electrical</legend>
 
-            <label for="current">Peak Current (A)</label>
-            <input id="current" type="number" value="2" min="0" step="0.1">
+                <label for="inductance">Inductance (µH)
+                    <span class="hint" title="Target inductance. E = 0.5 x L x I^2 - too small raises ripple, too large oversizes the core.">?</span>
+                </label>
+                <input id="inductance" type="number" value="250" min="0" step="1">
 
-            <label for="rmsCurrent">RMS Current (A)</label>
-            <input id="rmsCurrent" type="number" value="1.4" min="0" step="0.1">
+                <label for="current">Peak Current (A)
+                    <span class="hint" title="Highest instantaneous current. Drives area product, peak flux density and saturation margin - never used to infer RMS.">?</span>
+                </label>
+                <input id="current" type="number" value="2" min="0" step="0.1">
 
-            <label for="frequency">Switching Frequency (kHz)</label>
-            <input id="frequency" type="number" value="100" min="0" step="1">
+                <label for="rmsCurrent">RMS Current (A)
+                    <span class="hint" title="Drives winding size, current density and DC copper loss. Always a separate number from peak current.">?</span>
+                </label>
+                <input id="rmsCurrent" type="number" value="1.4" min="0" step="0.1">
+                <p id="currentWarning" class="field-warning"></p>
 
-            <label for="ambientTemp">Ambient Temperature (°C)</label>
-            <input id="ambientTemp" type="number" value="25" min="-40" step="1">
+                <label for="frequency">Switching Frequency (kHz)
+                    <span class="hint" title="PWM switching frequency. Determines which materials are frequency-compatible candidates.">?</span>
+                </label>
+                <input id="frequency" type="number" value="100" min="0" step="1">
+            </fieldset>
 
-            <label for="tempRise">Allowable Temperature Rise (°C)</label>
-            <input id="tempRise" type="number" value="40" min="0" step="1">
+            <fieldset class="field-group">
+                <legend>Thermal &amp; Tolerance</legend>
 
-            <label for="tolerance">Inductance Tolerance (%, optional)</label>
-            <input id="tolerance" type="number" placeholder="default 10" min="0" step="1">
+                <label for="ambientTemp">Ambient Temperature (°C)</label>
+                <input id="ambientTemp" type="number" value="25" min="-40" step="1">
+
+                <label for="tempRise">Allowable Temperature Rise (°C)</label>
+                <input id="tempRise" type="number" value="40" min="0" step="1">
+
+                <label for="tolerance">Inductance Tolerance (%, optional)
+                    <span class="hint" title="How far the realized inductance may deviate from target before a candidate is rejected. Defaults to 10% if left blank.">?</span>
+                </label>
+                <input id="tolerance" type="number" placeholder="default 10" min="0" step="1">
+            </fieldset>
 
             <div class="button-row">
                 <button id="generateButton" class="primary-button" type="button">
@@ -71,10 +91,18 @@
 
     <div id="feasibility" class="card result-panel"></div>
 
-    <div class="results-grid">
-        <div id="candidates" class="card result-panel"></div>
-        <div id="rejected" class="card result-panel"></div>
+    <div id="triageStrip" class="card triage-strip"></div>
+
+    <div class="card candidates-card">
+        <div class="candidates-header">
+            <h2>Candidates</h2>
+            <div id="filterChips" class="filter-chips"></div>
+        </div>
+        <div class="table-scroll">
+            <table id="candidateTable" class="candidate-table"></table>
+        </div>
     </div>
+
     <script src="/static/app.js"></script>
 </body>
 </html>

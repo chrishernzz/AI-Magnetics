@@ -1,4 +1,4 @@
-#include "ThermalEvaluation.h"
+#include "core/thermal/ThermalEvaluation.h"
 
 // precondition: none
 // postcondition: always returns not_evaluated in Phase 1 (see header)

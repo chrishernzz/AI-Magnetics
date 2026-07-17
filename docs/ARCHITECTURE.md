@@ -84,19 +84,19 @@ CMake builds this as a Python extension module and places the compiled `.pyd`/`.
 
 | Module | File | Status |
 |---|---|---|
-| AreaProduct | `AreaProduct.cpp` | ✅ Implemented — energy/Ap sizing, called directly by `InductorDesignService` |
-| TurnsCalculation | `core/TurnsCalculation.cpp` | ✅ Implemented — `N = round(sqrt(L_nH/AL_nH))`, verified against the real i77006 reference design. This was previously documented (in most other files) as an unimplemented stub — it was not; only the docs were wrong. Reused as the seed-turns estimator inside `TurnsAndGapDesign.cpp` |
-| GapDesign | `GapDesign.cpp` | ✅ Implemented — series-reluctance gapped-core AL formula, verified numerically against `data/real_cores.csv` to <0.03% |
-| TurnsAndGapDesign | `TurnsAndGapDesign.cpp` | ✅ Implemented — iterates turns and gap together until the integer turns count stabilizes or is rejected (impractical gap, non-convergence) |
-| MaterialEvaluation | `MaterialEvaluation.cpp` | ✅ Implemented — `findSuitableMaterials()`, returns every frequency-compatible material as its own candidate |
-| CoreEvaluation | `CoreEvaluation.cpp` | ✅ Implemented — `findSuitableCores()`, returns every material-compatible core with its own `meetsAreaProduct` flag; never silently substitutes an oversized core |
+| AreaProduct | `src/core/sizing/AreaProduct.cpp` | ✅ Implemented — energy/Ap sizing, called directly by `InductorDesignService` |
+| TurnsCalculation | `src/core/magnetics/TurnsCalculation.cpp` | ✅ Implemented — `N = round(sqrt(L_nH/AL_nH))`, verified against the real i77006 reference design. This was previously documented (in most other files) as an unimplemented stub — it was not; only the docs were wrong. Reused as the seed-turns estimator inside `src/core/magnetics/TurnsAndGapDesign.cpp` |
+| GapDesign | `src/core/magnetics/GapDesign.cpp` | ✅ Implemented — series-reluctance gapped-core AL formula, verified numerically against `data/real_cores.csv` to <0.03% |
+| TurnsAndGapDesign | `src/core/magnetics/TurnsAndGapDesign.cpp` | ✅ Implemented — iterates turns and gap together until the integer turns count stabilizes or is rejected (impractical gap, non-convergence) |
+| MaterialEvaluation | `src/core/sizing/MaterialEvaluation.cpp` | ✅ Implemented — `findSuitableMaterials()`, returns every frequency-compatible material as its own candidate |
+| CoreEvaluation | `src/core/sizing/CoreEvaluation.cpp` | ✅ Implemented — `findSuitableCores()`, returns every material-compatible core with its own `meetsAreaProduct` flag; never silently substitutes an oversized core |
 | DesignValidation | `validation/DesignValidation.cpp` | ✅ Implemented — six named checks (Inductance, PeakFlux, Saturation, WindingFit, CurrentDensity, Thermal), each its own `ValidationResult` |
-| WindingDesign | `WindingDesign.cpp` | ✅ Implemented — AWG wire selection, fill factor, current density always computed; DCR/wire length `not_evaluated` (no mean-length-per-turn data in `real_cores.csv`) |
-| CopperLoss | `CopperLoss.cpp` | ✅ Implemented — `Pcu_dc = Irms^2 * DCR`, only called when DCR is available |
-| CoreLoss | `CoreLoss.cpp` | ✅ Implemented (simplified model) but never invoked with real coefficients today — `CuLossFactor` is 0.0 for every material in `real_materials.csv` |
-| HighFrequencyLosses | `HighFrequencyLosses.cpp` | ❌ Not implemented (returns 0.0) — `LossEvaluation.cpp` wraps this as `not_evaluated`, never presents the 0.0 as a real result |
-| LossEvaluation | `LossEvaluation.cpp` | ✅ Implemented — orchestrates CopperLoss/CoreLoss/HighFrequencyLosses, reports each as `Evaluated`/`NotEvaluated` |
-| ThermalEvaluation | `ThermalEvaluation.cpp` | ⚠️ Real module, always returns `NotEvaluated` — no thermal-resistance model or data exists in either CSV yet |
+| WindingDesign | `src/core/winding/WindingDesign.cpp` | ✅ Implemented — AWG wire selection, fill factor, current density always computed; DCR/wire length `not_evaluated` (no mean-length-per-turn data in `real_cores.csv`) |
+| CopperLoss | `src/core/losses/CopperLoss.cpp` | ✅ Implemented — `Pcu_dc = Irms^2 * DCR`, only called when DCR is available |
+| CoreLoss | `src/core/losses/CoreLoss.cpp` | ✅ Implemented (simplified model) but never invoked with real coefficients today — `CuLossFactor` is 0.0 for every material in `real_materials.csv` |
+| HighFrequencyLosses | `src/core/losses/HighFrequencyLosses.cpp` | ❌ Not implemented (returns 0.0) — `src/core/losses/LossEvaluation.cpp` wraps this as `not_evaluated`, never presents the 0.0 as a real result |
+| LossEvaluation | `src/core/losses/LossEvaluation.cpp` | ✅ Implemented — orchestrates CopperLoss/CoreLoss/HighFrequencyLosses, reports each as `Evaluated`/`NotEvaluated` |
+| ThermalEvaluation | `src/core/thermal/ThermalEvaluation.cpp` | ⚠️ Real module, always returns `NotEvaluated` — no thermal-resistance model or data exists in either CSV yet |
 | DataCache<T> | `data/DataCache.h` | ✅ Implemented — shared template holding the "cache once, warn if empty" logic that `CoreDatabase` and `Materials` both use, instead of each repeating it |
 | CoreDatabase | `data/CoreDatabase.h` | ✅ Implemented — real data loaded once at startup from a bundled snapshot (`data/real_cores.csv`, sourced from PyOpenMagnetics — see "Data Source" below); no CSV fallback, startup fails loudly if this fails. `load()` returns by `const&`, not by value |
 | Materials | `data/Materials.h` | ✅ Implemented — same pattern as CoreDatabase; `MaterialData` now also carries `bmaxT`/`cuLossFactor` (both 0.0 in the current snapshot) |
@@ -107,7 +107,7 @@ CMake builds this as a Python extension module and places the compiled `.pyd`/`.
 
 The **Services** layer (`src/backend/services/`) sits directly between the pybind11 bindings and the core engine — e.g. `InductorDesignService::run()` orchestrates `MaterialEvaluation` → `AreaProduct` → `CoreEvaluation` → `TurnsAndGapDesign` → `DesignValidation` → `WindingDesign` → `LossEvaluation` → `ThermalEvaluation`. There is no separate "Controller" layer in C++; HTTP parsing happens entirely in the Python route functions.
 
-**Removed:** `MaterialSelection.cpp/h` and `CoreSelection.cpp` (the old single-pick logic, superseded by `MaterialEvaluation.cpp`/`CoreEvaluation.cpp`), `MaterialSelectionService`/`CoreSelectionService` (thin wrappers around the above, with nothing left to wrap), and `AreaProductService.h/.cpp` (never actually bound to Python in either the old or new bindings file - dead code from before this Phase 1 work even started). `CoreSelection.h` stays, header-only, because `TurnsCalculation.h` still embeds its `CoreSelectionResult` struct.
+**Removed:** `MaterialSelection.cpp/h` and `CoreSelection.cpp` (the old single-pick logic, superseded by `src/core/sizing/MaterialEvaluation.cpp`/`CoreEvaluation.cpp`), `MaterialSelectionService`/`CoreSelectionService` (thin wrappers around the above, with nothing left to wrap), and `AreaProductService.h/.cpp` (never actually bound to Python in either the old or new bindings file - dead code from before this Phase 1 work even started). `src/core/sizing/CoreSelection.h` stays, header-only, because `src/core/magnetics/TurnsCalculation.h` still embeds its `CoreSelectionResult` struct.
 
 ---
 
@@ -199,7 +199,7 @@ Windows can't run the live version at all, this is the trade made to have
 real data working here at all.
 
 The actual Ap-based selection logic (originally `CoreSelection.cpp`/
-`MaterialSelection.cpp`, now `CoreEvaluation.cpp`/`MaterialEvaluation.cpp`
+`MaterialSelection.cpp`, now `src/core/sizing/CoreEvaluation.cpp`/`MaterialEvaluation.cpp`
 after the Phase 1 rewrite) did not change through any of this. Only where
 the candidate list comes from changed, twice now: hand-typed CSV → live
 PyOpenMagnetics query → bundled real-data snapshot.

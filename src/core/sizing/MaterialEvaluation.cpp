@@ -1,5 +1,5 @@
-#include "MaterialEvaluation.h"
-#include "../data/Materials.h"
+#include "core/sizing/MaterialEvaluation.h"
+#include "data/Materials.h"
 
 //precondition: Materials::load() has been populated
 //postcondition: returns every material whose declared frequency range, contains the requested switching frequency, each as an independent candidate - no material is dropped just because another also matches.

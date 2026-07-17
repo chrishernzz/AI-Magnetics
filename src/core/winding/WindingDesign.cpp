@@ -1,5 +1,5 @@
-#include "WindingDesign.h"
-#include "../data/AwgTable.h"
+#include "core/winding/WindingDesign.h"
+#include "data/AwgTable.h"
 #include <algorithm>
 #include <cmath>
 

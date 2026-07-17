@@ -1,9 +1,9 @@
 #pragma once
 #include <string>
 #include <vector>
-#include "../validation/EvaluationStatus.h"
-#include "../rules/DesignRules.h"
-#include "CoreEvaluation.h"
+#include "validation/EvaluationStatus.h"
+#include "rules/DesignRules.h"
+#include "core/sizing/CoreEvaluation.h"
 
 // STAGE 7: Winding design (round copper wire, Phase 1)
 //

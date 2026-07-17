@@ -1,7 +1,7 @@
 #pragma once
-#include "../../core/InductorDesignRequest.h"
-#include "../../core/InductorRequirements.h"
-#include "../../rules/DesignRules.h"
+#include "core/model/InductorDesignRequest.h"
+#include "core/model/InductorRequirements.h"
+#include "rules/DesignRules.h"
 
 /*
 

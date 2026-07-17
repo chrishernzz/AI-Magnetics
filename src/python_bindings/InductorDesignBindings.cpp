@@ -1,22 +1,22 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "../backend/services/InductorDesignService.h"
-#include "../core/AreaProduct.h"
-#include "../core/CoreEvaluation.h"
-#include "../core/DesignRecommendation.h"
-#include "../core/InductorDesignRequest.h"
-#include "../core/LossEvaluation.h"
-#include "../core/MaterialEvaluation.h"
-#include "../core/RejectionReason.h"
-#include "../core/ThermalEvaluation.h"
-#include "../core/TurnsAndGapDesign.h"
-#include "../core/WindingDesign.h"
-#include "../data/CoreDatabase.h"
-#include "../data/Materials.h"
-#include "../rules/DesignRules.h"
-#include "../validation/EvaluationStatus.h"
-#include "../validation/Validation.h"
+#include "backend/services/InductorDesignService.h"
+#include "core/sizing/AreaProduct.h"
+#include "core/sizing/CoreEvaluation.h"
+#include "core/model/DesignRecommendation.h"
+#include "core/model/InductorDesignRequest.h"
+#include "core/losses/LossEvaluation.h"
+#include "core/sizing/MaterialEvaluation.h"
+#include "core/model/RejectionReason.h"
+#include "core/thermal/ThermalEvaluation.h"
+#include "core/magnetics/TurnsAndGapDesign.h"
+#include "core/winding/WindingDesign.h"
+#include "data/CoreDatabase.h"
+#include "data/Materials.h"
+#include "rules/DesignRules.h"
+#include "validation/EvaluationStatus.h"
+#include "validation/Validation.h"
 
 namespace py = pybind11;
 

@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include "CoreEvaluation.h"
+#include "core/sizing/CoreEvaluation.h"
 
 /*
 STAGE 5: Turns and air-gap design

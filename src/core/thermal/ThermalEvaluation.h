@@ -1,6 +1,6 @@
 #pragma once
 #include <string>
-#include "../validation/EvaluationStatus.h"
+#include "validation/EvaluationStatus.h"
 
 // STAGE 9: Thermal evaluation
 //

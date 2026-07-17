@@ -1,4 +1,4 @@
-#include "CoreLoss.h"
+#include "core/losses/CoreLoss.h"
 #include <cmath>
 
 // precondition: cuLossFactor is a real, non-placeholder coefficient
