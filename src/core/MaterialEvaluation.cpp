@@ -28,15 +28,10 @@ std::vector<MaterialCandidate> findSuitableMaterials(const OperatingPoint& opera
         candidate.alternatives = material.alternatives;
 
         if (!candidate.hasBmaxData) {
-            candidate.missingDataWarnings.push_back(
-                "no measured saturation flux density (BmaxT) for material '" + material.name +
-                "' - saturation checks will use the Phase 1 default flux density limit, not a "
-                "material-specific value");
+            candidate.missingDataWarnings.push_back("no measured saturation flux density (BmaxT) for material '" + material.name + "' - saturation checks will use the Phase 1 default flux density limit, not a material-specific value");
         }
         if (!candidate.hasCoreLossData) {
-            candidate.missingDataWarnings.push_back(
-                "no core-loss coefficient (CuLossFactor) for material '" + material.name +
-                "' - core loss will be reported as not evaluated");
+            candidate.missingDataWarnings.push_back("no core-loss coefficient (CuLossFactor) for material '" + material.name + "' - core loss will be reported as not evaluated");
         }
 
         candidates.push_back(std::move(candidate));

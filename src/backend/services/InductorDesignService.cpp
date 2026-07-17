@@ -32,8 +32,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
 
     candidate.winding = designWinding(core, candidate.turnsAndGap.turns, requirements.operatingPoint.rmsCurrentA, rules);
     candidate.thermal = evaluateThermal();
-    candidate.losses = evaluateLosses(material, candidate.winding, requirements.operatingPoint.rmsCurrentA,
-                                       requirements.operatingPoint.switchingFreqHz);
+    candidate.losses = evaluateLosses(material, candidate.winding, requirements.operatingPoint.rmsCurrentA, requirements.operatingPoint.switchingFreqHz);
 
     candidate.validations = {
         InductanceValidation(candidate.turnsAndGap, requirements.inductanceTolerancePercent),
@@ -118,12 +117,15 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
         return recommendation;
     }
 
+    //inserting a new key - value pair if the key does not already exists
     std::unordered_map<std::string, MaterialCandidate> materialsByName;
     for (const auto& material : materials) {
+        //constructs and inserts a new element directly into the container without creating a temp object
         materialsByName.emplace(material.materialFamily, material);
     }
 
     for (const auto& core : feasibleCores) {
+        //look up the material for this core in the materialsByName map. Grabs the key and returns the value for that key. This is used to evaluate the candidate with the core and material information
         const auto& material = materialsByName.at(core.material);
         InductorCandidate candidate = evaluateCandidate(core, material, requirements, rules);
 

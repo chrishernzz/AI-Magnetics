@@ -3,16 +3,17 @@
 #include <vector>
 #include "CoreEvaluation.h"
 
-// STAGE 5: Turns and air-gap design
-//
-// Turns and gap are connected design variables (spec section 9): gap
-// depends on turns, and effective AL (and therefore turns) depends on gap.
-// This module iterates the two together instead of letting
-// TurnsCalculation and GapDesign produce independent final answers -
-// TurnsCalculation::calculateTurns() is reused as the seed-turns estimator
-// (ungapped AL), then GapDesign's formulas refine turns and gap together
-// until the integer turns count stabilizes.
+/*
+STAGE 5: Turns and air-gap design
+Turns and gap are connected design variables (spec section 9): gap
+depends on turns, and effective AL (and therefore turns) depends on gap.
+This module iterates the two together instead of letting
+TurnsCalculation and GapDesign produce independent final answers -
+TurnsCalculation::calculateTurns() is reused as the seed-turns estimator
+(ungapped AL), then GapDesign's formulas refine turns and gap together
+until the integer turns count stabilizes.
 
+*/
 struct TurnsAndGapResult {
     int turns = 0;
     double gapMm = 0.0;

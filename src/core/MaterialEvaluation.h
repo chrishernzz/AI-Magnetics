@@ -19,21 +19,15 @@ struct MaterialCandidate {
     std::string materialFamily;
     double muOpt;
 
-    // true if the material's declared [minFrequencyHz, maxFrequencyHz)
-    // range contains the requested switching frequency.
+    //true if the material's declared [minFrequencyHz, maxFrequencyHz) range contains the requested switching frequency.
     bool frequencySuitable;
 
-    // Whether real_materials.csv carries non-placeholder data for this
-    // material's saturation flux density / core-loss coefficients. Both
-    // are 0.0 (unpopulated) for every material in the current snapshot -
-    // this flag exists so downstream stages (and the API response) can say
-    // so honestly instead of silently treating 0.0 as a real value.
+    //whether real_materials.csv carries non-placeholder data for this material's saturation flux density / core-loss coefficients. Both are 0.0 (unpopulated) for every material in the current snapshot -
+    //this flag exists so downstream stages (and the API response) can say so honestly instead of silently treating 0.0 as a real value.
     bool hasBmaxData;
     bool hasCoreLossData;
 
-    // Raw values from real_materials.csv - only meaningful when the
-    // corresponding hasXData flag above is true. 0.0 by default, matching
-    // "no data" rather than a real material property.
+    //raw values from real_materials.csv - only meaningful when the corresponding hasXData flag above is true. 0.0 by default, matching "no data" rather than a real material property.
     double bmaxT = 0.0;
     double cuLossFactor = 0.0;
 
