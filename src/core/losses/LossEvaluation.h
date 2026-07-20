@@ -5,34 +5,34 @@
 #include "core/sizing/MaterialEvaluation.h"
 #include "core/winding/WindingDesign.h"
 
-// STAGE 8: Loss evaluation
-//
-// Orchestrates CopperLoss (Stage A), CoreLoss (Stage B), and
-// HighFrequencyLosses - each stays a focused module, called from here
-// rather than merged together (spec section 12). Every loss the required
-// data doesn't support is reported not_evaluated, never silently as 0 W.
+/*
 
+STAGE 8: Loss evaluation
+Orchestrates CopperLoss (Stage A), CoreLoss (Stage B), and
+HighFrequencyLosses - each stays a focused module, called from here
+rather than merged together (spec section 12). Every loss the required
+data doesn't support is reported not_evaluated, never silently as 0 W.
+
+*/
 struct LossEvaluationResult {
     EvaluationStatus copperLossStatus = EvaluationStatus::NotEvaluated;
-    double copperLossW = 0.0;  // valid only when copperLossStatus == Evaluated
+    //valid only when copperLossStatus == Evaluated
+    double copperLossW = 0.0;  
 
     EvaluationStatus coreLossStatus = EvaluationStatus::NotEvaluated;
-    double coreLossW = 0.0;  // valid only when coreLossStatus == Evaluated
+    //valid only when coreLossStatus == Evaluated
+    double coreLossW = 0.0;  
 
     EvaluationStatus highFrequencyLossStatus = EvaluationStatus::NotEvaluated;
-    double highFrequencyLossW = 0.0;  // valid only when highFrequencyLossStatus == Evaluated
+    //valid only when coreLossStatus == Evaluated
+    double highFrequencyLossW = 0.0;
 
     std::vector<std::string> missingData;
 };
 
-// precondition: none
-// postcondition: computes DC copper loss only when winding.resistanceStatus
-// == Evaluated (uses rmsCurrentA, never peak current). Core loss and
-// high-frequency (skin/proximity) loss are always reported not_evaluated
-// in Phase 1 - core loss because no material in the current data snapshot
-// has hasCoreLossData set, AND because the flux-density-swing value
-// calculateCoreLoss() needs isn't threaded through to this function yet;
-// high-frequency loss because no skin/proximity model is implemented at
-// all. See docs/FORMULAS.md sections 9-10 for the full explanation.
-LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const WindingDesignResult& winding,
-                                     double rmsCurrentA, double switchingFreqHz);
+//precondition: none
+//postcondition: computes DC copper loss only when winding.resistanceStatus == Evaluated (uses rmsCurrentA, never peak current). Core loss and
+//high-frequency (skin/proximity) loss are always reported not_evaluated in Phase 1 - core loss because no material in the current data snapshot
+//has hasCoreLossData set, AND because the flux-density-swing value calculateCoreLoss() needs isn't threaded through to this function yet;
+//high-frequency loss because no skin/proximity model is implemented at all. See docs/FORMULAS.md sections 9-10 for the full explanation.
+LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const WindingDesignResult& winding, double rmsCurrentA, double switchingFreqHz);

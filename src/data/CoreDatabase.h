@@ -12,9 +12,7 @@ struct CoreData {
     double wa;
     double le;
 
-    // Mean-length-per-turn (mm), estimated from real core column geometry
-    // (see scripts/export_real_data.py) - 0.0 means "no data", callers
-    // must treat that as missing, not as a real zero-length core.
+    //Mean-length-per-turn (mm), estimated from real core column geometry (see scripts/export_real_data.py) - 0.0 means "no data", callers must treat that as missing, not as a real zero-length core.
     double mlt = 0.0;
 };
 

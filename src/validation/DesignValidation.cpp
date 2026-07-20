@@ -3,8 +3,9 @@
 
 namespace {
 
-// Bpk(T) = L(H) * Ipk(A) / (N * Ae(m^2))
+//Formula for Peak Flux Density: Bpk(T) = L(H) * Ipk(A) / (N * Ae(m^2))
 double calculatePeakFluxDensityT(const CoreCandidate& core, const TurnsAndGapResult& turnsAndGap, double peakCurrentA) {
+    //base case making sure turns is a real value
     if (turnsAndGap.turns <= 0) {
         return 0.0;
     }
@@ -27,9 +28,8 @@ FluxLimit applicableFluxLimit(const MaterialCandidate& material, const DesignRul
 
 }  // namespace
 
-// precondition: none
-// postcondition: passes only if turns/gap converged and the resulting
-// inductance is within tolerance
+//precondition: none
+//postcondition: passes only if turns/gap converged and the resulting inductance is within tolerance
 ValidationResult InductanceValidation(const TurnsAndGapResult& turnsAndGap, double tolerancePercent) {
     ValidationResult result;
     result.checkName = "InductanceValidation";
@@ -45,22 +45,18 @@ ValidationResult InductanceValidation(const TurnsAndGapResult& turnsAndGap, doub
 
     result.calculatedValue = std::abs(turnsAndGap.inductanceErrorPercent);
     result.passed = turnsAndGap.withinTolerance;
-    result.explanation = "calculated inductance " + std::to_string(turnsAndGap.calculatedInductanceUH) +
-                          " uH vs target (error " + std::to_string(turnsAndGap.inductanceErrorPercent) +
-                          "%), tolerance " + std::to_string(tolerancePercent) + "%";
+    result.explanation = "calculated inductance " + std::to_string(turnsAndGap.calculatedInductanceUH) + " uH vs target (error " + std::to_string(turnsAndGap.inductanceErrorPercent) + "%), tolerance " + std::to_string(tolerancePercent) + "%";
     return result;
 }
 
-// precondition: turnsAndGap.converged
-// postcondition: passes if calculated peak flux density is at or below the
-// applicable limit (material-specific if available, else the Phase 1 default)
-ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCandidate& material,
-                                     const TurnsAndGapResult& turnsAndGap, double peakCurrentA,
-                                     const DesignRules& rules) {
+//precondition: turnsAndGap.converged
+//postcondition: passes if calculated peak flux density is at or below the applicable limit (material-specific if available, else the Phase 1 default)
+ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, double peakCurrentA, const DesignRules& rules) {
     ValidationResult result;
     result.checkName = "PeakFluxValidation";
     result.unit = "T";
 
+    //call the function from namespace to get the Peak Flux Density value
     double bpk = calculatePeakFluxDensityT(core, turnsAndGap, peakCurrentA);
     FluxLimit limit = applicableFluxLimit(material, rules);
 
@@ -78,12 +74,9 @@ ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCan
     return result;
 }
 
-// precondition: turnsAndGap.converged
-// postcondition: passes if the margin between the applicable limit and the
-// calculated peak flux density meets rules.minimumSaturationMarginPercent
-ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialCandidate& material,
-                                       const TurnsAndGapResult& turnsAndGap, double peakCurrentA,
-                                       const DesignRules& rules) {
+//precondition: turnsAndGap.converged
+//postcondition: passes if the margin between the applicable limit and the calculated peak flux density meets rules.minimumSaturationMarginPercent
+ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, double peakCurrentA, const DesignRules& rules) {
     ValidationResult result;
     result.checkName = "SaturationValidation";
     result.unit = "%";
@@ -97,16 +90,15 @@ ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialC
     result.calculatedValue = marginPercent;
     result.usedDefaultLimit = limit.usedDefault;
     result.passed = turnsAndGap.converged && marginPercent >= rules.minimumSaturationMarginPercent;
-    result.explanation = "saturation margin " + std::to_string(marginPercent) + "% vs required " +
-                          std::to_string(rules.minimumSaturationMarginPercent) + "% (" +
+    result.explanation = "saturation margin " + std::to_string(marginPercent) + "% vs required " + std::to_string(rules.minimumSaturationMarginPercent) + "% (" +
                           (limit.usedDefault ? "against the Phase 1 default flux limit, not a material fact"
                                              : "against material-specific BmaxT") +
                           ")";
     return result;
 }
 
-// precondition: none
-// postcondition: passes if fill factor is at or below the maximum
+//precondition: none
+//postcondition: passes if fill factor is at or below the maximum
 ValidationResult WindingFitValidation(const WindingDesignResult& winding, const DesignRules& rules) {
     ValidationResult result;
     result.checkName = "WindingFitValidation";
@@ -114,33 +106,29 @@ ValidationResult WindingFitValidation(const WindingDesignResult& winding, const 
     result.calculatedValue = winding.fillFactor;
     result.limitValue = rules.maximumFillFactor;
     result.passed = winding.fitsWindow;
-    result.explanation = "fill factor " + std::to_string(winding.fillFactor) + " vs maximum " +
-                          std::to_string(rules.maximumFillFactor);
+    result.explanation = "fill factor " + std::to_string(winding.fillFactor) + " vs maximum " + std::to_string(rules.maximumFillFactor);
     return result;
 }
 
-// precondition: none
-// postcondition: passes if the winding's actual current density (after
-// rounding to a real AWG gauge) is at or below the allowable density
+//precondition: none
+//postcondition: passes if the winding's actual current density (afterbrounding to a real AWG gauge) is at or below the allowable density
 ValidationResult CurrentDensityValidation(const WindingDesignResult& winding, const DesignRules& rules) {
     ValidationResult result;
     result.checkName = "CurrentDensityValidation";
     result.unit = "A/mm^2";
 
-    double allowableAPerMm2 = rules.allowableCurrentDensityAperCm2 / 100.0;  // A/cm^2 -> A/mm^2
+    //A/cm^2 -> A/mm^2
+    double allowableAPerMm2 = rules.allowableCurrentDensityAperCm2 / 100.0;  
 
     result.calculatedValue = winding.currentDensityAperMm2;
     result.limitValue = allowableAPerMm2;
     result.passed = winding.currentDensityAperMm2 <= allowableAPerMm2;
-    result.explanation = "actual current density " + std::to_string(winding.currentDensityAperMm2) +
-                          " A/mm^2 vs allowable " + std::to_string(allowableAPerMm2) + " A/mm^2";
+    result.explanation = "actual current density " + std::to_string(winding.currentDensityAperMm2) + " A/mm^2 vs allowable " + std::to_string(allowableAPerMm2) + " A/mm^2";
     return result;
 }
 
-// precondition: none
-// postcondition: passes only when thermal.status == Evaluated and the
-// predicted rise is within allowableTempRiseC; otherwise not_evaluated
-// (passed=false, never an assumed pass - spec section 10)
+//precondition: none
+//postcondition: passes only when thermal.status == Evaluated and the predicted rise is within allowableTempRiseC; otherwise not_evaluated (passed=false, never an assumed pass - spec section 10)
 ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, double allowableTempRiseC) {
     ValidationResult result;
     result.checkName = "ThermalValidation";
@@ -157,7 +145,6 @@ ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, doubl
 
     result.calculatedValue = thermal.predictedTempRiseC;
     result.passed = thermal.predictedTempRiseC <= allowableTempRiseC;
-    result.explanation = "predicted temperature rise " + std::to_string(thermal.predictedTempRiseC) +
-                          " C vs allowable " + std::to_string(allowableTempRiseC) + " C";
+    result.explanation = "predicted temperature rise " + std::to_string(thermal.predictedTempRiseC) + " C vs allowable " + std::to_string(allowableTempRiseC) + " C";
     return result;
 }

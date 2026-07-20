@@ -1,6 +1,8 @@
 #pragma once
 
-// STAGE 8b: Core loss
+/*
+
+STAGE 8b: Core loss
 //
 // Phase 1 simplified loss-density model, only meaningful once a material
 // carries a validated core-loss coefficient (real_materials.csv's
@@ -14,4 +16,7 @@
 // flux-swing-squared simplification, NOT a fitted Steinmetz curve. Replace
 // with real per-material Steinmetz coefficients (k, alpha, beta) when that
 // data becomes available.
+
+*/
+
 double calculateCoreLoss(double cuLossFactor, double fluxDensitySwingT, double switchingFreqHz);

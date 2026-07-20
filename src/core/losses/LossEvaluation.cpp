@@ -1,10 +1,9 @@
 #include "core/losses/LossEvaluation.h"
 #include "core/losses/CopperLoss.h"
 
-// precondition: see header
-// postcondition: see header
-LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const WindingDesignResult& winding,
-                                     double rmsCurrentA, double switchingFreqHz) {
+//precondition: see header
+//postcondition: see header
+LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const WindingDesignResult& winding, double rmsCurrentA, double switchingFreqHz) {
     (void)switchingFreqHz;  // reserved for Stage B once real per-material coefficients exist
     LossEvaluationResult result;
 

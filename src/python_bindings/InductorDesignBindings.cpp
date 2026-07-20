@@ -13,7 +13,7 @@
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/winding/WindingDesign.h"
 #include "data/CoreDatabase.h"
-#include "data/Materials.h"
+#include "data/MaterialDatabase.h"
 #include "rules/DesignRules.h"
 #include "validation/EvaluationStatus.h"
 #include "validation/Validation.h"
@@ -66,7 +66,7 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("bmaxT", &MaterialData::bmaxT)
         .def_readwrite("cuLossFactor", &MaterialData::cuLossFactor);
     m.def("set_core_database", &CoreDatabase::setData, "Replace the in-memory core database (called once at startup with real data)");
-    m.def("set_material_database", &Materials::setData, "Replace the in-memory material database (called once at startup with real data)");
+    m.def("set_material_database", &MaterialDatabase::setData, "Replace the in-memory material database (called once at startup with real data)");
 
     // ============================================================
     // Phase 1 inductor design engine
