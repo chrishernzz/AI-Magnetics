@@ -2,8 +2,8 @@
 export_real_data.py
 
 Maintenance script — NOT part of the running app. Run this to regenerate
-data/real_materials.csv and data/real_cores.csv from a fresh PyOpenMagnetics
-query.
+data/real_materials.csv, data/real_cores.csv, and
+data/real_core_loss_coefficients.csv from a fresh PyOpenMagnetics query.
 
 Must be run somewhere PyOpenMagnetics actually installs — Linux, macOS, or
 Windows via WSL2. It will not run on native Windows (see docs/ARCHITECTURE.md
@@ -13,9 +13,19 @@ Usage:
     pip install PyOpenMagnetics
     python scripts/export_real_data.py
 
-This overwrites data/real_materials.csv and data/real_cores.csv. The running
-app (python/services/magnetics_data.py) reads those files — it never imports
+This overwrites all three data/ files above. The running app
+(python/services/magnetics_data.py) reads those files — it never imports
 PyOpenMagnetics itself.
+
+BmaxT (saturation) and the Steinmetz core-loss coefficients below are real
+values read from PyOpenMagnetics' own material records - previously this
+script hardcoded both to 0.0 as unpopulated placeholders even though the
+upstream library already had them. Mean-length-per-turn (Mlt) is not a
+direct field anywhere upstream; it's derived here from each core's real
+central-column cross-section (treated as the wire's innermost turn, ignoring
+bobbin wall thickness and winding build-up) - a first-order estimate from
+real geometry, not a guess, but a documented simplification the same way the
+gap formula's fringing-flux omission is documented in FORMULAS.md.
 """
 
 import csv
@@ -89,6 +99,48 @@ def _core_al_nh(
     ) * 1e9
 
 
+def _pick_saturation_flux_density_t(material: dict) -> float:
+    """Real saturation flux density (Bsat) in tesla, at the temperature
+    point closest to 25C - mirrors _pick_representative_permeability()'s
+    same closest-to-25C selection policy. Returns 0.0 (not_evaluated,
+    matching the rest of this project's honesty rule) if PyOpenMagnetics
+    has no saturation data for this material at all."""
+    points = material.get("saturation") or []
+    if not points:
+        return 0.0
+
+    closest = min(
+        points,
+        key=lambda p: abs((p.get("temperature") if p.get("temperature") is not None else 25.0) - 25.0),
+    )
+    return closest.get("magneticFluxDensity") or 0.0
+
+
+def _steinmetz_ranges(material: dict) -> list[dict]:
+    """Real Steinmetz core-loss coefficients (k, alpha, beta, and the
+    temperature-correction terms ct0/ct1/ct2), one entry per frequency
+    range PyOpenMagnetics carries for this material. Returns an empty list
+    for materials with no Steinmetz characterization upstream (the powder
+    families - Kool Mu, XFlux, Edge - are characterized differently, not
+    missing due to an export bug) - callers must not invent one."""
+    loss_entries = (material.get("volumetricLosses") or {}).get("default") or []
+    steinmetz = next((e for e in loss_entries if e.get("method") == "steinmetz"), None)
+    if not steinmetz:
+        return []
+    return steinmetz.get("ranges") or []
+
+
+def _core_mlt_mm(central_column: dict) -> float:
+    """Mean-length-per-turn estimate, in mm, from the core's real central
+    column cross-section - see the module docstring for what this does and
+    does not account for. width/depth from PyOpenMagnetics are in meters."""
+    width_m = central_column.get("width") or 0.0
+    depth_m = central_column.get("depth") or 0.0
+    if central_column.get("shape") == "round":
+        return math.pi * width_m * 1000.0
+    return 2.0 * (width_m + depth_m) * 1000.0
+
+
 def fetch_materials(available_core_material_names=None,) -> list:
     PyOpenMagnetics.load_databases({})
     raw_materials = PyOpenMagnetics.get_core_materials()
@@ -130,8 +182,8 @@ def fetch_materials(available_core_material_names=None,) -> list:
                     f"{(m.get('manufacturerInfo') or {}).get('name', 'unknown')})"
                 ),
                 "Alternatives": "None",
-                "BmaxT": 0.0,
-                "CuLossFactor": 0.0,
+                "BmaxT": _pick_saturation_flux_density_t(m),
+                "SteinmetzRanges": _steinmetz_ranges(m),
             }
         )
 
@@ -224,6 +276,12 @@ def fetch_cores() -> list[dict]:
 
         rec_freq = mat.get("recommendations") or {}
 
+        columns = pd.get("columns") or []
+        central_column = next(
+            (col for col in columns if col.get("type") == "central"), None
+        )
+        mlt_mm = _core_mlt_mm(central_column) if central_column else 0.0
+
         results.append(
             {
                 "PartNumber": part_number,
@@ -233,6 +291,7 @@ def fetch_cores() -> list[dict]:
                 "Ae": ae_mm2,
                 "Wa": wa_mm2,
                 "Le": le_mm,
+                "Mlt": mlt_mm,
                 "PartCost": 0.0,
                 "Vendor": vendor_name,
                 "MaxCurrent_A": 0.0,
@@ -297,7 +356,6 @@ def main():
                 "Reason",
                 "Alternatives",
                 "BmaxT",
-                "CuLossFactor",
             ]
         )
 
@@ -311,7 +369,6 @@ def main():
                     m["Reason"],
                     m["Alternatives"],
                     m["BmaxT"],
-                    m["CuLossFactor"],
                 ]
             )
 
@@ -331,6 +388,7 @@ def main():
                 "Ae",
                 "Wa",
                 "Le",
+                "Mlt",
                 "PartCost",
                 "Vendor",
                 "MaxCurrent_A",
@@ -348,6 +406,7 @@ def main():
                     c["Ae"],
                     c["Wa"],
                     c["Le"],
+                    c["Mlt"],
                     c["PartCost"],
                     c["Vendor"],
                     c["MaxCurrent_A"],
@@ -355,9 +414,49 @@ def main():
                 ]
             )
 
+    with open(
+        data_dir / "real_core_loss_coefficients.csv",
+        "w",
+        newline="",
+    ) as f:
+        w = csv.writer(f)
+
+        w.writerow(
+            [
+                "MaterialName",
+                "MinFrequencyHz",
+                "MaxFrequencyHz",
+                "K",
+                "Alpha",
+                "Beta",
+                "Ct0",
+                "Ct1",
+                "Ct2",
+            ]
+        )
+
+        n_coefficient_rows = 0
+        for m in materials:
+            for r in m["SteinmetzRanges"]:
+                w.writerow(
+                    [
+                        m["Name"],
+                        r.get("minimumFrequency", 0.0),
+                        r.get("maximumFrequency", 0.0),
+                        r.get("k", 0.0),
+                        r.get("alpha", 0.0),
+                        r.get("beta", 0.0),
+                        r.get("ct0", 0.0),
+                        r.get("ct1", 0.0),
+                        r.get("ct2", 0.0),
+                    ]
+                )
+                n_coefficient_rows += 1
+
     print(
         f"Wrote {len(materials)} materials, "
-        f"{len(cores)} cores to {data_dir}"
+        f"{len(cores)} cores, "
+        f"{n_coefficient_rows} core-loss coefficient rows to {data_dir}"
     )
 
 

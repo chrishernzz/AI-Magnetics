@@ -6,7 +6,7 @@ Given your inductor requirements (inductance, peak/RMS current, switching freque
 
 **Input:** `InductorDesignRequest` — inductance, peak current, RMS current (or derivable from average current + ripple), switching frequency, ambient temperature, allowable temperature rise, inductance tolerance (see [API_REFERENCE.md](API_REFERENCE.md))
 **Output:** `POST /inductor-design` returns a `DesignRecommendation` — passing and rejected candidates, each with material, core, turns/gap, validation results, winding design, and losses; or `status: "no_feasible_design"` with the reason, never a silent oversized fallback
-**Known Phase 1 data gaps (not code gaps):** core loss and DCR/copper-loss-when-blocked-on-DCR are reported `not_evaluated` because the bundled material/core snapshot doesn't carry core-loss coefficients or mean-length-per-turn data yet — see [DATA_FILES.md](DATA_FILES.md)
+**Known Phase 1 data gaps (not code gaps):** DC copper loss is now evaluated with a real, geometry-derived DCR for cores with mean-length-per-turn data (see [DATA_FILES.md](DATA_FILES.md)). Core loss is still `not_evaluated` — real Steinmetz coefficients exist in `data/real_core_loss_coefficients.csv` for materials with real upstream data, but `CoreLoss.cpp` isn't wired to use them yet.
 
 ---
 ## Quick Links
@@ -31,7 +31,7 @@ Given your inductor requirements (inductance, peak/RMS current, switching freque
 3. **Core candidates** — every core matching a compatible material; `no_feasible_design` (not a silent oversized fallback) if none meet the Ap requirement
 4. **Turns and air-gap design** — iterates turns and gap together until inductance converges within tolerance
 5. **Magnetic validation** — inductance, peak flux, saturation margin, winding fit, current density, thermal (six named checks, all failures reported)
-6. **Winding design** — round-wire AWG selection, fill factor, current density (DCR reported `not_evaluated` — see Status)
+6. **Winding design** — round-wire AWG selection, fill factor, current density, DCR from a real geometry-derived mean-length-per-turn (see Status)
 7. **Loss evaluation** — DC copper loss when DCR is available; core loss and high-frequency loss reported `not_evaluated` (see Status)
 
 See [WORKFLOW.md](WORKFLOW.md) for formulas and the current status of each stage.
@@ -54,9 +54,9 @@ See [WORKFLOW.md](WORKFLOW.md) for formulas and the current status of each stage
 - ✅ Gap design (`src/core/magnetics/GapDesign.cpp`) and turns/gap convergence (`src/core/magnetics/TurnsAndGapDesign.cpp`) — implemented and iterated together
 - ✅ Magnetic validation (`DesignValidation.cpp`) — InductanceValidation, PeakFluxValidation, SaturationValidation, WindingFitValidation, CurrentDensityValidation, ThermalValidation
 - ✅ Winding design (`src/core/winding/WindingDesign.cpp`) — AWG wire selection, fill factor, current density
-- ✅ DC copper loss (`src/core/losses/CopperLoss.cpp`), called from `src/core/losses/LossEvaluation.cpp`
-- ⚠️ DCR / total wire length — `not_evaluated`: `data/real_cores.csv` has no mean-length-per-turn column (data gap, not a code gap)
-- ⚠️ Core loss (`src/core/losses/CoreLoss.cpp`) — `not_evaluated`: `data/real_materials.csv`'s `CuLossFactor` is 0.0 for every material, and flux-density swing isn't threaded into `src/core/losses/LossEvaluation.cpp` yet either (data gap, not a code gap — see [FORMULAS.md](FORMULAS.md) section 9)
+- ✅ DC copper loss (`src/core/losses/CopperLoss.cpp`), called from `src/core/losses/LossEvaluation.cpp` — real DCR from `CoreCandidate.mltMm` (see [DATA_FILES.md](DATA_FILES.md)), `not_evaluated` only for the subset of cores whose upstream geometry doesn't support an MLT estimate
+- ✅ Saturation flux density (`BmaxT`) — real, material-specific data for all 32 materials in the current snapshot; `SaturationValidation`/`PeakFluxValidation` use it automatically instead of the Phase 1 default
+- ⚠️ Core loss (`src/core/losses/CoreLoss.cpp`) — still `not_evaluated`: real Steinmetz coefficients now exist in `data/real_core_loss_coefficients.csv` for materials with real upstream data, but `CoreLoss.cpp`'s simplified placeholder model isn't wired to use them yet, and flux-density swing isn't threaded into `src/core/losses/LossEvaluation.cpp` either (see [FORMULAS.md](FORMULAS.md) section 9)
 - ⚠️ High-frequency (skin/proximity) loss — not implemented in Phase 1, reported `not_evaluated`
 - ⚠️ Thermal evaluation (`src/core/thermal/ThermalEvaluation.cpp`) — `not_evaluated`: no thermal-resistance model or data yet
 - ✅ `src/core/magnetics/TurnsCalculation.cpp` is fully implemented (`N = round(sqrt(L/AL))`) — this was previously mis-documented as a stub in several files; it's used as the seed estimate inside `src/core/magnetics/TurnsAndGapDesign.cpp`'s convergence loop

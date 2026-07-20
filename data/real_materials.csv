@@ -1,33 +1,33 @@
-Name,MuOpt,MinFrequencyHz,MaxFrequencyHz,Reason,Alternatives,BmaxT,CuLossFactor
-3C90,2249.28,20000.0,200000.0,"ferrite material, family 3C (source: Ferroxcube)",None,0.0,0.0
-3C92,1637.0,50000.0,300000.0,"ferrite material, family 3C (source: Ferroxcube)",None,0.0,0.0
-3C94,2250.0,100000.0,300000.0,"ferrite material, family 3C (source: Ferroxcube)",None,0.0,0.0
-3C95,2931.0,200000.0,500000.0,"ferrite material, family 3C (source: Ferroxcube)",None,0.0,0.0
-3C96,2007.0,100000.0,500000.0,"ferrite material, family 3C (source: Ferroxcube)",None,0.0,0.0
-3C97,3313.0,300000.0,1000000.0,"ferrite material, family 3C (source: Ferroxcube)",None,0.0,0.0
-3F36,1710.0,100000.0,500000.0,"ferrite material, family 3F (source: Ferroxcube)",None,0.0,0.0
-3F46,776.0,500000.0,3000000.0,"ferrite material, family 3F (source: Ferroxcube)",None,0.0,0.0
-78,2252.6,10000.0,1000000.0,"ferrite material, family power (source: Fair-Rite)",None,0.0,0.0
-79,1478.71,10000.0,300000.0,"ferrite material, family power (source: Fair-Rite)",None,0.0,0.0
-80,605.0,25000.0,500000.0,"ferrite material, family power (source: Fair-Rite)",None,0.0,0.0
-95,2980.0,100000.0,5000000.0,"ferrite material, family Broadband (source: Fair-Rite)",None,0.0,0.0
-98,2258.05,100000.0,10000000.0,"ferrite material, family Broadband (source: Fair-Rite)",None,0.0,0.0
-Edge 26,26.0,0.0,2000000.0,"powder material, family Edge (source: Magnetics)",None,0.0,0.0
-Edge 40,40.0,0.0,2000000.0,"powder material, family Edge (source: Magnetics)",None,0.0,0.0
-Edge 60,60.0,0.0,2000000.0,"powder material, family Edge (source: Magnetics)",None,0.0,0.0
-Kool Mµ 26,26.0,0.0,2000000.0,"powder material, family Kool Mµ (source: Magnetics)",None,0.0,0.0
-Kool Mµ 40,40.0,0.0,2000000.0,"powder material, family Kool Mµ (source: Magnetics)",None,0.0,0.0
-Kool Mµ 60,60.0,0.0,2000000.0,"powder material, family Kool Mµ (source: Magnetics)",None,0.0,0.0
-Kool Mµ Hƒ 26,26.0,0.0,2000000.0,"powder material, family Kool Mµ Hƒ (source: Magnetics)",None,0.0,0.0
-Kool Mµ Hƒ 40,40.0,0.0,2000000.0,"powder material, family Kool Mµ Hƒ (source: Magnetics)",None,0.0,0.0
-Kool Mµ Hƒ 60,60.0,0.0,2000000.0,"powder material, family Kool Mµ Hƒ (source: Magnetics)",None,0.0,0.0
-Kool Mµ MAX 26,26.0,0.0,2000000.0,"powder material, family Kool Mµ MAX (source: Magnetics)",None,0.0,0.0
-Kool Mµ MAX 40,40.0,0.0,2000000.0,"powder material, family Kool Mµ MAX (source: Magnetics)",None,0.0,0.0
-Kool Mµ MAX 60,60.0,0.0,2000000.0,"powder material, family Kool Mµ MAX (source: Magnetics)",None,0.0,0.0
-N27,1697.0,25000.0,500000.0,"ferrite material, family N (source: TDK)",None,0.0,0.0
-N41,2403.0,25000.0,300000.0,"ferrite material, family N (source: TDK)",None,0.0,0.0
-N49,1469.0,100000.0,1000000.0,"ferrite material, family N (source: TDK)",None,0.0,0.0
-N87,2208.0,25000.0,500000.0,"ferrite material, family N (source: TDK)",None,0.0,0.0
-XFlux 26,26.0,0.0,1000000.0,"powder material, family XFlux (source: Magnetics)",None,0.0,0.0
-XFlux 40,40.0,0.0,1000000.0,"powder material, family XFlux (source: Magnetics)",None,0.0,0.0
-XFlux 60,60.0,0.0,1000000.0,"powder material, family XFlux (source: Magnetics)",None,0.0,0.0
+Name,MuOpt,MinFrequencyHz,MaxFrequencyHz,Reason,Alternatives,BmaxT
+3C90,2249.28,20000.0,200000.0,"ferrite material, family 3C (source: Ferroxcube)",None,0.47000000000000003
+3C92,1637.0,50000.0,300000.0,"ferrite material, family 3C (source: Ferroxcube)",None,0.54
+3C94,2250.0,100000.0,300000.0,"ferrite material, family 3C (source: Ferroxcube)",None,0.47000000000000003
+3C95,2931.0,200000.0,500000.0,"ferrite material, family 3C (source: Ferroxcube)",None,0.53
+3C96,2007.0,100000.0,500000.0,"ferrite material, family 3C (source: Ferroxcube)",None,0.55
+3C97,3313.0,300000.0,1000000.0,"ferrite material, family 3C (source: Ferroxcube)",None,0.53
+3F36,1710.0,100000.0,500000.0,"ferrite material, family 3F (source: Ferroxcube)",None,0.52
+3F46,776.0,500000.0,3000000.0,"ferrite material, family 3F (source: Ferroxcube)",None,0.43
+78,2252.6,10000.0,1000000.0,"ferrite material, family power (source: Fair-Rite)",None,0.455
+79,1478.71,10000.0,300000.0,"ferrite material, family power (source: Fair-Rite)",None,0.467
+80,605.0,25000.0,500000.0,"ferrite material, family power (source: Fair-Rite)",None,0.47300000000000003
+95,2980.0,100000.0,5000000.0,"ferrite material, family Broadband (source: Fair-Rite)",None,0.5
+98,2258.05,100000.0,10000000.0,"ferrite material, family Broadband (source: Fair-Rite)",None,0.501
+Edge 26,26.0,0.0,2000000.0,"powder material, family Edge (source: Magnetics)",None,1.5
+Edge 40,40.0,0.0,2000000.0,"powder material, family Edge (source: Magnetics)",None,1.5
+Edge 60,60.0,0.0,2000000.0,"powder material, family Edge (source: Magnetics)",None,1.5
+Kool Mµ 26,26.0,0.0,2000000.0,"powder material, family Kool Mµ (source: Magnetics)",None,1.0
+Kool Mµ 40,40.0,0.0,2000000.0,"powder material, family Kool Mµ (source: Magnetics)",None,1.0
+Kool Mµ 60,60.0,0.0,2000000.0,"powder material, family Kool Mµ (source: Magnetics)",None,1.0
+Kool Mµ Hƒ 26,26.0,0.0,2000000.0,"powder material, family Kool Mµ Hƒ (source: Magnetics)",None,1.0
+Kool Mµ Hƒ 40,40.0,0.0,2000000.0,"powder material, family Kool Mµ Hƒ (source: Magnetics)",None,1.0
+Kool Mµ Hƒ 60,60.0,0.0,2000000.0,"powder material, family Kool Mµ Hƒ (source: Magnetics)",None,1.0
+Kool Mµ MAX 26,26.0,0.0,2000000.0,"powder material, family Kool Mµ MAX (source: Magnetics)",None,1.0
+Kool Mµ MAX 40,40.0,0.0,2000000.0,"powder material, family Kool Mµ MAX (source: Magnetics)",None,1.0
+Kool Mµ MAX 60,60.0,0.0,2000000.0,"powder material, family Kool Mµ MAX (source: Magnetics)",None,1.0
+N27,1697.0,25000.0,500000.0,"ferrite material, family N (source: TDK)",None,0.502769999999999
+N41,2403.0,25000.0,300000.0,"ferrite material, family N (source: TDK)",None,0.49085000000000006
+N49,1469.0,100000.0,1000000.0,"ferrite material, family N (source: TDK)",None,0.4914
+N87,2208.0,25000.0,500000.0,"ferrite material, family N (source: TDK)",None,0.49525
+XFlux 26,26.0,0.0,1000000.0,"powder material, family XFlux (source: Magnetics)",None,1.6
+XFlux 40,40.0,0.0,1000000.0,"powder material, family XFlux (source: Magnetics)",None,1.6
+XFlux 60,60.0,0.0,1000000.0,"powder material, family XFlux (source: Magnetics)",None,1.6

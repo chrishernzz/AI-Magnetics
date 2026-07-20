@@ -396,14 +396,23 @@ project-specific assumption — so the only real design decision here is
 manufacturability heuristic (how thick a single solid wire is practical to
 hand-wind), separate from the wire geometry table it's compared against.
 
-### A known limitation
+### Total wire length and DCR
 
-Total wire length and DC resistance (DCR) are **not** computed, because
-computing them needs the core's mean-length-per-turn (MLT) — a geometric
-figure the current core database doesn't include. Fill factor and current
-density don't need MLT (they only need turns and window area, both already
-known), so they're still fully computed. DCR is reported `not_evaluated`
-with an explicit explanation rather than guessed.
+```
+strand_length_m = turns * mltMm / 1000
+DCR = resistivity_ohm_m * strand_length_m / conductorArea_m2 / parallelStrands
+```
+
+Computing these needs the core's mean-length-per-turn (MLT) - `data/real_cores.csv`'s
+`Mlt` column, a real-geometry estimate from each core's central-column
+cross-section (`scripts/export_real_data.py`; not accounting for bobbin
+wall thickness or winding buildup - a documented simplification, same
+policy as the gap formula's fringing-flux omission). `resistivity_ohm_m`
+is annealed copper at 20°C (1.724e-8 Ω·m), not corrected for operating
+temperature. Fill factor and current density never needed MLT (they only
+need turns and window area), so they're computed either way; DCR is
+reported `not_evaluated` with an explicit explanation for the subset of
+cores whose upstream geometry doesn't support an MLT estimate.
 
 ### Feeds into
 
@@ -418,12 +427,15 @@ Sections 2 and 5, so it's worth explaining on its own. `DesignRules.
 defaultFluxDensityLimitT = 0.30 T` is a **conservative, generic ferrite
 saturation guideline** — real ferrite materials often saturate well above
 this, but 0.30 T is a commonly used safe design point when a material's
-actual measured saturation curve isn't available. Every material in the
-current data snapshot (`data/real_materials.csv`) has `BmaxT = 0.0`
-(unpopulated), so this default is what's actually used for every candidate
-today. The engine never presents this as if it were a measured fact about
-a specific material — every check that uses it sets `usedDefaultLimit:
-true` in its result.
+actual measured saturation curve isn't available. As of this data
+snapshot, `data/real_materials.csv`'s `BmaxT` is real, material-specific
+saturation flux density for all 32 materials (source: PyOpenMagnetics/MAS),
+so this default is now the exception rather than the rule - it's only
+used as a fallback for a material with no measured value. The engine never
+presents it as if it were a measured fact about a specific material —
+every check that uses it sets `usedDefaultLimit: true` in its result, and
+`usedDefaultLimit: false` whenever a real material-specific `BmaxT` was
+used instead.
 
 ---
 
@@ -452,7 +464,7 @@ Pcu = Irms^2 * DCR
 |---|---|---|---|
 | `Pcu` | DC copper (resistive) power loss | W | **Output** |
 | `Irms` | RMS current | A | `OperatingPoint.rmsCurrentA` |
-| `DCR` | Winding DC resistance | ohms | From Section 6 — **only available when MLT data exists**, which it currently doesn't |
+| `DCR` | Winding DC resistance | ohms | From Section 6 — available when the core has a real MLT estimate |
 
 ### Why it matters if this is wrong
 
@@ -463,14 +475,14 @@ current-field mixup the project's own rules explicitly forbid (see Section
 
 ### Current status
 
-Because DCR is `not_evaluated` today (Section 6's known limitation), this
-formula's real implementation exists and is tested, but it isn't currently
-invoked with real numbers — `copperLossStatus` reports `not_evaluated`
-rather than presenting `0 W` as if it were a real, computed answer.
+Real for cores with an MLT estimate (Section 6) — `copperLossStatus:
+Evaluated` with a genuine watt value. Still `not_evaluated` for the subset
+of cores whose upstream geometry doesn't support an MLT estimate, rather
+than presenting `0 W` as if it were a real, computed answer.
 
 ---
 
-## 9. Core Loss (Implemented, Not Currently Used With Real Data)
+## 9. Core Loss (Real Coefficients Now Sourced, Not Yet Wired In)
 
 **File:** `src/core/losses/CoreLoss.cpp`
 
@@ -483,11 +495,8 @@ material itself (as opposed to the winding).
 
 Real core-loss modeling normally uses the Steinmetz equation (`Pv = k *
 f^a * B^b`, with `k`, `a`, `b` all fitted from real per-material
-measurement curves). The current material database has only a single,
-undocumented `CuLossFactor` placeholder column (always `0.0` for every
-material), not real Steinmetz coefficients. Rather than invent exponents
-that aren't backed by real data, this module implements a documented,
-clearly-labeled **simplified placeholder model**:
+measurement curves). The engine's current implementation predates having
+real coefficients and uses a single-coefficient placeholder model instead:
 
 ```
 Pv = CuLossFactor * (f / 100000) * (Bswing / 0.1)^2
@@ -496,21 +505,27 @@ Pv = CuLossFactor * (f / 100000) * (Bswing / 0.1)^2
 | Symbol | Meaning | Unit | Source |
 |---|---|---|---|
 | `Pv` | Core loss density | W/cm³ | **Output** — not currently a real result, see below |
-| `CuLossFactor` | Placeholder loss coefficient | — (undefined units) | Material database — **always 0.0 today** |
+| `CuLossFactor` | Placeholder loss coefficient | — (undefined units) | Retired — see below |
 | `f` | Switching frequency | Hz | User input |
 | `Bswing` | Flux density swing | T | Would come from Section 5's flux calculations |
 
 ### Current status
 
-`src/core/losses/LossEvaluation.cpp` reports `coreLossStatus: not_evaluated`
-unconditionally - it doesn't call `calculateCoreLoss()` at all, rather
-than calling it behind an `if (material.hasCoreLossData)` check, because
-that flag is **never true** with the current data snapshot *and* this
-function also needs a flux-density-swing value that isn't threaded through
-to the loss-evaluation stage yet. Closing this gap means two things:
-sourcing real per-material Steinmetz coefficients from datasheets, and
-wiring flux-density swing into `evaluateLosses()` so the formula above can
-actually be called - neither is done today.
+Real Steinmetz coefficients (`k`, `alpha`, `beta`, plus temperature terms
+`ct0`/`ct1`/`ct2`, per frequency range) now exist in
+`data/real_core_loss_coefficients.csv` for 17 of the 32 materials — the
+ferrite families (3C9x, 78/79/80/95/98, N-series). The powder/Kool
+Mµ/XFlux materials aren't characterized as Steinmetz upstream at all
+(a real absence, not an export bug), and will correctly stay
+`not_evaluated` even after this is wired up. `CoreLoss.cpp` has not been
+updated to read the new file or use the real `Pv = k * f^alpha * B^beta`
+formula yet — it still has the placeholder single-coefficient model above,
+unused. `src/core/losses/LossEvaluation.cpp` still reports
+`coreLossStatus: not_evaluated` unconditionally, and flux-density swing is
+still not threaded through to the loss-evaluation stage. Closing this gap
+is two things: switching `CoreLoss.cpp` to the real Steinmetz formula
+using the new CSV, and wiring flux-density swing into `evaluateLosses()` —
+neither is done yet.
 
 ---
 
@@ -554,7 +569,7 @@ Both are real pipeline stages that run on every request and report
 | `Ku` | Window utilization factor | dimensionless (0-1) | Section 2 |
 | `J` | Current density | A/cm² or A/mm² | Sections 2, 6 |
 | `DCR` | Winding DC resistance | ohms | Sections 6, 8 |
-| `MLT` | Mean length per turn | mm/m | Not computable today — see Section 6 |
+| `MLT` | Mean length per turn | mm | Real-geometry estimate for most cores — see Section 6 |
 | `Pcu` | DC copper loss | W | Section 8 |
 | `Pv` | Core loss density | W/cm³ | Section 9 |
 | `fillFactor` | Fraction of window filled with copper | dimensionless (0-1) | Section 6 |
@@ -566,7 +581,7 @@ Both are real pipeline stages that run on every request and report
 | Category | Examples | Source |
 |---|---|---|
 | Direct user input | `L`, `Ipk`, `Irms`, switching frequency, temperatures | The API request (`InductorDesignRequest`) |
-| Real manufacturer data | `Ae`, `Wa`, `Le`, `muR`, `AL`, material frequency ranges | `data/real_cores.csv`, `data/real_materials.csv` |
+| Real manufacturer data | `Ae`, `Wa`, `Le`, `MLT`, `muR`, `AL`, `BmaxT`, material frequency ranges, Steinmetz coefficients | `data/real_cores.csv`, `data/real_materials.csv`, `data/real_core_loss_coefficients.csv` |
 | Engineering policy defaults | `Ku`, `Bmax` default, `J`, saturation margin, fill factor limit, tolerance, min single-strand AWG | `DesignRules::phase1Default()` — one named place, never hidden in a route handler |
 | Physics/unit constants | `0.4*pi`, cm-to-mm conversions, `0.5` in the energy formula | Fixed, not configurable — they're not design choices |
 | Computed/derived | `Ap`, `Bpk`, `gap`, `AL_eff`, `fillFactor`, `Pcu` | Calculated by the engine at request time, never stored |

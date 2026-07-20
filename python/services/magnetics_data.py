@@ -57,7 +57,12 @@ def fetch_materials(available_core_material_names: set[str] | None = None) -> li
     expects:
 
     Name, MuOpt, MinFrequencyHz, MaxFrequencyHz, Reason,
-    Alternatives, BmaxT, CuLossFactor
+    Alternatives, BmaxT
+
+    BmaxT is real saturation flux density data as of this snapshot (see
+    scripts/export_real_data.py) - CuLossFactor was retired the same way,
+    replaced by data/real_core_loss_coefficients.csv (real Steinmetz
+    coefficients), which is not wired into the C++ engine yet.
 
     If available_core_material_names is given, materials not backed by at
     least one loaded core are skipped — otherwise MaterialSelection could
@@ -80,7 +85,6 @@ def fetch_materials(available_core_material_names: set[str] | None = None) -> li
                 "Reason": r["Reason"],
                 "Alternatives": r["Alternatives"],
                 "BmaxT": float(r["BmaxT"]),
-                "CuLossFactor": float(r["CuLossFactor"]),
             }
         )
 
@@ -92,8 +96,12 @@ def fetch_cores() -> list[dict]:
     Returns real, assembled core parts mapped to the same fields the C++
     engine expects:
 
-    PartNumber, Material, Mu, AL, Ae, Wa, Le,
+    PartNumber, Material, Mu, AL, Ae, Wa, Le, Mlt,
     PartCost, Vendor, MaxCurrent_A, MaxFreq_kHz
+
+    Mlt (mean-length-per-turn, mm) is a real-geometry estimate as of this
+    snapshot - see scripts/export_real_data.py's module docstring for
+    exactly what it does and doesn't account for.
     """
     rows = _read_csv(CORES_FILE)
 
@@ -109,6 +117,7 @@ def fetch_cores() -> list[dict]:
                 "Ae": float(r["Ae"]),
                 "Wa": float(r["Wa"]),
                 "Le": float(r["Le"]),
+                "Mlt": float(r["Mlt"]),
                 "PartCost": float(r["PartCost"]),
                 "Vendor": r["Vendor"],
                 "MaxCurrent_A": float(r["MaxCurrent_A"]),

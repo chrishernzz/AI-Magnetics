@@ -113,6 +113,7 @@ def _serialize_core(c) -> dict:
         "aeMm2": c.aeMm2,
         "waMm2": c.waMm2,
         "leMm": c.leMm,
+        "mltMm": c.mltMm,
         "areaProductCm4": c.areaProductCm4,
         "meetsAreaProduct": c.meetsAreaProduct,
     }

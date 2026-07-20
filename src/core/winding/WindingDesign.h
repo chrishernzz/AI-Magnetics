@@ -9,10 +9,11 @@
 //
 // Fill factor and current density only need turns x wire cross-section area
 // / window area, so they are always computed. Total wire length and DCR
-// need mean-length-per-turn, which data/real_cores.csv does not carry for
-// any core today - those two are reported not_evaluated with an explicit
-// missing-data explanation rather than an invented number (spec section 11:
-// "do NOT invent values silently").
+// need mean-length-per-turn (CoreCandidate::mltMm) - real for cores whose
+// upstream geometry supports the estimate (see scripts/export_real_data.py),
+// reported not_evaluated with an explicit missing-data explanation for any
+// core where it's still 0.0, rather than an invented number (spec section
+// 11: "do NOT invent values silently").
 
 struct WindingDesignResult {
     std::string wireDescription;
