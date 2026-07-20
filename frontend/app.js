@@ -1,11 +1,4 @@
-// Served two ways: by the FastAPI app itself (same origin - relative path
-// works) or as static files on GitHub Pages (different origin than the
-// Vercel-hosted API, so it needs the full URL). Update API_BASE if the
-// Vercel deployment moves to a different domain.
-const API_BASE = window.location.hostname.endsWith("github.io")
-    ? "https://ai-magnetics-1jg2zwwq7-christian-hernandezs-projects-56a515d7.vercel.app"
-    : "";
-const ENDPOINT = `${API_BASE}/inductor-design`;
+const ENDPOINT = "/inductor-design";
 
 let lastResult = null;
 let currentFilter = "all"; // all | passing | rejected

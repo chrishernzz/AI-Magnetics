@@ -2,7 +2,6 @@
 import sys
 from pathlib import Path
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -11,18 +10,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 
 app = FastAPI(title="AIMagnetics Python API",version="0.1.0",)
-
-# The frontend is also published as static files on GitHub Pages, a
-# different origin than this API - the browser will block the fetch()
-# calls in app.js without this.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://chrishernzz.github.io",
-    ],
-    allow_methods=["POST"],
-    allow_headers=["Content-Type"],
-)
 
 
 class NoCacheStaticFiles(StaticFiles):
