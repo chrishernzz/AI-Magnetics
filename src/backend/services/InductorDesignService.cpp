@@ -12,6 +12,7 @@
 #include "validation/DesignValidation.h"
 #include "RequirementDerivationService.h"
 
+//lets us reuse the function throughout the file without having to prefix it with the namespace
 namespace {
 
 InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCandidate& material, const InductorRequirements& requirements, const DesignRules& rules) {
