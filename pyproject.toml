@@ -11,3 +11,6 @@ dependencies = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests/python"]
+
+[tool.vercel]
+entrypoint = "python.app:app"
