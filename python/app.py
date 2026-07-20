@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-frontend_dir = Path(__file__).resolve().parent.parent / "src" / "frontend"
+frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 
 app = FastAPI(title="AIMagnetics Python API",version="0.1.0",)
 
