@@ -4,11 +4,10 @@
 #include <cmath>
 
 namespace {
-
-// Annealed copper resistivity at 20C, ohm-meters (IACS standard value).
-// DCR computed here is a 20C figure, not corrected for operating
-// temperature - a documented Phase 1 simplification, same policy as the
-// gap formula's fringing-flux omission (see FORMULAS.md).
+/*Annealed copper resistivity at 20C, ohm-meters (IACS standard value).
+DCR computed here is a 20C figure, not corrected for operating
+temperature - a documented Phase 1 simplification, same policy as the
+gap formula's fringing-flux omission (see FORMULAS.md).*/
 constexpr double kCopperResistivityOhmMAt20C = 1.724e-8;
 
 const AwgEntry* findEntry(int awg) {
@@ -20,9 +19,8 @@ const AwgEntry* findEntry(int awg) {
     return nullptr;
 }
 
-// Returns the finest (highest-numbered, smallest-area) AWG entry whose
-// cross-section area still meets requiredAreaMm2, or nullptr if even the
-// thickest entry in the table (AWG 8) isn't enough.
+//precondition: none
+//postcondition: returns the finest (highest-numbered, smallest-area) AWG entry whose cross-section area still meets requiredAreaMm2, or nullptr if even the thickest entry in the table (AWG 8) isn't enough.
 const AwgEntry* finestAwgMeetingArea(double requiredAreaMm2) {
     const AwgEntry* best = nullptr;
     for (const auto& entry : kAwgTable) {
@@ -37,12 +35,12 @@ const AwgEntry* finestAwgMeetingArea(double requiredAreaMm2) {
 
 }  // namespace
 
-// precondition: core.waMm2 > 0, turns > 0, rmsCurrentA > 0
-// postcondition: see header
+//precondition: core.waMm2 > 0, turns > 0, rmsCurrentA > 0
+//postcondition: see header
 WindingDesignResult designWinding(const CoreCandidate& core, int turns, double rmsCurrentA, const DesignRules& rules) {
     WindingDesignResult result;
 
-    // A/cm^2 -> mm^2 required area: requiredAreaMm2 = I / J_Acm2 * 100
+    //A/cm^2 -> mm^2 required area: requiredAreaMm2 = I / J_Acm2 * 100
     double requiredAreaMm2 = rmsCurrentA / rules.allowableCurrentDensityAperCm2 * 100.0;
 
     const AwgEntry* singleStrand = finestAwgMeetingArea(requiredAreaMm2);
