@@ -19,6 +19,17 @@ Debug/
 # Compiled Python extension
 *.pyd
 python/magnetics_cpp*.so
+# ...except the Linux/CPython 3.12 build checked in for Vercel deployment.
+# Vercel's Python builder has no CMake build step for the pybind11 engine,
+# so a prebuilt .so matching its runtime (Python 3.12, Amazon Linux 2023)
+# ships in the repo instead. To rebuild: compile with g++-11 (not a newer
+# GCC - GCC 13's libstdc++ needs a newer GLIBCXX than Amazon Linux 2023
+# ships) against Python 3.12, e.g.:
+#   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+#     -DPython3_EXECUTABLE=/path/to/python3.12 \
+#     -DCMAKE_CXX_COMPILER=/usr/bin/g++-11
+#   cmake --build build --target magnetics_cpp
+!python/magnetics_cpp.cpython-312-x86_64-linux-gnu.so
 
 # pytest
 .pytest_cache/
