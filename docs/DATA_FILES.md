@@ -125,7 +125,7 @@ AL ≈ 0.4π × µ₀ × µᵣ × (Ae / Le) × 10⁹ (nH/100T; µ₀ = 4π×10�
 
 **Purpose:** Database of magnetic materials and their properties.
 **Location:** `data/materials.csv`
-**Used by:** formerly `src/data/Materials.cpp` (now deleted, same reason as `CoreDatabase.cpp` above); `src/core/sizing/MaterialEvaluation.cpp` (formerly `MaterialSelection.cpp`, since removed) does the real work today via `Materials.h`
+**Used by:** formerly `src/data/Materials.cpp` (now deleted, same reason as `CoreDatabase.cpp` above); `src/core/sizing/MaterialEvaluation.cpp` (formerly `MaterialSelection.cpp`, since removed) does the real work today via `src/data/MaterialDatabase.h`
 **Currently:** 4 rows — Powder Iron, Kool Mu, Ferrite 3C90, High Frequency Ferrite
 
 ### Fields (actual header)

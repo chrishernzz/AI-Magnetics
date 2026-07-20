@@ -334,7 +334,7 @@ margin% = 100 * (Blimit - Bpk) / Blimit
 | Symbol | Meaning | Unit | Source |
 |---|---|---|---|
 | `margin%` | How much headroom exists below the flux limit | % | **Output** — must be >= `DesignRules.minimumSaturationMarginPercent` (default 10%) |
-| `Blimit` | The applicable flux density limit | T | Material-specific `BmaxT` if the material has one (none currently do), otherwise `DesignRules.defaultFluxDensityLimitT` |
+| `Blimit` | The applicable flux density limit | T | Material-specific `BmaxT` if the material has one (real data for all 32 materials as of the current snapshot), otherwise `DesignRules.defaultFluxDensityLimitT` |
 
 **Important:** whenever `Blimit` falls back to the Phase 1 default instead
 of a real material-specific number, the result explicitly flags

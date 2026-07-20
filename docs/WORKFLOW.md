@@ -24,7 +24,7 @@ The tool automates inductor design using McLyman's area-product method. Stages 1
 
 **How it works:** loops through the loaded material list (`data/real_materials.csv` — see `docs/ARCHITECTURE.md` for how it got there) and returns the first material whose `[MinFrequencyHz, MaxFrequencyHz)` range contains the input frequency.
 
-**Not yet used:** `MaterialSelectionInput` also declares `inductanceH`, `peakCurrentA`, `allowableTempRiseC`, and `waveformFactor`, but the current implementation only reads `switchingFreqHz` — the others are accepted but ignored. Current waveform shape has no effect on material selection yet.
+**Historical note:** the now-removed `MaterialSelectionInput` struct also declared `inductanceH`, `peakCurrentA`, `allowableTempRiseC`, and `waveformFactor`, but only `switchingFreqHz` was ever read from it - the others were accepted but ignored, and current waveform shape had no effect on material selection. That struct is gone along with the old single-stage endpoints (see `docs/ARCHITECTURE.md`).
 
 ---
 
@@ -53,7 +53,7 @@ E_max = 0.5 × 250µ × 25 = 3.125 mJ
 Ap ≈ 3 cm⁴ (core must satisfy this minimum)
 ```
 
-**Note:** `windowUtilization`, `fluxDensityT`, and `currentDensityAPerCm2` are sourced from `DesignRules::phase1Default()` (Ku=0.4, Bmax=0.30 T, J=400 A/cm²) - a named C++ ruleset, not a hard-coded Python constant (spec section 7; see `src/rules/DesignRules.cpp`). The Phase 1 pipeline's `PeakFluxValidation`/`SaturationValidation` checks prefer a material-specific `BmaxT` over this default when one exists - none currently does, since every material's `BmaxT` is 0.0 in `data/real_materials.csv`, and every check that uses the default flags `usedDefaultLimit: true` rather than presenting 0.30 T as a material fact.
+**Note:** `windowUtilization`, `fluxDensityT`, and `currentDensityAPerCm2` are sourced from `DesignRules::phase1Default()` (Ku=0.4, Bmax=0.30 T, J=400 A/cm²) - a named C++ ruleset, not a hard-coded Python constant (spec section 7; see `src/rules/DesignRules.cpp`). The Phase 1 pipeline's `PeakFluxValidation`/`SaturationValidation` checks prefer a material-specific `BmaxT` over this default when one exists - `data/real_materials.csv`'s `BmaxT` is real, material-specific data for all 32 materials, so the default is now only a fallback for a material with no measured value, and every check that uses the default flags `usedDefaultLimit: true` rather than presenting 0.30 T as a material fact.
 
 ---
 
@@ -65,7 +65,7 @@ Ap ≈ 3 cm⁴ (core must satisfy this minimum)
 
 **Input:**
 - `areaProduct` (from Stage 2), `peakCurrentA`, `recommendedMaterial` (from Stage 1)
-- Cores loaded from the real database at startup (`data/CoreDatabase.h`'s `setData()`/`load()`, populated by `python/services/magnetics_data.py` - the old CSV-reading `CoreDatabase.cpp` was fully dead code and has been deleted)
+- Cores loaded from the real database at startup (`src/data/CoreDatabase.h`'s `setData()`/`load()`, populated by `python/services/magnetics_data.py` - the old CSV-reading `CoreDatabase.cpp` was fully dead code and has been deleted)
 
 **Output:**
 - Core part number, material, `mu`, `al`, `ae` (mm²), `wa` (mm²), `le` (mm)
@@ -162,7 +162,7 @@ an engine bug. See [DATA_FILES.md](DATA_FILES.md).
 | Frequency | kHz | 25 – 1000 | Higher f → smaller core, ferrite better |
 | Temp Rise (ΔT) | °C | 25 – 60 | Checked by ThermalValidation - always `not_evaluated` today (no thermal model/data yet) |
 | Window Utilization (Ku) | – | 0.4, from `DesignRules::phase1Default()` | Not yet configurable per-request |
-| Flux Density (Bmax) | T | 0.30 default, from `DesignRules::phase1Default()` | Used unless a material carries its own `BmaxT` (none do today - always 0.0 in `real_materials.csv`) |
+| Flux Density (Bmax) | T | 0.30 default, from `DesignRules::phase1Default()` | Used unless a material carries its own `BmaxT` (real, material-specific data in `real_materials.csv` for all 32 materials) |
 | Current Density (J) | A/cm² | 400, from `DesignRules::phase1Default()` | Not yet configurable per-request |
 
 ---

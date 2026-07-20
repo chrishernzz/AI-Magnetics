@@ -21,7 +21,7 @@ There is no hand-written HTTP server — FastAPI (via `uvicorn`) handles all HTT
 
 ### Frontend Layer
 
-**Location:** `src/frontend/`
+**Location:** `frontend/`
 
 | File | Purpose |
 |---|---|
@@ -93,13 +93,13 @@ CMake builds this as a Python extension module and places the compiled `.pyd`/`.
 | DesignValidation | `validation/DesignValidation.cpp` | ✅ Implemented — six named checks (Inductance, PeakFlux, Saturation, WindingFit, CurrentDensity, Thermal), each its own `ValidationResult` |
 | WindingDesign | `src/core/winding/WindingDesign.cpp` | ✅ Implemented — AWG wire selection, fill factor, current density always computed; DCR/wire length `not_evaluated` (no mean-length-per-turn data in `real_cores.csv`) |
 | CopperLoss | `src/core/losses/CopperLoss.cpp` | ✅ Implemented — `Pcu_dc = Irms^2 * DCR`, only called when DCR is available |
-| CoreLoss | `src/core/losses/CoreLoss.cpp` | ✅ Implemented (simplified model) but never invoked with real coefficients today — `CuLossFactor` is 0.0 for every material in `real_materials.csv` |
+| CoreLoss | `src/core/losses/CoreLoss.cpp` | ✅ Implemented (simplified model) but never invoked with real coefficients today — real Steinmetz coefficients exist in `data/real_core_loss_coefficients.csv` for 17 of 32 materials, but this isn't wired to consume that file yet |
 | HighFrequencyLosses | `src/core/losses/HighFrequencyLosses.cpp` | ❌ Not implemented (returns 0.0) — `src/core/losses/LossEvaluation.cpp` wraps this as `not_evaluated`, never presents the 0.0 as a real result |
 | LossEvaluation | `src/core/losses/LossEvaluation.cpp` | ✅ Implemented — orchestrates CopperLoss/CoreLoss/HighFrequencyLosses, reports each as `Evaluated`/`NotEvaluated` |
 | ThermalEvaluation | `src/core/thermal/ThermalEvaluation.cpp` | ⚠️ Real module, always returns `NotEvaluated` — no thermal-resistance model or data exists in either CSV yet |
-| DataCache<T> | `data/DataCache.h` | ✅ Implemented — shared template holding the "cache once, warn if empty" logic that `CoreDatabase` and `Materials` both use, instead of each repeating it |
-| CoreDatabase | `data/CoreDatabase.h` | ✅ Implemented — real data loaded once at startup from a bundled snapshot (`data/real_cores.csv`, sourced from PyOpenMagnetics — see "Data Source" below); no CSV fallback, startup fails loudly if this fails. `load()` returns by `const&`, not by value |
-| Materials | `data/Materials.h` | ✅ Implemented — same pattern as CoreDatabase; `MaterialData` now also carries `bmaxT`/`cuLossFactor` (both 0.0 in the current snapshot) |
+| DataCache<T> | `src/data/DataCache.h` | ✅ Implemented — shared template holding the "cache once, warn if empty" logic that `CoreDatabase` and `MaterialDatabase` both use, instead of each repeating it |
+| CoreDatabase | `src/data/CoreDatabase.h` | ✅ Implemented — real data loaded once at startup from a bundled snapshot (`data/real_cores.csv`, sourced from PyOpenMagnetics — see "Data Source" below); no CSV fallback, startup fails loudly if this fails. `load()` returns by `const&`, not by value |
+| MaterialDatabase | `src/data/MaterialDatabase.h` | ✅ Implemented — same pattern as CoreDatabase; `MaterialData` now also carries a real, material-specific `bmaxT` for all 32 materials |
 | Validation | `src/validation/Validation.h` | ✅ Implemented — `ValidationResult{passed, checkName, calculatedValue, limitValue, unit, explanation, usedDefaultLimit}`, compiled via `VALIDATION_SOURCES` |
 | DesignRules | `src/rules/DesignRules.h`/`.cpp` | ✅ Implemented — `DesignRules::phase1Default()` is the single source of Ku/Bmax/J/tolerance defaults, compiled via `RULES_SOURCES` |
 | RequirementDerivationService | `backend/services/RequirementDerivationService.cpp` | ✅ Implemented — unit conversion + RMS-current-from-ripple derivation (triangular ripple only) |
@@ -162,12 +162,15 @@ validation.)
 
 **Why a bundled snapshot instead of a live PyOpenMagnetics query:**
 PyOpenMagnetics does not support native Windows (Linux/macOS only, or
-Windows via WSL2 — see its own `docs/compatibility.md`), and has no
-published wheel for Python 3.14 on any platform. Since this project runs
-on native Windows with Python 3.14, importing PyOpenMagnetics at runtime
-isn't currently possible here — confirmed by an actual failed install
-(`pip install PyOpenMagnetics` → CMake configuration failed, source build
-attempted because no matching wheel exists).
+Windows via WSL2 — see its own `docs/compatibility.md`), and had no
+published wheel for Python 3.14 on any platform at the time. This is
+historical context for *why* the snapshot approach was chosen, not a
+statement about the current toolchain — the project is now pinned to
+Python 3.12 (`.python-version`) and deploys on Linux (Vercel), where
+PyOpenMagnetics does install; the original blocker was hit on native
+Windows with Python 3.14 during early development, confirmed by an actual
+failed install (`pip install PyOpenMagnetics` → CMake configuration
+failed, source build attempted because no matching wheel exists).
 
 **The architecture that resulted, and why it still meets the same bar as
 a live query:**
