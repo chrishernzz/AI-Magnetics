@@ -5,6 +5,12 @@
 
 namespace {
 
+// Annealed copper resistivity at 20C, ohm-meters (IACS standard value).
+// DCR computed here is a 20C figure, not corrected for operating
+// temperature - a documented Phase 1 simplification, same policy as the
+// gap formula's fringing-flux omission (see FORMULAS.md).
+constexpr double kCopperResistivityOhmMAt20C = 1.724e-8;
+
 const AwgEntry* findEntry(int awg) {
     for (const auto& entry : kAwgTable) {
         if (entry.awg == awg) {
@@ -68,12 +74,24 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
     result.fillFactor = (static_cast<double>(turns) * totalCopperAreaPerTurnMm2) / core.waMm2;
     result.fitsWindow = result.fillFactor <= rules.maximumFillFactor;
 
-    // DCR / total wire length require mean-length-per-turn, which is not
-    // present anywhere in data/real_cores.csv (only Ae, Wa, Le, AL, Mu).
-    result.resistanceStatus = EvaluationStatus::NotEvaluated;
-    result.missingData.push_back("core '" + core.partNumber +
-                                  "' has no mean-length-per-turn data in real_cores.csv - "
-                                  "cannot compute total wire length or DCR");
+    if (core.mltMm > 0.0) {
+        // Length of one strand's path all the way around the core, turns
+        // times over - not yet divided by parallel strands.
+        double singleStrandLengthM = (static_cast<double>(turns) * core.mltMm) / 1000.0;
+        double conductorAreaM2 = result.conductorAreaMm2 * 1e-6;
+        double singleStrandResistanceOhms =
+            kCopperResistivityOhmMAt20C * singleStrandLengthM / conductorAreaM2;
+
+        result.totalWireLengthM = singleStrandLengthM * result.parallelStrands;
+        // Paralleling N identical strands divides resistance by N.
+        result.dcrOhms = singleStrandResistanceOhms / result.parallelStrands;
+        result.resistanceStatus = EvaluationStatus::Evaluated;
+    } else {
+        result.resistanceStatus = EvaluationStatus::NotEvaluated;
+        result.missingData.push_back(
+            "core '" + core.partNumber +
+            "' has no mean-length-per-turn estimate available - cannot compute total wire length or DCR");
+    }
 
     return result;
 }

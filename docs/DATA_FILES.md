@@ -22,12 +22,14 @@
 ## real_materials.csv / real_cores.csv (current, actually used)
 
 **Purpose:** The real material/core database, read at FastAPI startup.
-**Location:** `data/real_materials.csv`, `data/real_cores.csv`
+**Location:** `data/real_materials.csv`, `data/real_cores.csv`,
+`data/real_core_loss_coefficients.csv`
 **Used by:** `python/services/magnetics_data.py`
-**Format:** Same columns as the old `cores.csv`/`materials.csv` described
-below — `PartNumber,Material,Mu,AL,Ae,Wa,Le,PartCost,Vendor,MaxCurrent_A,MaxFreq_kHz`
-and `Name,MuOpt,MinFrequencyHz,MaxFrequencyHz,Reason,Alternatives,BmaxT,CuLossFactor`
-respectively.
+**Format:**
+`PartNumber,Material,Mu,AL,Ae,Wa,Le,Mlt,PartCost,Vendor,MaxCurrent_A,MaxFreq_kHz`
+for cores, `Name,MuOpt,MinFrequencyHz,MaxFrequencyHz,Reason,Alternatives,BmaxT`
+for materials, and `MaterialName,MinFrequencyHz,MaxFrequencyHz,K,Alpha,Beta,Ct0,Ct1,Ct2`
+(one row per frequency range) for the Steinmetz core-loss coefficients.
 **Currently:** 32 materials, 60 cores — real data (Ferroxcube, TDK,
 Magnetics, Fair-Rite), filtered to power-application materials and
 ungapped cores, spread across vendors.
@@ -38,20 +40,25 @@ PyOpenMagnetics installed — Linux/macOS/WSL2 only, see
 that script and swap the resulting files in.
 
 **Known Phase 1 data gaps (real limitations, not bugs in the engine):**
-- `real_materials.csv`'s `BmaxT` and `CuLossFactor` columns exist but are
-  **0.0 for every one of the 32 materials** — `scripts/export_real_data.py`
-  never populated them from the source data. Effects: `PeakFluxValidation`/
-  `SaturationValidation` always fall back to `DesignRules.defaultFluxDensityLimitT`
-  (flagged `usedDefaultLimit: true`, never presented as a material fact),
-  and `CoreLoss` is never invoked with real coefficients (`losses.coreLossStatus`
-  is always `NotEvaluated`).
-- `real_cores.csv` has **no mean-length-per-turn (MLT) or bobbin/winding-height
-  column** — only `Ae`, `Wa`, `Le`, `AL`, `Mu`. Fill factor and current
-  density are still fully computed (they only need turns × wire area ÷ Wa),
-  but total wire length and DCR are always `NotEvaluated`
-  (`winding.resistanceStatus`), which also blocks DC copper loss
-  (`losses.copperLossStatus`).
-- `real_cores.csv`'s `PartCost` and `MaxCurrent_A` columns are also 0.0 for
+- `real_materials.csv`'s `BmaxT` is now real, material-specific saturation
+  flux density data (source: PyOpenMagnetics/MAS) for all 32 materials —
+  `PeakFluxValidation`/`SaturationValidation` use it automatically instead
+  of `DesignRules.defaultFluxDensityLimitT` (`usedDefaultLimit: false` when
+  it's in use). The old placeholder `CuLossFactor` column was retired;
+  real Steinmetz coefficients (`k`, `alpha`, `beta`, plus temperature
+  terms) now exist in `data/real_core_loss_coefficients.csv` for 17 of the
+  32 materials (the ferrite families — the powder/Kool Mµ/XFlux materials
+  aren't characterized as Steinmetz upstream, not an export bug). `CoreLoss.cpp`
+  is not wired to consume this new file yet — `losses.coreLossStatus` is
+  still always `NotEvaluated`.
+- `real_cores.csv`'s `Mlt` column is a real-geometry estimate (each core's
+  central-column cross-section perimeter — see `scripts/export_real_data.py`'s
+  module docstring for exactly what it does and doesn't account for, e.g.
+  no bobbin wall thickness or winding buildup). Fill factor and current
+  density never needed it; total wire length and DCR now use it when it's
+  present (`winding.resistanceStatus: Evaluated`), and DC copper loss
+  (`losses.copperLossStatus`) follows automatically.
+- `real_cores.csv`'s `PartCost` and `MaxCurrent_A` columns are still 0.0 for
   every row — not currently used by any Phase 1 check.
 
 Closing these gaps means re-running `scripts/export_real_data.py` with those
@@ -131,8 +138,8 @@ AL ≈ 0.4π × µ₀ × µᵣ × (Ae / Le) × 10⁹ (nH/100T; µ₀ = 4π×10�
 | MaxFrequencyHz | Hz | 250000 | Maximum operating frequency |
 | Reason | — | "Balanced performance 50-250kHz..." | Why this material suits its range |
 | Alternatives | — | `Ferrite\|Powder Iron` | Pipe-separated alternatives; passed through as a raw string by the API, not parsed into a list |
-| BmaxT | T | 1.0 | Max flux density — as of today's Phase 1 engine, `PeakFluxValidation`/`SaturationValidation` (`DesignValidation.cpp`) prefer a material's own `BmaxT` over the `DesignRules` default (0.30 T) whenever it's populated - currently none are, in the real data snapshot, so the default is what's actually used. Not a hard-coded value in `src/core/sizing/AreaProduct.cpp` anymore - see [FORMULAS.md](FORMULAS.md) section 7 |
-| CuLossFactor | — | 1.15 | Multiplier for AC copper loss — `src/core/losses/CoreLoss.cpp` is implemented and would use it, but is gated on this being populated, which it isn't in the real data snapshot; see [FORMULAS.md](FORMULAS.md) section 9 |
+| BmaxT | T | 1.0 | Max flux density — as of today's Phase 1 engine, `PeakFluxValidation`/`SaturationValidation` (`DesignValidation.cpp`) prefer a material's own `BmaxT` over the `DesignRules` default (0.30 T) whenever it's populated. (This is the deprecated hand-typed format — the real snapshot, `real_materials.csv`, now has real `BmaxT` for all 32 materials; see the section above.) Not a hard-coded value in `src/core/sizing/AreaProduct.cpp` anymore - see [FORMULAS.md](FORMULAS.md) section 7 |
+| CuLossFactor | — | 1.15 | Multiplier for AC copper loss — retired from the real snapshot in favor of real Steinmetz coefficients in `data/real_core_loss_coefficients.csv` (see the section above); `src/core/losses/CoreLoss.cpp` is not yet wired to consume that file. See [FORMULAS.md](FORMULAS.md) section 9 |
 
 ### Frequency Ranges (current data)
 - **Powder Iron:** 1–100 kHz — reason text notes "good for buck inductors" specifically; worth genericizing if the tool is meant to be topology-agnostic

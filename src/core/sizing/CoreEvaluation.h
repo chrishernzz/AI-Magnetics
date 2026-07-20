@@ -23,6 +23,8 @@ struct CoreCandidate {
     double aeMm2;
     double waMm2;
     double leMm;
+    // Mean-length-per-turn, mm. 0.0 means no data - see CoreData::mlt.
+    double mltMm = 0.0;
     double areaProductCm4;
     bool meetsAreaProduct;
 };

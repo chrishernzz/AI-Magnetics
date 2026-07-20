@@ -107,15 +107,15 @@ AL_eff(nH/turn^2) = 0.4*pi * Ae_cm2 * 10 / (Le_cm/muR + gapCm)             (gapp
 
 **Magnetic validation (six named checks, `DesignValidation.cpp`):** InductanceValidation, PeakFluxValidation (`Bpk = L*Ipk/(N*Ae)` vs. the applicable flux limit), SaturationValidation (margin vs. `DesignRules.minimumSaturationMarginPercent`), WindingFitValidation, CurrentDensityValidation, ThermalValidation. Every failed check is reported, not just the first.
 
-**Winding design (`src/core/winding/WindingDesign.cpp`):** required conductor area from RMS current and `DesignRules.allowableCurrentDensityAperCm2`, AWG gauge selection (`src/data/AwgTable.h`, standard NEMA MW1000 reference geometry) with parallel strands when a single strand would be impractically thick, fill factor, current density - all computed. DCR and total wire length are reported `not_evaluated`: `data/real_cores.csv` has no mean-length-per-turn column.
+**Winding design (`src/core/winding/WindingDesign.cpp`):** required conductor area from RMS current and `DesignRules.allowableCurrentDensityAperCm2`, AWG gauge selection (`src/data/AwgTable.h`, standard NEMA MW1000 reference geometry) with parallel strands when a single strand would be impractically thick, fill factor, current density - all computed. DCR and total wire length are computed from `CoreCandidate.mltMm` (a real-geometry estimate, `data/real_cores.csv`'s `Mlt` column) when it's available, `not_evaluated` for the subset of cores whose upstream geometry doesn't support that estimate.
 
 **Copper Loss (`src/core/losses/CopperLoss.cpp`, implemented):**
 ```
 P_cu = I_rms^2 * DCR
 ```
-Only computed when `WindingDesign` produced a real DCR - currently never, per the data gap above, so `losses.copperLossStatus` is `not_evaluated` for every candidate today.
+Computed whenever `WindingDesign` produced a real DCR - real for most candidates now, `not_evaluated` only when the core's MLT estimate is unavailable.
 
-**Core Loss (`src/core/losses/CoreLoss.cpp`, implemented but unused with real data):** a simplified, documented-as-non-Steinmetz loss-density model, gated on `MaterialCandidate.hasCoreLossData`. Every material's `CuLossFactor` is 0.0 in `data/real_materials.csv`, so this is never invoked with real coefficients today - `losses.coreLossStatus` is `not_evaluated`.
+**Core Loss (`src/core/losses/CoreLoss.cpp`, implemented but unused with real data):** a simplified, documented-as-non-Steinmetz loss-density model, gated on `MaterialCandidate.hasCoreLossData`. Real Steinmetz coefficients now exist in `data/real_core_loss_coefficients.csv` for 17 of 32 materials, but this module hasn't been updated to read that file or use the real formula yet - `losses.coreLossStatus` is still `not_evaluated` for every candidate.
 
 **High-frequency (skin/proximity) loss:** not implemented in Phase 1 (`src/core/losses/HighFrequencyLosses.cpp` still returns 0.0) - always reported `not_evaluated`, never presented as a real 0 W result.
 

@@ -40,6 +40,7 @@ std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate
         candidate.aeMm2 = core.ae;
         candidate.waMm2 = core.wa;
         candidate.leMm = core.le;
+        candidate.mltMm = core.mlt;
         candidate.areaProductCm4 = apCm4;
         //this will return true or false based on the checking of apCm4 > requriedAreaProdcutCm4
         candidate.meetsAreaProduct = apCm4 >= requiredAreaProductCm4 * 0.95;

@@ -70,7 +70,6 @@ def load_real_magnetics_data():
         "reason" : "Reason",
         "alternatives" : "Alternatives",
         "bmaxT" : "BmaxT",
-        "cuLossFactor" : "CuLossFactor",
     })
     cpp_cores = _build_cpp_record(cores, magnetics_cpp.CoreData, {
         "partNumber" : "PartNumber",
@@ -80,6 +79,7 @@ def load_real_magnetics_data():
         "ae" : "Ae",
         "wa" : "Wa",
         "le" : "Le",
+        "mlt" : "Mlt",
     })
     magnetics_cpp.set_material_database(cpp_materials)
     magnetics_cpp.set_core_database(cpp_cores)

@@ -31,7 +31,6 @@ def load_real_data():
         record.reason = m["Reason"]
         record.alternatives = m["Alternatives"]
         record.bmaxT = m["BmaxT"]
-        record.cuLossFactor = m["CuLossFactor"]
         cpp_materials.append(record)
 
     cpp_cores = []
@@ -44,6 +43,7 @@ def load_real_data():
         record.ae = c["Ae"]
         record.wa = c["Wa"]
         record.le = c["Le"]
+        record.mlt = c["Mlt"]
         cpp_cores.append(record)
 
     magnetics_cpp.set_material_database(cpp_materials)

@@ -53,7 +53,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("al", &CoreData::al)
         .def_readwrite("ae", &CoreData::ae)
         .def_readwrite("wa", &CoreData::wa)
-        .def_readwrite("le", &CoreData::le);
+        .def_readwrite("le", &CoreData::le)
+        .def_readwrite("mlt", &CoreData::mlt);
     py::class_<MaterialData>(m, "MaterialData")
         .def(py::init<>())
         .def_readwrite("name", &MaterialData::name)
@@ -112,6 +113,7 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("aeMm2", &CoreCandidate::aeMm2)
         .def_readwrite("waMm2", &CoreCandidate::waMm2)
         .def_readwrite("leMm", &CoreCandidate::leMm)
+        .def_readwrite("mltMm", &CoreCandidate::mltMm)
         .def_readwrite("areaProductCm4", &CoreCandidate::areaProductCm4)
         .def_readwrite("meetsAreaProduct", &CoreCandidate::meetsAreaProduct);
 

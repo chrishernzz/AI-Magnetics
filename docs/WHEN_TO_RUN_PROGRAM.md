@@ -15,7 +15,7 @@ Rebuild the Python extension first, then run uvicorn:
 ```bash
 cd /path/to/AIMagnetics
 python -m cmake -S . -B build_pybind
-python -m cmake --build build_pybind --config Debug --target magnetics_cpp
+python -m cmake --build build_pybind --config Release --target magnetics_cpp
 python -m uvicorn python.app:app --reload --host 127.0.0.1 --port 8000
 ```
 
