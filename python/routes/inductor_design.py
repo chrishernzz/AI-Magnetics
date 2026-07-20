@@ -23,7 +23,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-import magnetics_cpp
+#import magnetics_cpp
 
 router = APIRouter()
 
