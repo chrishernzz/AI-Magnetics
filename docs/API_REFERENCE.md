@@ -85,13 +85,14 @@ just a console warning:
 }
 ```
 
-**Data-gap fields you will see today:** `winding.resistanceStatus`,
-`losses.copperLossStatus`, `losses.coreLossStatus`,
+**Data-gap fields you will see today:** `losses.coreLossStatus`,
 `losses.highFrequencyLossStatus`, and `thermal.status` are `"NotEvaluated"`
-for every candidate right now — `data/real_cores.csv` has no
-mean-length-per-turn column, `data/real_materials.csv`'s `BmaxT`/
-`CuLossFactor` are 0.0 for every material, and no thermal-resistance model
-exists yet. See [DATA_FILES.md](DATA_FILES.md). These are data gaps, not
+for every candidate right now — `CoreLoss.cpp` isn't wired to the real
+Steinmetz coefficients yet, skin/proximity loss isn't implemented in Phase
+1, and no thermal-resistance model exists yet. `winding.resistanceStatus`
+and `losses.copperLossStatus` are `"Evaluated"` whenever a core's `Mlt`
+(mean-length-per-turn) is present in `data/real_cores.csv`, which is most
+cores today. See [DATA_FILES.md](DATA_FILES.md). These are data gaps, not
 bugs — the engine reports them explicitly rather than inventing a number.
 
 ---
@@ -177,18 +178,19 @@ FastAPI also auto-generates interactive docs at **http://127.0.0.1:8000/docs** �
 
 ## Known Phase 1 Data Gaps
 
-`/inductor-design` is a complete pipeline, but three result areas are
-reported `not_evaluated` for every candidate today because the bundled
-data snapshot doesn't carry the inputs they need — see
+`/inductor-design` is a complete pipeline, but two result areas are still
+reported `not_evaluated` for every candidate today — see
 [DATA_FILES.md](DATA_FILES.md):
-- **DCR / total wire length** (`winding.resistanceStatus`) — no
-  mean-length-per-turn column in `data/real_cores.csv`
-- **Core loss** (`losses.coreLossStatus`) — `CuLossFactor` is 0.0 for
-  every material in `data/real_materials.csv`
+- **Core loss** (`losses.coreLossStatus`) — real Steinmetz coefficients
+  exist in `data/real_core_loss_coefficients.csv` for 17 of the 32
+  materials, but `CoreLoss.cpp` isn't wired to consume that file yet.
 - **Thermal rise** (`thermal.status`) — no thermal-resistance model or data
-  exists yet
+  exists yet.
 
-DC copper loss (`losses.copperLossStatus`) depends on DCR, so it is also
-`not_evaluated` until the mean-length-per-turn data gap above is closed.
-Skin/proximity (high-frequency) loss is not implemented in Phase 1
+Skin/proximity (high-frequency) loss is not implemented in Phase 1 at all,
 regardless of data (`losses.highFrequencyLossStatus`).
+
+DCR / total wire length (`winding.resistanceStatus`) and DC copper loss
+(`losses.copperLossStatus`) are no longer blanket gaps — they're
+`Evaluated` whenever a core's `Mlt` (mean-length-per-turn) is present in
+`data/real_cores.csv`, which is most cores today.
