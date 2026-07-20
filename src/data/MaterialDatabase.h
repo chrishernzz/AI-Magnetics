@@ -21,7 +21,7 @@ struct MaterialData {
 class MaterialDatabase {
 public:
     static const std::vector<MaterialData>& load() {
-        return DataCache<MaterialData>::load("Materials");
+        return DataCache<MaterialData>::load("MaterialDatabase");
     }
     static void setData(std::vector<MaterialData> data) {
         DataCache<MaterialData>::setData(std::move(data));
