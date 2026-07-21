@@ -52,15 +52,21 @@ def load_real_magnetics_data():
     traceback below to see exactly what failed (missing PyOpenMagnetics install is the most common cause).
     """
     import magnetics_cpp
-    from services.magnetics_data import fetch_all
+    from services.magnetics_data import fetch_all, fetch_core_loss_coefficients
 
     materials, cores = fetch_all()
-    
+    core_loss_coefficients = fetch_core_loss_coefficients()
+
     if not materials or not cores:
         raise RuntimeError(
             f"Real data load returned {len(materials)} materials, {len(cores)} cores - "
             f"refusing to start with an empty database. Check the filters in"
             f"python/services/magnetics_data.py (ALLOWED_MATERIAL_TYPES, size range, etc.)."
+        )
+    if not core_loss_coefficients:
+        raise RuntimeError(
+            "Real data load returned 0 core-loss coefficient rows - refusing to start with an "
+            "empty database. Check data/real_core_loss_coefficients.csv."
         )
     cpp_materials = _build_cpp_record(materials, magnetics_cpp.MaterialData, {
         "name" : "Name",
@@ -81,9 +87,22 @@ def load_real_magnetics_data():
         "le" : "Le",
         "mlt" : "Mlt",
     })
+    cpp_core_loss_coefficients = _build_cpp_record(core_loss_coefficients, magnetics_cpp.CoreLossCoefficientData, {
+        "materialName" : "MaterialName",
+        "minFreqHz" : "MinFreqHz",
+        "maxFreqHz" : "MaxFreqHz",
+        "k" : "K",
+        "alpha" : "Alpha",
+        "beta" : "Beta",
+        "ct0" : "Ct0",
+        "ct1" : "Ct1",
+        "ct2" : "Ct2",
+    })
     magnetics_cpp.set_material_database(cpp_materials)
     magnetics_cpp.set_core_database(cpp_cores)
-    print(f"Loaded real data: {len(cpp_materials)} materials, {len(cpp_cores)} cores. " f"source: PyOpenMagnetics / MAS")
+    magnetics_cpp.set_core_loss_coefficient_database(cpp_core_loss_coefficients)
+    print(f"Loaded real data: {len(cpp_materials)} materials, {len(cpp_cores)} cores, "
+          f"{len(cpp_core_loss_coefficients)} core-loss coefficient rows. source: PyOpenMagnetics / MAS")
 
 
 @app.get("/", response_class=FileResponse)

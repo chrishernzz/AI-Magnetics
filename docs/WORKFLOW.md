@@ -115,7 +115,7 @@ P_cu = I_rms^2 * DCR
 ```
 Computed whenever `WindingDesign` produced a real DCR - real for most candidates now, `not_evaluated` only when the core's MLT estimate is unavailable.
 
-**Core Loss (`src/core/losses/CoreLoss.cpp`, implemented but unused with real data):** a simplified, documented-as-non-Steinmetz loss-density model, gated on `MaterialCandidate.hasCoreLossData`. Real Steinmetz coefficients now exist in `data/real_core_loss_coefficients.csv` for 17 of 32 materials, but this module hasn't been updated to read that file or use the real formula yet - `losses.coreLossStatus` is still `not_evaluated` for every candidate.
+**Core Loss (`src/core/losses/CoreLoss.cpp`, formula implemented but unused, lookup implemented and wired):** the loss-density formula itself is still a simplified, documented-as-non-Steinmetz model, gated on `MaterialCandidate.hasCoreLossData`. Real Steinmetz coefficients now exist in `data/real_core_loss_coefficients.csv` for 17 of 32 materials, loaded at startup into `CoreLossCoefficientDatabase` and searchable via `findCoreLossCoefficients(materialName, switchingFreqHz)` - but the formula hasn't been switched over to use the lookup yet, so `losses.coreLossStatus` is still `not_evaluated` for every candidate.
 
 **High-frequency (skin/proximity) loss:** not implemented in Phase 1 (`src/core/losses/HighFrequencyLosses.cpp` still returns 0.0) - always reported `not_evaluated`, never presented as a real 0 W result.
 

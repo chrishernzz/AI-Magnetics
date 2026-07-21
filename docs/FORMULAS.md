@@ -482,7 +482,7 @@ than presenting `0 W` as if it were a real, computed answer.
 
 ---
 
-## 9. Core Loss (Real Coefficients Now Sourced, Not Yet Wired In)
+## 9. Core Loss (Real Coefficients Sourced and Lookup Wired, Loss Formula Not Yet Wired In)
 
 **File:** `src/core/losses/CoreLoss.cpp`
 
@@ -517,15 +517,30 @@ Real Steinmetz coefficients (`k`, `alpha`, `beta`, plus temperature terms
 ferrite families (3C9x, 78/79/80/95/98, N-series). The powder/Kool
 Mµ/XFlux materials aren't characterized as Steinmetz upstream at all
 (a real absence, not an export bug), and will correctly stay
-`not_evaluated` even after this is wired up. `CoreLoss.cpp` has not been
-updated to read the new file or use the real `Pv = k * f^alpha * B^beta`
-formula yet — it still has the placeholder single-coefficient model above,
-unused. `src/core/losses/LossEvaluation.cpp` still reports
-`coreLossStatus: not_evaluated` unconditionally, and flux-density swing is
-still not threaded through to the loss-evaluation stage. Closing this gap
-is two things: switching `CoreLoss.cpp` to the real Steinmetz formula
-using the new CSV, and wiring flux-density swing into `evaluateLosses()` —
-neither is done yet.
+`not_evaluated` even after the formula itself is wired up.
+
+The data layer and lookup are now built and tested: `CoreLossCoefficientDatabase`
+(`src/data/CoreLossCoefficientDatabase.h`) holds the CSV in memory, loaded
+at startup from `python/app.py` the same way `CoreDatabase`/`MaterialDatabase`
+are; `findCoreLossCoefficients(materialName, switchingFreqHz)`
+(`src/core/losses/CoreLoss.h`/`.cpp`) searches it and returns the matching
+row, if any, for a material at a given frequency. This is deliberately kept
+separate from the loss-density calculation itself, so a future
+`calculateCoreLossDensity(...)` (and, later, a μopt calculation) can reuse
+the same lookup without duplicating the search logic.
+
+Two things are still open, and both are decisions rather than data gaps:
+switching the loss-density formula itself from the placeholder
+single-coefficient model above to the real `Pv = k * f^alpha * B^beta`
+Steinmetz form using the looked-up coefficients, and choosing where the
+flux-density swing (`Bswing`) input comes from — see the two options
+discussed with the project owner: (1) only compute core loss when the
+request supplies real ripple-current data (honest, but leaves RMS-only
+requests `not_evaluated`), or (2) approximate `Bswing` from the already-computed
+peak flux density (covers every request, but must be flagged as an
+approximation since it ignores the DC bias). Until one is chosen and
+implemented, `src/core/losses/LossEvaluation.cpp` still reports
+`coreLossStatus: not_evaluated` unconditionally.
 
 ---
 

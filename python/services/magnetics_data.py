@@ -37,6 +37,7 @@ from pathlib import Path
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 MATERIALS_FILE = DATA_DIR / "real_materials.csv"
 CORES_FILE = DATA_DIR / "real_cores.csv"
+CORE_LOSS_COEFFICIENTS_FILE = DATA_DIR / "real_core_loss_coefficients.csv"
 
 
 def _read_csv(path: Path) -> list[dict]:
@@ -62,7 +63,11 @@ def fetch_materials(available_core_material_names: set[str] | None = None) -> li
     BmaxT is real saturation flux density data as of this snapshot (see
     scripts/export_real_data.py) - CuLossFactor was retired the same way,
     replaced by data/real_core_loss_coefficients.csv (real Steinmetz
-    coefficients), which is not wired into the C++ engine yet.
+    coefficients, see fetch_core_loss_coefficients() below). The
+    coefficients are loaded and searchable (findCoreLossCoefficients() in
+    C++), but core loss itself is still not_evaluated in Phase 1 - the
+    formula also needs a flux-density-swing value that isn't threaded
+    through yet (see docs/FORMULAS.md).
 
     If available_core_material_names is given, materials not backed by at
     least one loaded core are skipped — otherwise MaterialSelection could
@@ -122,6 +127,39 @@ def fetch_cores() -> list[dict]:
                 "Vendor": r["Vendor"],
                 "MaxCurrent_A": float(r["MaxCurrent_A"]),
                 "MaxFreq_kHz": float(r["MaxFreq_kHz"]),
+            }
+        )
+
+    return results
+
+
+def fetch_core_loss_coefficients() -> list[dict]:
+    """
+    Returns real per-material Steinmetz coefficients, mapped to the same
+    fields the C++ engine expects:
+
+    MaterialName, MinFrequencyHz, MaxFrequencyHz, K, Alpha, Beta, Ct0, Ct1, Ct2
+
+    Each material has one row per frequency range it was fit over (see
+    data/real_core_loss_coefficients.csv). This replaces the retired
+    CuLossFactor column - real_materials.csv no longer carries it.
+    """
+    rows = _read_csv(CORE_LOSS_COEFFICIENTS_FILE)
+
+    results = []
+
+    for r in rows:
+        results.append(
+            {
+                "MaterialName": r["MaterialName"],
+                "MinFreqHz": float(r["MinFrequencyHz"]),
+                "MaxFreqHz": float(r["MaxFrequencyHz"]),
+                "K": float(r["K"]),
+                "Alpha": float(r["Alpha"]),
+                "Beta": float(r["Beta"]),
+                "Ct0": float(r["Ct0"]),
+                "Ct1": float(r["Ct1"]),
+                "Ct2": float(r["Ct2"]),
             }
         )
 
