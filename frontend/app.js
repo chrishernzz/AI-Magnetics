@@ -168,6 +168,26 @@ function formatLossCell(status, watts) {
     return `${watts.toFixed(3)} W`;
 }
 
+// Mirrors InductorDesignService.cpp's totalKnownLossW()/hasAnyLossData() exactly -
+// this is the same number the backend actually ranks passing candidates by, so the
+// table's "Total Loss" column has to compute it the same way or the numbers and the
+// row order would silently disagree.
+function hasAnyLossData(candidate) {
+    return candidate.losses.copperLossStatus === "Evaluated" || candidate.losses.coreLossStatus === "Evaluated";
+}
+
+function totalKnownLossW(candidate) {
+    let loss = 0;
+    if (candidate.losses.copperLossStatus === "Evaluated") loss += candidate.losses.copperLossW;
+    if (candidate.losses.coreLossStatus === "Evaluated") loss += candidate.losses.coreLossW;
+    return loss;
+}
+
+function formatTotalLossCell(candidate) {
+    if (!hasAnyLossData(candidate)) return '<span class="cell-muted">not evaluated</span>';
+    return `${totalKnownLossW(candidate).toFixed(3)} W`;
+}
+
 function renderValidationList(validations) {
     return validations
         .map((v) => {
@@ -212,6 +232,11 @@ function sortValue(row, key) {
             return c.winding.fillFactor;
         case "cuLoss":
             return c.losses.copperLossStatus === "Evaluated" ? c.losses.copperLossW : -1;
+        case "coreLoss":
+            return c.losses.coreLossStatus === "Evaluated" ? c.losses.coreLossW : -1;
+        case "totalLoss":
+            // matches the backend's own ranking metric - see totalKnownLossW() above
+            return hasAnyLossData(c) ? totalKnownLossW(c) : -1;
         default:
             return 0;
     }
@@ -276,6 +301,8 @@ function renderCandidateTable(result) {
         { key: "error", label: "Error %", numeric: true },
         { key: "fill", label: "Fill %", numeric: true },
         { key: "cuLoss", label: "Cu Loss", numeric: true },
+        { key: "coreLoss", label: "Core Loss", numeric: true },
+        { key: "totalLoss", label: "Total Loss", numeric: true },
     ];
 
     const headerHtml = headers
@@ -302,9 +329,11 @@ function renderCandidateTable(result) {
                     <td class="numeric">${c.turnsAndGap.inductanceErrorPercent.toFixed(2)}</td>
                     <td class="numeric">${(c.winding.fillFactor * 100).toFixed(1)}</td>
                     <td class="numeric">${formatLossCell(c.losses.copperLossStatus, c.losses.copperLossW)}</td>
+                    <td class="numeric">${formatLossCell(c.losses.coreLossStatus, c.losses.coreLossW)}</td>
+                    <td class="numeric">${formatTotalLossCell(c)}</td>
                 </tr>
                 <tr class="detail-row" data-detail-index="${index}" hidden>
-                    <td colspan="9">${renderCandidateDetail(c)}</td>
+                    <td colspan="11">${renderCandidateDetail(c)}</td>
                 </tr>
             `;
         })
@@ -370,6 +399,9 @@ function renderDesignSummary(result) {
     }
 
     const best = result.candidates[0];
+    const rankingBasis = hasAnyLossData(best)
+        ? "lowest real total loss among passing candidates"
+        : "smallest area product - no candidate in this run had real loss data to rank by";
     element.innerHTML = `
         <div class="summary-metric">
             <div class="summary-label">Recommended Material</div>
@@ -383,6 +415,11 @@ function renderDesignSummary(result) {
             <div class="summary-label">Turns / Gap</div>
             <div class="summary-value">${best.turnsAndGap.turns} turns, ${best.turnsAndGap.gapMm.toFixed(2)} mm</div>
         </div>
+        <div class="summary-metric">
+            <div class="summary-label">Total Loss (Cu + Core)</div>
+            <div class="summary-value">${formatTotalLossCell(best)}</div>
+        </div>
+        <p class="ranking-note">Ranked #1 by: ${rankingBasis}.</p>
     `;
 }
 

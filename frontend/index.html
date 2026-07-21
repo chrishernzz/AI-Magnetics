@@ -98,6 +98,10 @@
             <h2>Candidates</h2>
             <div id="filterChips" class="filter-chips"></div>
         </div>
+        <p class="ranking-note">
+            Passing candidates are ranked by <strong>total loss</strong> (Cu Loss + Core Loss, whichever are evaluated) — lowest first, not by core size.
+            A candidate with no loss data at all falls back to smallest-core-first instead, so a missing number never wins or loses a ranking on its own.
+        </p>
         <div class="table-scroll">
             <table id="candidateTable" class="candidate-table"></table>
         </div>

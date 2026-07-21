@@ -353,6 +353,17 @@ summary {
     margin-bottom: 16px;
 }
 
+.ranking-note {
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    background: var(--paper-sunk);
+    border-radius: 8px;
+    border: 1px solid var(--line);
+}
+
 .filter-chips {
     display: flex;
     gap: 8px;
