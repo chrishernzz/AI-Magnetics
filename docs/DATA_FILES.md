@@ -67,6 +67,16 @@ that script and swap the resulting files in.
   (`losses.copperLossStatus`) follows automatically.
 - `real_cores.csv`'s `PartCost` and `MaxCurrent_A` columns are still 0.0 for
   every row — not currently used by any Phase 1 check.
+- `real_cores.csv` has no core-geometry/shape column at all, so
+  `TurnsAndGapDesign.cpp` applies the same discrete-air-gap physics model
+  (`GapDesign.cpp`) to every candidate uniformly, including the powder
+  toroids in the snapshot (Kool Mµ, XFlux, Fair-Rite "78"/"79"/"80" grades).
+  Real toroids don't get a machined air gap the way E-cores do — their
+  effective permeability is a distributed-gap material property, not a
+  mechanical gap length. The engine still returns a `gapMm` for these
+  (nearly always ~0.00mm since the fitted permeability needs little gap),
+  which is numerically harmless here but doesn't model the real physics of
+  a toroidal core. No shape-aware branch exists yet.
 
 Closing these gaps means re-running `scripts/export_real_data.py` with those
 fields actually populated, or adding real per-part datasheet values by

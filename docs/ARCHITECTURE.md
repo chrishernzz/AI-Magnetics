@@ -262,4 +262,6 @@ Phase 1 scope notes carried in this repo's planning discussion.
 
 ## Deployment
 
-**Current model:** single process — `uvicorn` runs the FastAPI app, which serves both the static frontend and the API, all backed by the in-process `magnetics_cpp` extension. No separate server processes.
+**Local:** single process — `uvicorn` runs the FastAPI app, which serves both the static frontend and the API, all backed by the in-process `magnetics_cpp` extension. No separate server processes.
+
+**Production:** deployed to Vercel (`vercel.json` routes everything to `python/app.py` via `@vercel/python`) — same single-process model, but Vercel's Python builder has no CMake step, so `magnetics_cpp` can't be compiled during deployment. A prebuilt `.so` (`python/magnetics_cpp.cpython-312-x86_64-linux-gnu.so`) is checked into git as a `.gitignore` exception and is the only reason the import succeeds there. **This means the live site is not automatically in sync with `src/` changes** — any C++ engine change requires a separate rebuild-and-commit of that binary, or Vercel keeps serving the old engine logic under the new frontend indefinitely with no error. See [GETTING_STARTED.md](GETTING_STARTED.md)'s "Deploying to Vercel" section for the exact rebuild recipe (must use g++-11, not a newer GCC) and for the real incident this already caused once.

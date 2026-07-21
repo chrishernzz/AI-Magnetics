@@ -120,6 +120,18 @@ cmake --build build --target magnetics_cpp
 Then copy the resulting `magnetics_cpp.cpython-312-x86_64-linux-gnu.so`
 into `python/` and commit it.
 
+**This has already bitten the project once**: the v1-optimization merge
+(real core loss + loss-based candidate ranking) and a later frontend-only
+commit both landed on `main` without anyone rebuilding this binary. The
+live Vercel site kept serving an older `.so` — real copper-loss numbers
+(from an even earlier change) but candidates still ordered by area product
+instead of total loss, with a frontend that visually claimed loss-based
+ranking. Nothing failed loudly; the two layers just quietly disagreed.
+**Any change under `src/` (the C++ engine) is not actually live on Vercel
+until this binary is rebuilt and committed separately** - a source commit
+alone is not enough. Frontend-only or Python-route-only changes don't need
+a rebuild.
+
 ---
 
 ## Note
