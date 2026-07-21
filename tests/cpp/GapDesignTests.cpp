@@ -11,10 +11,10 @@ void testUngappedAlMatchesCatalog() {
     double leCm = 273.919572699267 / 10.0;
     double muR = 2249.28;
 
-    double al = calculateEffectiveAlNhPerTurnSq(aeCm2, leCm, muR, 0.0);
+    double actualAl = calculateEffectiveAlNhPerTurnSq(aeCm2, leCm, muR, 0.0);
     //check if its within the tolerance
-    assert(approxEqual(al, 7584.855918773515, 5.0));
-    std::printf("testUngappedAlMatchesCatalog: AL=%.3f (expected ~7584.856)\n", al);
+    assert(approxEqual(actualAl, 7584.855918773515, 5.0));
+    std::printf("testUngappedAlMatchesCatalog: AL=%.3f (expected ~7584.856)\n", actualAl);
 }
 
 //precondition: aeCm2, leCm, muR describe a real core geometry; turns > 0; targetNh is an inductance target that requires a nonzero gap to reach at this turns count (i.e.below the ungapped AL * N^2 for this core)

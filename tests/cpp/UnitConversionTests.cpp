@@ -6,6 +6,7 @@ namespace {
 //precondition: none - just test the conversions constants 
 //postcondition: every conversion produces the exact expected value to very tight tolerance (1e-9 to 1e-12), confirming no stray factor-of-10 or factor-of-1000 error exists in the constants used eleswhere in the codebase
 void testUnitConversions() {
+    //actual, expected, answer
     //uH -> H
     assert(approxEqual(250.0 * 1e-6, 0.00025, 1e-12));      
     //kHz -> Hz
