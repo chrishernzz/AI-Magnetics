@@ -141,6 +141,12 @@ enable_testing()
 
 add_executable(magnetics_engine_tests
     tests/cpp/EngineTests.cpp
+    tests/cpp/GapDesignTests.cpp
+    tests/cpp/UnitConversionTests.cpp
+    tests/cpp/ValidationTests.cpp
+    tests/cpp/AreaProductTests.cpp
+    tests/cpp/WindingDesignTests.cpp
+    tests/cpp/LossTests.cpp
 )
 
 target_link_libraries(
