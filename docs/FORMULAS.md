@@ -482,65 +482,80 @@ than presenting `0 W` as if it were a real, computed answer.
 
 ---
 
-## 9. Core Loss (Real Coefficients Sourced and Lookup Wired, Loss Formula Not Yet Wired In)
+## 9. Core Loss (Real Steinmetz Formula, Ripple-Gated)
 
-**File:** `src/core/losses/CoreLoss.cpp`
+**File:** `src/core/losses/CoreLoss.cpp`, orchestrated from `src/core/losses/LossEvaluation.cpp`
 
 ### What it's for
 
 Estimates power lost to hysteresis and eddy currents inside the core
 material itself (as opposed to the winding).
 
-### Why this formula, and its caveat
+### The formula
 
-Real core-loss modeling normally uses the Steinmetz equation (`Pv = k *
-f^a * B^b`, with `k`, `a`, `b` all fitted from real per-material
-measurement curves). The engine's current implementation predates having
-real coefficients and uses a single-coefficient placeholder model instead:
+Real core-loss modeling uses the Steinmetz equation, with `k`, `alpha`,
+`beta` fitted per material from real measurement curves:
 
 ```
-Pv = CuLossFactor * (f / 100000) * (Bswing / 0.1)^2
+Pv (W/m³) = k * f^alpha * B^beta
 ```
 
 | Symbol | Meaning | Unit | Source |
 |---|---|---|---|
-| `Pv` | Core loss density | W/cm³ | **Output** — not currently a real result, see below |
-| `CuLossFactor` | Placeholder loss coefficient | — (undefined units) | Retired — see below |
+| `Pv` | Core loss density | **W/m³** (not W/cm³ — see caveat below) | **Output** |
+| `k`, `alpha`, `beta` | Steinmetz coefficients | — | `data/real_core_loss_coefficients.csv`, looked up per material + frequency via `findCoreLossCoefficients()` |
 | `f` | Switching frequency | Hz | User input |
-| `Bswing` | Flux density swing | T | Would come from Section 5's flux calculations |
+| `B` (`fluxDensitySwingT`) | Flux density swing | T | Computed from ripple current — see below |
 
-### Current status
+Total core loss in watts is `Pv * Ve`, where `Ve` is the core's effective
+volume (`Ae_mm2 * Le_mm`, converted to m³).
 
-Real Steinmetz coefficients (`k`, `alpha`, `beta`, plus temperature terms
-`ct0`/`ct1`/`ct2`, per frequency range) now exist in
-`data/real_core_loss_coefficients.csv` for 17 of the 32 materials — the
+**Units caveat, stated explicitly because it silently produced a
+600,000 W result during development:** these coefficients come from
+PyOpenMagnetics/MAS's `volumetricLosses` field — SI convention, so `Pv`
+is in **W/m³, not W/cm³**. The retired placeholder formula this replaced
+used W/cm³; carrying that assumption over to the real Steinmetz formula
+produced core-loss numbers six orders of magnitude too large. Caught by
+sanity-checking the output against a physically plausible loss density
+for a small ripple swing, then confirmed against PyOpenMagnetics's own
+field naming — not something a unit test alone would have caught, since
+the formula itself was correct, only the assumed output unit was wrong.
+
+### Where the flux-density swing comes from (Option 1, chosen)
+
+The formula needs the *AC* flux swing, not the DC-biased peak flux
+already computed for saturation checks. Two options were on the table:
+compute it only when the request supplies real ripple-current data, or
+approximate it from the peak flux density (covers every request, but
+would misrepresent a DC-biased inductor as swinging symmetrically around
+zero). **Option 1 was chosen** — core loss is computed only when
+`rippleCurrentPeakToPeakA` is supplied:
+
+```
+Bswing (T) = calculatedInductanceH * ripplePeakToPeakA / (turns * Ae_m²)
+```
+
+Same peak-flux relationship `PeakFluxValidation` uses (Section 5), driven
+by ripple current instead of peak current. No ripple current supplied →
+`coreLossStatus: not_evaluated`, same as always — never approximated.
+
+### Current data coverage
+
+Real Steinmetz coefficients exist for 17 of the 32 materials in use — the
 ferrite families (3C9x, 78/79/80/95/98, N-series). The powder/Kool
-Mµ/XFlux materials aren't characterized as Steinmetz upstream at all
-(a real absence, not an export bug), and will correctly stay
-`not_evaluated` even after the formula itself is wired up.
+Mµ/XFlux materials aren't characterized as Steinmetz upstream at all (a
+real absence, not an export bug) and correctly stay `not_evaluated`
+regardless of ripple current — `MaterialCandidate::hasCoreLossData`
+reflects this per material.
 
-The data layer and lookup are now built and tested: `CoreLossCoefficientDatabase`
-(`src/data/CoreLossCoefficientDatabase.h`) holds the CSV in memory, loaded
-at startup from `python/app.py` the same way `CoreDatabase`/`MaterialDatabase`
-are; `findCoreLossCoefficients(materialName, switchingFreqHz)`
-(`src/core/losses/CoreLoss.h`/`.cpp`) searches it and returns the matching
-row, if any, for a material at a given frequency. This is deliberately kept
-separate from the loss-density calculation itself, so a future
-`calculateCoreLossDensity(...)` (and, later, a μopt calculation) can reuse
-the same lookup without duplicating the search logic.
+### Known remaining gap
 
-Two things are still open, and both are decisions rather than data gaps:
-switching the loss-density formula itself from the placeholder
-single-coefficient model above to the real `Pv = k * f^alpha * B^beta`
-Steinmetz form using the looked-up coefficients, and choosing where the
-flux-density swing (`Bswing`) input comes from — see the two options
-discussed with the project owner: (1) only compute core loss when the
-request supplies real ripple-current data (honest, but leaves RMS-only
-requests `not_evaluated`), or (2) approximate `Bswing` from the already-computed
-peak flux density (covers every request, but must be flagged as an
-approximation since it ignores the DC bias). Until one is chosen and
-implemented, `src/core/losses/LossEvaluation.cpp` still reports
-`coreLossStatus: not_evaluated` unconditionally.
+The coefficient rows also carry temperature-correction terms
+(`ct0`/`ct1`/`ct2`), which are **not yet applied** — their exact formula
+wasn't confirmed against the upstream source, and applying a guessed
+correction would be worse than not applying one at all. Core loss today
+is computed at the coefficient's fitted reference temperature, not
+corrected for `ambientTemperatureC`.
 
 ---
 

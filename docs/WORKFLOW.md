@@ -4,7 +4,7 @@ This document explains each stage of the inductor sizing process, what parameter
 
 ## Overview
 
-The tool automates inductor design using McLyman's area-product method. Stages 1-3 below explain the underlying frequency-matching and Ap formulas - originally implemented as a single-pick in `MaterialSelection.cpp`/`CoreSelection.cpp`, now superseded by `src/core/sizing/MaterialEvaluation.cpp`/`CoreEvaluation.cpp`, which apply the same formulas but return every compatible candidate instead of just the first. The formulas themselves didn't change; only the candidate-selection behavior did. The canonical Phase 1 pipeline behind `POST /inductor-design` runs candidate evaluation, turns/gap design, magnetic validation, winding design, and loss evaluation end to end - see Stage 4+ below, which is **implemented**, not a future plan. Formulas for what remains data-gapped (core loss, thermal) are still documented ahead of the data existing.
+The tool automates inductor design using McLyman's area-product method. Stages 1-3 below explain the underlying frequency-matching and Ap formulas - originally implemented as a single-pick in `MaterialSelection.cpp`/`CoreSelection.cpp`, now superseded by `src/core/sizing/MaterialEvaluation.cpp`/`CoreEvaluation.cpp`, which apply the same formulas but return every compatible candidate instead of just the first. The formulas themselves didn't change; only the candidate-selection behavior did. The canonical Phase 1 pipeline behind `POST /inductor-design` runs candidate evaluation, turns/gap design, magnetic validation, winding design, loss evaluation, and a real loss-based ranking end to end - see Stage 4+ below, which is **implemented**, not a future plan. Thermal rise remains data-gapped and is documented ahead of the data existing.
 
 ---
 
@@ -115,7 +115,12 @@ P_cu = I_rms^2 * DCR
 ```
 Computed whenever `WindingDesign` produced a real DCR - real for most candidates now, `not_evaluated` only when the core's MLT estimate is unavailable.
 
-**Core Loss (`src/core/losses/CoreLoss.cpp`, formula implemented but unused, lookup implemented and wired):** the loss-density formula itself is still a simplified, documented-as-non-Steinmetz model, gated on `MaterialCandidate.hasCoreLossData`. Real Steinmetz coefficients now exist in `data/real_core_loss_coefficients.csv` for 17 of 32 materials, loaded at startup into `CoreLossCoefficientDatabase` and searchable via `findCoreLossCoefficients(materialName, switchingFreqHz)` - but the formula hasn't been switched over to use the lookup yet, so `losses.coreLossStatus` is still `not_evaluated` for every candidate.
+**Core Loss (`src/core/losses/CoreLoss.cpp`, real Steinmetz formula, ripple-gated):**
+```
+Pv (W/m^3) = k * f^alpha * B^beta
+Bswing (T) = calculatedInductanceH * ripplePeakToPeakA / (turns * Ae_m2)
+```
+Real for candidates whose material has coefficients in `data/real_core_loss_coefficients.csv` (17 of 32) AND whose request supplied `rippleCurrentPeakToPeakA` - `MaterialCandidate.hasCoreLossData` now reflects real coefficient availability, not the retired `CuLossFactor` field. No ripple current means no flux-density swing to compute Bswing from, so `losses.coreLossStatus` stays `not_evaluated` rather than approximating it from peak flux. Coefficients' temperature-correction terms (ct0/ct1/ct2) are not yet applied.
 
 **High-frequency (skin/proximity) loss:** not implemented in Phase 1 (`src/core/losses/HighFrequencyLosses.cpp` still returns 0.0) - always reported `not_evaluated`, never presented as a real 0 W result.
 

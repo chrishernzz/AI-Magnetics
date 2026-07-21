@@ -48,13 +48,16 @@ that script and swap the resulting files in.
   real Steinmetz coefficients (`k`, `alpha`, `beta`, plus temperature
   terms) now exist in `data/real_core_loss_coefficients.csv` for 17 of the
   32 materials (the ferrite families — the powder/Kool Mµ/XFlux materials
-  aren't characterized as Steinmetz upstream, not an export bug). The file
-  is now loaded at startup into `CoreLossCoefficientDatabase`
-  (`src/data/CoreLossCoefficientDatabase.h`) and searchable via
-  `findCoreLossCoefficients()` (`src/core/losses/CoreLoss.h`/`.cpp`) — but
-  the loss-density formula itself hasn't been switched to use it yet, and
-  `losses.coreLossStatus` is still always `NotEvaluated` (see
-  [FORMULAS.md](FORMULAS.md) section 9).
+  aren't characterized as Steinmetz upstream, not an export bug), loaded
+  at startup into `CoreLossCoefficientDatabase`
+  (`src/data/CoreLossCoefficientDatabase.h`). Core loss is now a real,
+  computed watt value via the Steinmetz equation `Pv = k*f^alpha*B^beta`
+  (`losses.coreLossStatus: Evaluated`) whenever the material has coefficients
+  AND the request supplies `rippleCurrentPeakToPeakA` (needed to compute
+  flux-density swing — never approximated from peak flux). No ripple current
+  supplied, or no coefficients for that material, means `NotEvaluated`, same
+  honest-gap policy as everywhere else (see [FORMULAS.md](FORMULAS.md)
+  section 9).
 - `real_cores.csv`'s `Mlt` column is a real-geometry estimate (each core's
   central-column cross-section perimeter — see `scripts/export_real_data.py`'s
   module docstring for exactly what it does and doesn't account for, e.g.
@@ -143,7 +146,7 @@ AL ≈ 0.4π × µ₀ × µᵣ × (Ae / Le) × 10⁹ (nH/100T; µ₀ = 4π×10�
 | Reason | — | "Balanced performance 50-250kHz..." | Why this material suits its range |
 | Alternatives | — | `Ferrite\|Powder Iron` | Pipe-separated alternatives; passed through as a raw string by the API, not parsed into a list |
 | BmaxT | T | 1.0 | Max flux density — as of today's Phase 1 engine, `PeakFluxValidation`/`SaturationValidation` (`DesignValidation.cpp`) prefer a material's own `BmaxT` over the `DesignRules` default (0.30 T) whenever it's populated. (This is the deprecated hand-typed format — the real snapshot, `real_materials.csv`, now has real `BmaxT` for all 32 materials; see the section above.) Not a hard-coded value in `src/core/sizing/AreaProduct.cpp` anymore - see [FORMULAS.md](FORMULAS.md) section 7 |
-| CuLossFactor | — | 1.15 | Multiplier for AC copper loss — retired from the real snapshot in favor of real Steinmetz coefficients in `data/real_core_loss_coefficients.csv` (see the section above); loaded and searchable via `findCoreLossCoefficients()`, but the loss-density formula in `src/core/losses/CoreLoss.cpp` doesn't use it yet. See [FORMULAS.md](FORMULAS.md) section 9 |
+| CuLossFactor | — | 1.15 | Multiplier for AC copper loss — retired from the real snapshot in favor of real Steinmetz coefficients in `data/real_core_loss_coefficients.csv` (see the section above), now driving a real core-loss computation whenever ripple current is supplied. See [FORMULAS.md](FORMULAS.md) section 9 |
 
 ### Frequency Ranges (current data)
 - **Powder Iron:** 1–100 kHz — reason text notes "good for buck inductors" specifically; worth genericizing if the tool is meant to be topology-agnostic

@@ -46,3 +46,26 @@ struct CoreLossCoefficientLookup {
 //precondition: none
 //postcondition: returns the CoreLossCoefficientDatabase row for materialName whose [minFreqHz, maxFreqHz) range contains switchingFreqHz, if any. found == false if the material has no row at all, or has rows but none covering this frequency.
 CoreLossCoefficientLookup findCoreLossCoefficients(const std::string& materialName, double switchingFreqHz);
+
+/*
+
+Real Steinmetz core-loss density, using a coefficient row returned by
+findCoreLossCoefficients() above - the two are deliberately separate
+functions (lookup vs. calculation), same reasoning as findCoreLossCoefficients's
+own comment. Only meaningful when coefficients came from a real, matching
+row (LossEvaluation.cpp only calls this when CoreLossCoefficientLookup::found
+is true).
+
+Model: Pv (W/m^3) = k * f^alpha * B^beta - the standard Steinmetz equation,
+f in Hz, B (fluxDensitySwingT) in tesla. W/m^3, not W/cm^3 - these
+coefficients come from PyOpenMagnetics/MAS's "volumetricLosses" field
+(SI convention), confirmed empirically against real values (treating
+the result as W/cm^3 produces physically absurd loss densities). This
+does NOT apply the coefficient row's temperature-correction terms
+(ct0/ct1/ct2) yet - their exact formula isn't confirmed against the
+upstream source, and applying a guessed correction would be worse than
+not applying one. Known Phase 1 gap, not a silent omission - see
+docs/FORMULAS.md section 9.
+
+*/
+double calculateCoreLossDensity(const CoreLossCoefficientData& coefficients, double fluxDensitySwingT, double switchingFreqHz);
