@@ -1,8 +1,11 @@
 #pragma once
+#include <optional>
 #include <string>
 #include <vector>
 #include "validation/EvaluationStatus.h"
+#include "core/sizing/CoreEvaluation.h"
 #include "core/sizing/MaterialEvaluation.h"
+#include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/winding/WindingDesign.h"
 
 /*
@@ -31,8 +34,12 @@ struct LossEvaluationResult {
 };
 
 //precondition: none
-//postcondition: computes DC copper loss only when winding.resistanceStatus == Evaluated (uses rmsCurrentA, never peak current). Core loss and
-//high-frequency (skin/proximity) loss are always reported not_evaluated in Phase 1 - core loss because no material in the current data snapshot
-//has hasCoreLossData set, AND because the flux-density-swing value calculateCoreLoss() needs isn't threaded through to this function yet;
-//high-frequency loss because no skin/proximity model is implemented at all. See docs/FORMULAS.md sections 9-10 for the full explanation.
-LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const WindingDesignResult& winding, double rmsCurrentA, double switchingFreqHz);
+//postcondition: computes DC copper loss only when winding.resistanceStatus == Evaluated (uses rmsCurrentA, never peak current). Computes core
+//loss only when rippleCurrentPeakToPeakA is supplied AND findCoreLossCoefficients() finds a real coefficient row for this material/frequency -
+//flux-density swing is computed as Bswing = calculatedInductanceH * ripplePkPkA / (turns * Ae_m2), the same peak-flux relationship
+//PeakFluxValidation uses, but driven by the ripple current rather than peak current. High-frequency (skin/proximity) loss is always
+//not_evaluated in Phase 1 - no model implemented. See docs/FORMULAS.md section 9 for the full explanation, including why no ripple data means
+//no core-loss number (Option 1: never approximate Bswing from peak flux).
+LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const CoreCandidate& core, const TurnsAndGapResult& turnsAndGap,
+                                     const WindingDesignResult& winding, double rmsCurrentA, double switchingFreqHz,
+                                     const std::optional<double>& rippleCurrentPeakToPeakA);

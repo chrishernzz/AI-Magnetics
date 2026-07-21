@@ -26,3 +26,9 @@ CoreLossCoefficientLookup findCoreLossCoefficients(const std::string& materialNa
 
     return result;
 }
+
+//precondition: coefficients came from a real CoreLossCoefficientDatabase row (CoreLossCoefficientLookup::found == true)
+//postcondition: returns core loss density (W/m^3) via Pv = k * f^alpha * B^beta - see header for the units and temperature-correction caveats
+double calculateCoreLossDensity(const CoreLossCoefficientData& coefficients, double fluxDensitySwingT, double switchingFreqHz) {
+    return coefficients.k * std::pow(switchingFreqHz, coefficients.alpha) * std::pow(fluxDensitySwingT, coefficients.beta);
+}

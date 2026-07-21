@@ -93,7 +93,7 @@ CMake builds this as a Python extension module and places the compiled `.pyd`/`.
 | DesignValidation | `validation/DesignValidation.cpp` | ✅ Implemented — six named checks (Inductance, PeakFlux, Saturation, WindingFit, CurrentDensity, Thermal), each its own `ValidationResult` |
 | WindingDesign | `src/core/winding/WindingDesign.cpp` | ✅ Implemented — AWG wire selection, fill factor, current density always computed; DCR/wire length real for most cores via a geometry-derived mean-length-per-turn estimate, `not_evaluated` only for cores whose upstream geometry doesn't support it |
 | CopperLoss | `src/core/losses/CopperLoss.cpp` | ✅ Implemented — `Pcu_dc = Irms^2 * DCR`, only called when DCR is available |
-| CoreLoss | `src/core/losses/CoreLoss.cpp` | ⚠️ Loss-density formula implemented (simplified model) but never invoked — real Steinmetz coefficients now exist in `data/real_core_loss_coefficients.csv` and are loaded + searchable via `findCoreLossCoefficients()`, but the formula itself hasn't been switched to use them yet |
+| CoreLoss | `src/core/losses/CoreLoss.cpp` | ✅ Implemented — real Steinmetz equation `Pv = k*f^alpha*B^beta` (W/m³) using `data/real_core_loss_coefficients.csv`; `Evaluated` when the material has coefficients at this frequency AND the request supplies `rippleCurrentPeakToPeakA` (needed for flux-density swing — never approximated from peak flux), `NotEvaluated` otherwise. Temperature correction (ct0/ct1/ct2) not yet applied |
 | HighFrequencyLosses | `src/core/losses/HighFrequencyLosses.cpp` | ❌ Not implemented (returns 0.0) — `src/core/losses/LossEvaluation.cpp` wraps this as `not_evaluated`, never presents the 0.0 as a real result |
 | LossEvaluation | `src/core/losses/LossEvaluation.cpp` | ✅ Implemented — orchestrates CopperLoss/CoreLoss/HighFrequencyLosses, reports each as `Evaluated`/`NotEvaluated` |
 | ThermalEvaluation | `src/core/thermal/ThermalEvaluation.cpp` | ⚠️ Real module, always returns `NotEvaluated` — no thermal-resistance model or data exists in either CSV yet |
@@ -134,8 +134,13 @@ InductorDesignService::run() (C++):
   5. For each feasible core: designTurnsAndGap() (iterates turns and gap
      together), then DesignValidation's six checks, designWinding(),
      evaluateLosses(), evaluateThermal()
-  6. Passing candidates ranked (area product ascending, Phase 1 default);
-     everything else goes to rejectedCandidates with every failed check listed
+  6. Passing candidates ranked by real total loss (copper + core, whichever
+     are Evaluated) ascending - the actual "Optimization" half of Option 2
+     (Physics-Based Calculation and Optimization), not just a size sort.
+     Candidates with no loss data at all fall back to area-product-ascending
+     so missing data never silently wins or loses a comparison; area product
+     is always the tiebreaker. Everything else goes to rejectedCandidates
+     with every failed check listed
 ↓
 Route serializes the returned DesignRecommendation to JSON and responds
 ↓
@@ -231,7 +236,7 @@ There is no `magnetics_server` target — that name (and the standalone-C++-HTTP
 
 ## Future Extensibility
 
-To add a new feature (e.g., real Steinmetz-coefficient core loss once the data exists):
+To add a new feature (e.g., temperature-corrected core loss using the coefficient rows' ct0/ct1/ct2 terms, once their formula is confirmed):
 1. **Implement in Core Engine:** write/extend the relevant `src/core/*.cpp` module
 2. **Expose via bindings:** add the function/struct to `src/python_bindings/InductorDesignBindings.cpp`
 3. **Wire into the orchestrator:** call it from `src/backend/services/InductorDesignService.cpp`

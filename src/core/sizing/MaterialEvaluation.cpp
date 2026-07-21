@@ -1,5 +1,19 @@
 #include "core/sizing/MaterialEvaluation.h"
 #include "data/MaterialDatabase.h"
+#include "data/CoreLossCoefficientDatabase.h"
+
+namespace {
+//precondition: none
+//postcondition: true if CoreLossCoefficientDatabase has at least one row for materialName, at any frequency - this is a material-level "does any real data exist" flag, separate from findCoreLossCoefficients()'s frequency-specific lookup used at loss-evaluation time.
+bool hasAnyCoreLossCoefficients(const std::string& materialName) {
+    for (const auto& row : CoreLossCoefficientDatabase::load()) {
+        if (row.materialName == materialName) {
+            return true;
+        }
+    }
+    return false;
+}
+}  // namespace
 
 //precondition: Materials::load() has been populated
 //postcondition: returns every material whose declared frequency range, contains the requested switching frequency, each as an independent candidate - no material is dropped just because another also matches.
@@ -21,7 +35,7 @@ std::vector<MaterialCandidate> findSuitableMaterials(const OperatingPoint& opera
         candidate.muOpt = material.muOpt;
         candidate.frequencySuitable = true;
         candidate.hasBmaxData = material.bmaxT > 0.0;
-        candidate.hasCoreLossData = material.cuLossFactor > 0.0;
+        candidate.hasCoreLossData = hasAnyCoreLossCoefficients(material.name);
         candidate.bmaxT = material.bmaxT;
         candidate.cuLossFactor = material.cuLossFactor;
         candidate.reason = material.reason;
@@ -31,7 +45,7 @@ std::vector<MaterialCandidate> findSuitableMaterials(const OperatingPoint& opera
             candidate.missingDataWarnings.push_back("no measured saturation flux density (BmaxT) for material '" + material.name + "' - saturation checks will use the Phase 1 default flux density limit, not a material-specific value");
         }
         if (!candidate.hasCoreLossData) {
-            candidate.missingDataWarnings.push_back("no core-loss coefficient (CuLossFactor) for material '" + material.name + "' - core loss will be reported as not evaluated");
+            candidate.missingDataWarnings.push_back("no validated Steinmetz core-loss coefficients for material '" + material.name + "' - core loss will be reported as not evaluated regardless of ripple current");
         }
 
         candidates.push_back(std::move(candidate));

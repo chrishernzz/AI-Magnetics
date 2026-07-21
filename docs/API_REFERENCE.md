@@ -85,17 +85,18 @@ just a console warning:
 }
 ```
 
-**Data-gap fields you may still see today:** `losses.coreLossStatus`,
-`losses.highFrequencyLossStatus`, and `thermal.status` are `"NotEvaluated"`
-for every candidate. `winding.resistanceStatus` and `losses.copperLossStatus`
-are now `"Evaluated"` for most candidates (real, geometry-derived
-mean-length-per-turn data unlocked real DCR/copper loss), `"NotEvaluated"`
-only for the smaller subset of cores whose upstream geometry doesn't
-support that estimate. Core loss stays `not_evaluated` because, although
-real Steinmetz coefficients now exist and are loaded (`data/real_core_loss_coefficients.csv`),
-`CoreLoss.cpp`'s loss formula isn't wired to use them yet. Thermal rise has
-no model or data at all yet. See [DATA_FILES.md](DATA_FILES.md). These are
-data/wiring gaps, not silent bugs — the engine reports them explicitly
+**Data-gap fields you may still see today:** `losses.highFrequencyLossStatus`
+and `thermal.status` are `"NotEvaluated"` for every candidate — no model
+exists for either in Phase 1. `winding.resistanceStatus` and
+`losses.copperLossStatus` are `"Evaluated"` for most candidates (real,
+geometry-derived mean-length-per-turn data unlocked real DCR/copper loss),
+`"NotEvaluated"` only for the smaller subset of cores whose upstream
+geometry doesn't support that estimate. `losses.coreLossStatus` is now
+`"Evaluated"` when the material has real Steinmetz coefficients for this
+frequency AND the request supplied `rippleCurrentPeakToPeakA` (needed to
+compute flux-density swing — never approximated from peak flux);
+`"NotEvaluated"` otherwise. See [DATA_FILES.md](DATA_FILES.md). These are
+real data gaps, not silent bugs — the engine reports them explicitly
 rather than inventing a number.
 
 ---
@@ -181,18 +182,30 @@ FastAPI also auto-generates interactive docs at **http://127.0.0.1:8000/docs** �
 
 ## Known Phase 1 Data Gaps
 
-`/inductor-design` is a complete pipeline, but two result areas are still
-reported `not_evaluated` for every candidate today — see
+`/inductor-design` is a complete pipeline, and only one result area is
+always `not_evaluated` for lack of any model at all — see
 [DATA_FILES.md](DATA_FILES.md):
-- **Core loss** (`losses.coreLossStatus`) — real Steinmetz coefficients now
-  exist in `data/real_core_loss_coefficients.csv` and are loaded/searchable,
-  but `CoreLoss.cpp`'s loss-density formula isn't wired to use them yet
 - **Thermal rise** (`thermal.status`) — no thermal-resistance model or data
   exists yet.
 
-DCR / total wire length (`winding.resistanceStatus`) and DC copper loss
-(`losses.copperLossStatus`) are now `Evaluated` for most candidates, using
-a real, geometry-derived mean-length-per-turn estimate — `not_evaluated`
-only for the subset of cores whose upstream geometry doesn't support that
-estimate. Skin/proximity (high-frequency) loss is not implemented in
-Phase 1 regardless of data (`losses.highFrequencyLossStatus`).
+The rest are conditionally real, never fabricated:
+- **Core loss** (`losses.coreLossStatus`) — `Evaluated` when the material
+  has real Steinmetz coefficients for the request's frequency AND the
+  request supplied `rippleCurrentPeakToPeakA`; `not_evaluated` otherwise
+  (17 of 32 materials have coefficients; ripple current is optional on
+  every request).
+- **DCR / total wire length** (`winding.resistanceStatus`) and **DC
+  copper loss** (`losses.copperLossStatus`) — `Evaluated` for most
+  candidates via a real, geometry-derived mean-length-per-turn estimate,
+  `not_evaluated` only for the subset of cores whose upstream geometry
+  doesn't support it.
+
+Skin/proximity (high-frequency) loss is not implemented in Phase 1
+regardless of data (`losses.highFrequencyLossStatus`).
+
+**Ranking:** passing candidates are ranked by real total loss (copper +
+core, whichever are `Evaluated`) ascending, not by size alone — this is
+the "Optimization" half of the project's stated approach (Option 2:
+Physics-Based Calculation and Optimization). Candidates with no loss data
+at all fall back to area-product-ascending so missing data never silently
+wins or loses a ranking comparison.

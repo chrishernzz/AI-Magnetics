@@ -34,6 +34,9 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
             "rmsCurrentA is required (directly, or derivable from averageCurrentA + rippleCurrentPeakToPeakA for a triangular ripple waveform). Peak current cannot be used to infer RMS current.");
     }
 
+    //carried through independent of which branch above supplied rmsCurrentA - core loss needs the real ripple swing, not the derived RMS value
+    out.operatingPoint.rippleCurrentPeakToPeakA = request.rippleCurrentPeakToPeakA;
+
     out.ambientTemperatureC = request.ambientTemperatureC;
     out.allowableTempRiseC = request.allowableTempRiseC;
     out.inductanceTolerancePercent = request.inductanceTolerancePercent.value_or(rules.defaultInductanceTolerancePercent);

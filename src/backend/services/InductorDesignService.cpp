@@ -33,7 +33,8 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
 
     candidate.winding = designWinding(core, candidate.turnsAndGap.turns, requirements.operatingPoint.rmsCurrentA, rules);
     candidate.thermal = evaluateThermal();
-    candidate.losses = evaluateLosses(material, candidate.winding, requirements.operatingPoint.rmsCurrentA, requirements.operatingPoint.switchingFreqHz);
+    candidate.losses = evaluateLosses(material, core, candidate.turnsAndGap, candidate.winding, requirements.operatingPoint.rmsCurrentA,
+                                       requirements.operatingPoint.switchingFreqHz, requirements.operatingPoint.rippleCurrentPeakToPeakA);
 
     candidate.validations = {
         InductanceValidation(candidate.turnsAndGap, requirements.inductanceTolerancePercent),
@@ -59,6 +60,26 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     }
 
     return candidate;
+}
+
+//precondition: none
+//postcondition: sum of copper + core loss for whichever of the two are Evaluated - candidates missing both loss numbers get 0.0 here, but callers must check hasAnyLossData() first rather than treating that 0.0 as "zero loss"
+double totalKnownLossW(const InductorCandidate& candidate) {
+    double loss = 0.0;
+    if (candidate.losses.copperLossStatus == EvaluationStatus::Evaluated) {
+        loss += candidate.losses.copperLossW;
+    }
+    if (candidate.losses.coreLossStatus == EvaluationStatus::Evaluated) {
+        loss += candidate.losses.coreLossW;
+    }
+    return loss;
+}
+
+//precondition: none
+//postcondition: true if at least one of copper/core loss is a real, Evaluated number for this candidate
+bool hasAnyLossData(const InductorCandidate& candidate) {
+    return candidate.losses.copperLossStatus == EvaluationStatus::Evaluated ||
+           candidate.losses.coreLossStatus == EvaluationStatus::Evaluated;
 }
 
 }  // namespace
@@ -137,8 +158,29 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
         }
     }
 
-    //Phase 1 ranking: no cost/loss data exists to rank by, so passing candidates are ordered by area product ascending (smallest adequate core first) - a plain sizing preference, not a hidden magnetic constant.
-    std::sort(recommendation.candidates.begin(), recommendation.candidates.end(),[](const InductorCandidate& a, const InductorCandidate& b) {return a.core.areaProductCm4 < b.core.areaProductCm4;});
+    //v1 optimization layer: rank by real total loss (copper + core, whichever are Evaluated) first - this is the actual
+    //"Optimization" half of "Physics-Based Calculation and Optimization" (the roadmap's Option 2), not just a size sort.
+    //Core-loss coverage is real but partial (only materials with validated Steinmetz coefficients, and only when the
+    //request supplied ripple current), so mixing "loss including core loss" against "loss without it" into one number
+    //would silently bias against candidates that simply have more real data than others. Instead: candidates with any
+    //real loss data are ranked ahead of candidates with none, sorted by known loss among themselves; candidates with no
+    //loss data at all fall back to the old area-product-only comparison, and area product is always the tiebreaker.
+    std::stable_sort(recommendation.candidates.begin(), recommendation.candidates.end(),
+                      [](const InductorCandidate& a, const InductorCandidate& b) {
+                          bool aHasLoss = hasAnyLossData(a);
+                          bool bHasLoss = hasAnyLossData(b);
+                          if (aHasLoss != bHasLoss) {
+                              return aHasLoss;  // real loss data ranks ahead of none
+                          }
+                          if (aHasLoss && bHasLoss) {
+                              double lossA = totalKnownLossW(a);
+                              double lossB = totalKnownLossW(b);
+                              if (lossA != lossB) {
+                                  return lossA < lossB;
+                              }
+                          }
+                          return a.core.areaProductCm4 < b.core.areaProductCm4;
+                      });
 
     if (recommendation.candidates.empty()) {
         recommendation.status = "no_feasible_design";

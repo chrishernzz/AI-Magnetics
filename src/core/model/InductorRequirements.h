@@ -23,6 +23,12 @@ struct OperatingPoint {
     //this relationship assumes triangular ripple").
     bool rmsCurrentDerived = false;
     std::string rmsCurrentAssumption;
+
+    //Present only if the request supplied it directly - carried through
+    //regardless of which branch rmsCurrentA came from, since core loss
+    //(LossEvaluation) needs the real ripple swing, not the RMS value, to
+    //compute flux-density swing. Never inferred from anything else.
+    std::optional<double> rippleCurrentPeakToPeakA;
 };
 
 struct InductorRequirements {
