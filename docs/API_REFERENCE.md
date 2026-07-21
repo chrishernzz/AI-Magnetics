@@ -85,15 +85,18 @@ just a console warning:
 }
 ```
 
-**Data-gap fields you will see today:** `losses.coreLossStatus`,
+**Data-gap fields you may still see today:** `losses.coreLossStatus`,
 `losses.highFrequencyLossStatus`, and `thermal.status` are `"NotEvaluated"`
-for every candidate right now — `CoreLoss.cpp` isn't wired to the real
-Steinmetz coefficients yet, skin/proximity loss isn't implemented in Phase
-1, and no thermal-resistance model exists yet. `winding.resistanceStatus`
-and `losses.copperLossStatus` are `"Evaluated"` whenever a core's `Mlt`
-(mean-length-per-turn) is present in `data/real_cores.csv`, which is most
-cores today. See [DATA_FILES.md](DATA_FILES.md). These are data gaps, not
-bugs — the engine reports them explicitly rather than inventing a number.
+for every candidate. `winding.resistanceStatus` and `losses.copperLossStatus`
+are now `"Evaluated"` for most candidates (real, geometry-derived
+mean-length-per-turn data unlocked real DCR/copper loss), `"NotEvaluated"`
+only for the smaller subset of cores whose upstream geometry doesn't
+support that estimate. Core loss stays `not_evaluated` because, although
+real Steinmetz coefficients now exist and are loaded (`data/real_core_loss_coefficients.csv`),
+`CoreLoss.cpp`'s loss formula isn't wired to use them yet. Thermal rise has
+no model or data at all yet. See [DATA_FILES.md](DATA_FILES.md). These are
+data/wiring gaps, not silent bugs — the engine reports them explicitly
+rather than inventing a number.
 
 ---
 
@@ -181,16 +184,15 @@ FastAPI also auto-generates interactive docs at **http://127.0.0.1:8000/docs** �
 `/inductor-design` is a complete pipeline, but two result areas are still
 reported `not_evaluated` for every candidate today — see
 [DATA_FILES.md](DATA_FILES.md):
-- **Core loss** (`losses.coreLossStatus`) — real Steinmetz coefficients
-  exist in `data/real_core_loss_coefficients.csv` for 17 of the 32
-  materials, but `CoreLoss.cpp` isn't wired to consume that file yet.
+- **Core loss** (`losses.coreLossStatus`) — real Steinmetz coefficients now
+  exist in `data/real_core_loss_coefficients.csv` and are loaded/searchable,
+  but `CoreLoss.cpp`'s loss-density formula isn't wired to use them yet
 - **Thermal rise** (`thermal.status`) — no thermal-resistance model or data
   exists yet.
 
-Skin/proximity (high-frequency) loss is not implemented in Phase 1 at all,
-regardless of data (`losses.highFrequencyLossStatus`).
-
 DCR / total wire length (`winding.resistanceStatus`) and DC copper loss
-(`losses.copperLossStatus`) are no longer blanket gaps — they're
-`Evaluated` whenever a core's `Mlt` (mean-length-per-turn) is present in
-`data/real_cores.csv`, which is most cores today.
+(`losses.copperLossStatus`) are now `Evaluated` for most candidates, using
+a real, geometry-derived mean-length-per-turn estimate — `not_evaluated`
+only for the subset of cores whose upstream geometry doesn't support that
+estimate. Skin/proximity (high-frequency) loss is not implemented in
+Phase 1 regardless of data (`losses.highFrequencyLossStatus`).

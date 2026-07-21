@@ -12,7 +12,9 @@
 #include "core/thermal/ThermalEvaluation.h"
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/winding/WindingDesign.h"
+#include "core/losses/CoreLoss.h"
 #include "data/CoreDatabase.h"
+#include "data/CoreLossCoefficientDatabase.h"
 #include "data/MaterialDatabase.h"
 #include "rules/DesignRules.h"
 #include "validation/EvaluationStatus.h"
@@ -65,8 +67,27 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("alternatives", &MaterialData::alternatives)
         .def_readwrite("bmaxT", &MaterialData::bmaxT)
         .def_readwrite("cuLossFactor", &MaterialData::cuLossFactor);
+    py::class_<CoreLossCoefficientData>(m, "CoreLossCoefficientData")
+        .def(py::init<>())
+        .def_readwrite("materialName", &CoreLossCoefficientData::materialName)
+        .def_readwrite("minFreqHz", &CoreLossCoefficientData::minFreqHz)
+        .def_readwrite("maxFreqHz", &CoreLossCoefficientData::maxFreqHz)
+        .def_readwrite("k", &CoreLossCoefficientData::k)
+        .def_readwrite("alpha", &CoreLossCoefficientData::alpha)
+        .def_readwrite("beta", &CoreLossCoefficientData::beta)
+        .def_readwrite("ct0", &CoreLossCoefficientData::ct0)
+        .def_readwrite("ct1", &CoreLossCoefficientData::ct1)
+        .def_readwrite("ct2", &CoreLossCoefficientData::ct2);
     m.def("set_core_database", &CoreDatabase::setData, "Replace the in-memory core database (called once at startup with real data)");
     m.def("set_material_database", &MaterialDatabase::setData, "Replace the in-memory material database (called once at startup with real data)");
+    m.def("set_core_loss_coefficient_database", &CoreLossCoefficientDatabase::setData, "Replace the in-memory core-loss (Steinmetz) coefficient database (called once at startup with real data)");
+
+    py::class_<CoreLossCoefficientLookup>(m, "CoreLossCoefficientLookup")
+        .def(py::init<>())
+        .def_readwrite("found", &CoreLossCoefficientLookup::found)
+        .def_readwrite("coefficients", &CoreLossCoefficientLookup::coefficients);
+    m.def("find_core_loss_coefficients", &findCoreLossCoefficients,
+          "Look up the real Steinmetz coefficient row for a material at a given switching frequency, if one exists");
 
     // ============================================================
     // Phase 1 inductor design engine
