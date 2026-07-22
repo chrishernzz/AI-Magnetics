@@ -1,3 +1,4 @@
+#type: ignore
 """
 lm_studio_client.py
 
