@@ -30,7 +30,12 @@ from typing import Optional
 import requests
 
 LM_STUDIO_BASE_URL = "http://127.0.0.1:1234/v1"
-REQUEST_TIMEOUT_SECONDS = 900  # big models on CPU are slow; a timeout that kills a working parse is worse than waiting
+REQUEST_TIMEOUT_SECONDS = 1200  # big models on CPU are slow; a timeout that kills a working parse is worse than waiting
+# Some models (Gemma included) emit hidden "reasoning_content" before the actual
+# answer - on a first real run this consumed all 500 tokens of budget and the
+# call was cut off (finish_reason: "length") before any JSON was written at all,
+# so json.loads("") crashed. 1200 leaves room for reasoning + the (short) JSON.
+MAX_TOKENS = 1200
 
 # Every field nullable on purpose: null is the model's only honest way to say
 # "the sentence didn't state this," and the schema makes that the default path.
@@ -58,6 +63,8 @@ EXTRACTION_SCHEMA = {
 }
 
 SYSTEM_PROMPT = """You extract power-inductor design requirements from an engineer's sentence into JSON.
+
+Answer with the JSON object directly. Do not think step by step, do not explain your reasoning, do not restate the rules - output only the JSON.
 
 Rules:
 - Extract ONLY what the sentence actually states. Any quantity not stated is null. Never estimate, never fill in typical values.
@@ -90,7 +97,7 @@ def extract_requirements(text: str, chat_model: str = "google/gemma-4-12b-qat",
             {"role": "user", "content": f"Sentence: {text}\nJSON:"},
         ],
         "temperature": 0.1,
-        "max_tokens": 500,
+        "max_tokens": MAX_TOKENS,
         "response_format": {"type": "json_schema", "json_schema": EXTRACTION_SCHEMA},
     }
     try:
@@ -103,7 +110,21 @@ def extract_requirements(text: str, chat_model: str = "google/gemma-4-12b-qat",
             "Fill in the form manually instead."
         ) from exc
     response.raise_for_status()
-    content = response.json()["choices"][0]["message"]["content"]
+    choice = response.json()["choices"][0]
+    content = choice["message"]["content"]
+
+    if not content.strip():
+        # The model spent its whole token budget on internal reasoning and
+        # never wrote the answer (finish_reason: "length") - a real failure
+        # mode with "thinking" models on a slow token budget, not a bug in
+        # the JSON itself. Report it plainly rather than a raw JSONDecodeError.
+        reasoning_used = choice["message"].get("reasoning_content", "")
+        raise RuntimeError(
+            f"The model ran out of its {MAX_TOKENS}-token budget while still reasoning "
+            f"({len(reasoning_used.split())} words of internal reasoning, no answer written) "
+            "and never produced an answer. Try a shorter/simpler description, or switch to a "
+            "smaller chat model in LM Studio (large models 'think' longer before answering)."
+        )
     return json.loads(content)
 
 

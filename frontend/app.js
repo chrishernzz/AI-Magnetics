@@ -40,6 +40,35 @@ const PARSE_FIELD_TO_INPUT = {
     inductanceTolerancePercent: "tolerance",
 };
 
+// field name -> {label, unit} for the plain-English verify card - this is the
+// primary "did the AI get it right" view, so an engineer doesn't have to open
+// Manual Entry and hunt through eight separate inputs just to check.
+const PARSE_FIELD_LABELS = {
+    inductanceUH: ["Inductance", "µH"],
+    peakCurrentA: ["Peak Current", "A"],
+    rmsCurrentA: ["RMS Current", "A"],
+    rippleCurrentPeakToPeakA: ["Ripple Current (p-p)", "A"],
+    switchingFreqKHz: ["Switching Frequency", "kHz"],
+    ambientTemperatureC: ["Ambient Temperature", "°C"],
+    allowableTempRiseC: ["Allowable Temp Rise", "°C"],
+    inductanceTolerancePercent: ["Inductance Tolerance", "%"],
+};
+
+function renderVerifyCard(fields) {
+    const card = document.getElementById("verifyCard");
+    const list = document.getElementById("verifyList");
+    list.innerHTML = Object.entries(PARSE_FIELD_LABELS)
+        .map(([field, [label, unit]]) => {
+            const value = fields[field];
+            const display = value !== null && value !== undefined
+                ? `${value} ${unit}`
+                : `<span class="verify-missing">not stated - see below</span>`;
+            return `<dt>${label}</dt><dd>${display}</dd>`;
+        })
+        .join("");
+    card.hidden = false;
+}
+
 // Fills the form from the extraction result - the form itself is the
 // confirmation step, so nothing here ever triggers the design run.
 async function parseDescription() {
@@ -91,10 +120,11 @@ async function parseDescription() {
             }
         });
         checkCurrentSanity();
+        renderVerifyCard(f);
 
         const sections = [];
         if (filled.length) {
-            sections.push(`<p class="parse-ok">Filled ${filled.length} field(s) from your description - highlighted below. Review before generating.</p>`);
+            sections.push(`<p class="parse-ok">Understood ${filled.length} field(s) - see "What I understood" above. Manual Entry is optional (open it only to correct something).</p>`);
         } else {
             sections.push(`<p class="parse-error">No usable values found in that description.</p>`);
         }

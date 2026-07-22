@@ -245,6 +245,86 @@ button:hover {
     background: rgba(200, 16, 46, 0.04);
 }
 
+/* "What I understood" verify card - the primary place to check the parse
+   result, so an engineer doesn't need to open Manual Entry and scan eight
+   separate inputs just to confirm the AI got it right. */
+.verify-card {
+    margin-top: 20px;
+    padding: 16px 18px;
+    background: var(--paper-sunk);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+.verify-card h3 {
+    margin: 0 0 12px;
+    font-size: 0.95rem;
+    color: var(--brand-black);
+}
+
+.verify-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 14px;
+    row-gap: 8px;
+    margin: 0;
+}
+
+.verify-list dt {
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+}
+
+.verify-list dd {
+    margin: 0;
+    font-weight: 700;
+    color: var(--brand-black);
+}
+
+.verify-missing {
+    font-weight: 400;
+    font-style: italic;
+    color: #b45309;
+}
+
+.verify-note {
+    margin: 12px 0 0;
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+}
+
+/* Manual Entry - collapsed by default now that natural-language description
+   is the primary path; still the same real <input> elements underneath, so
+   Generate Recommendation reads from them unchanged either way. */
+.manual-fields {
+    margin-top: 20px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 4px 18px;
+}
+
+.manual-fields summary {
+    cursor: pointer;
+    padding: 12px 0;
+    font-weight: 700;
+    color: var(--brand-red);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.manual-fields-hint {
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 400;
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+}
+
+.manual-fields[open] {
+    padding-bottom: 18px;
+}
+
 .status-message.error {
     color: var(--brand-red-dark);
     font-weight: 600;
