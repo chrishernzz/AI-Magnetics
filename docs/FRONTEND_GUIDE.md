@@ -44,9 +44,39 @@ The inputs below apply regardless of which converter topology the inductor sits 
 **Example:** `40`
 **Current status:** a real `ThermalValidation` check exists and runs, but always reports `not_evaluated` (never assumes a pass) pending the same thermal data gap.
 
-### 7. Inductance Tolerance (%, optional)
+### 7. Ripple Current p-p (A, optional)
+**What it is:** The peak-to-peak ripple current the converter design assumes.
+**Example:** `0.3`
+**Why it matters:** Core loss depends on the flux-density swing the ripple causes (`ΔB = L·ΔI/(N·Ae)`) — with this field blank, core loss reports `not_evaluated` for every candidate rather than guessing, and ranking falls back to copper loss alone.
+
+### 8. Inductance Tolerance (%, optional)
 **What it is:** How far the realized inductance may deviate from the target before a candidate is rejected.
 **Default:** 10% (`DesignRules.defaultInductanceTolerancePercent`) if left blank.
+
+---
+
+## Natural-Language Input ("Describe It In Plain English")
+
+The text box above the form takes a sentence like *"I need a 470 uH inductor,
+1.5 A peak, 1 A RMS, 0.3 A ripple, switching at 80 kHz"* and — via the local
+LM Studio model with schema-constrained JSON output — **fills in the form
+below**. The form is the confirmation step: AI-filled inputs are highlighted,
+missing information comes back as clarifying questions (each with the reason
+it matters — e.g. *"what ripple did you assume?"* because core loss needs it),
+impossible combinations (RMS > peak) are flagged as errors, and nothing runs
+until the engineer reviews the values and clicks Generate themselves.
+
+Design principles behind it (see `knowledge/input-interview-guide.md`):
+the model can only translate the sentence into fields — the JSON schema
+prevents prose or invented fields, an unstated quantity is `null` (never a
+typical-value guess), and every sanity check and question after extraction is
+deterministic Python, not AI. If RMS wasn't stated but average current and
+ripple were, RMS is derived with the documented triangular-ripple formula and
+filled *visibly* for confirmation like any other value.
+
+**Requires LM Studio running locally** (`127.0.0.1:1234`) — on the hosted
+Vercel site this button returns a friendly "unavailable, fill the form
+manually" message, since the server there cannot reach your machine.
 
 ---
 
@@ -81,7 +111,7 @@ Recommended material, core, turns/gap, and total loss (Cu + Core) for the top-ra
 This is a real, structured result now, not a console-only warning — check the feasibility panel for the reason (e.g. `requiredAreaProductCm4` vs. `largestAvailableAreaProductCm4` for an area-product shortfall) and the candidates table (filtered to Rejected) for per-check failures.
 
 ### A candidate's winding/loss fields say "not evaluated"
-Core loss is now real (`Pv = k*f^alpha*B^beta`) when the material has Steinmetz coefficients in `data/real_core_loss_coefficients.csv` (17 of 32 materials) AND the request supplied `rippleCurrentPeakToPeakA` — `not_evaluated` for the rest, since flux-density swing can only be computed from real ripple current, never approximated from peak flux. **The web UI has no input field for `rippleCurrentPeakToPeakA` today**, so every request sent from the browser omits it and core loss comes back `not_evaluated` for every candidate, every time — this is reachable only by calling `POST /inductor-design` directly (see [API_REFERENCE.md](API_REFERENCE.md)) with that field set. Adding the field to the form is a real, still-open gap, not done in this pass. DC copper loss and DCR are now real for cores with a usable mean-length-per-turn estimate (`data/real_cores.csv`'s `Mlt` column) — `not_evaluated` only for the subset of cores whose upstream geometry doesn't support that estimate. High-frequency loss and thermal rise remain genuinely unimplemented. See [DATA_FILES.md](DATA_FILES.md) — these are real data gaps, not silent bugs, and the tool says so explicitly via `missingData`/`missingDataWarnings`, surfaced in the UI as amber "not evaluated" chips rather than blank cells or fake zeros.
+Core loss is now real (`Pv = k*f^alpha*B^beta`) when the material has Steinmetz coefficients in `data/real_core_loss_coefficients.csv` (17 of 32 materials) AND the request supplied `rippleCurrentPeakToPeakA` — `not_evaluated` for the rest, since flux-density swing can only be computed from real ripple current, never approximated from peak flux. The form now has an optional **Ripple Current p-p (A)** field for exactly this — leave it blank and core loss honestly reports `not_evaluated`; fill it and core loss (and total-loss ranking) become real. DC copper loss and DCR are now real for cores with a usable mean-length-per-turn estimate (`data/real_cores.csv`'s `Mlt` column) — `not_evaluated` only for the subset of cores whose upstream geometry doesn't support that estimate. High-frequency loss and thermal rise remain genuinely unimplemented. See [DATA_FILES.md](DATA_FILES.md) — these are real data gaps, not silent bugs, and the tool says so explicitly via `missingData`/`missingDataWarnings`, surfaced in the UI as amber "not evaluated" chips rather than blank cells or fake zeros.
 
 ### RMS current shows a warning under the input
 The form flags (but does not block) RMS current entered higher than peak current — physically that would mean the waveform's average heating effect exceeds its own instantaneous maximum, which cannot happen. It's a sanity check on typos, not a hard validation rule.

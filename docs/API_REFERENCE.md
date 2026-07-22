@@ -101,6 +101,43 @@ rather than inventing a number.
 
 ---
 
+## POST /parse-requirements (natural-language front door)
+
+**Purpose:** Turn an engineer's free-text description into a structured,
+validated partial `InductorDesignRequest` — without ever running the design
+engine. The frontend uses this to fill the form; the engineer confirms and
+triggers `/inductor-design` themselves.
+
+**Request:** `{"text": "I need a 470 uH inductor, 1.5 A peak, 1 A RMS, 0.3 A ripple, at 80 kHz"}`
+
+**Response:**
+```json
+{
+  "fields": {"inductanceUH": 470, "peakCurrentA": 1.5, "rmsCurrentA": 1.0,
+              "averageCurrentA": null, "rippleCurrentPeakToPeakA": 0.3,
+              "switchingFreqKHz": 80, "ambientTemperatureC": null,
+              "allowableTempRiseC": null, "inductanceTolerancePercent": null},
+  "errors": [],
+  "questions": [{"field": "...", "question": "...", "why": "..."}],
+  "warnings": [],
+  "assumedDefaults": ["ambientTemperatureC: using the form default (25 °C) ..."]
+}
+```
+
+Extraction is schema-constrained (the local LLM structurally cannot return
+prose or invent fields; unstated quantities are `null`), and everything after
+extraction — the impossibility checks (`errors`, e.g. RMS > peak), the
+clarifying `questions` for missing fields, and the plausibility `warnings` —
+is deterministic Python (`python/services/requirement_parser.py`), not AI.
+
+**Availability:** requires LM Studio's local server at `127.0.0.1:1234`
+(embedding server not needed — this endpoint only uses the chat model).
+Returns **503** with an explanatory message where LM Studio isn't reachable —
+notably on the Vercel deployment, where the frontend falls back to manual
+form entry. Returns **502** if LM Studio is up but the call fails.
+
+---
+
 ## Removed: the old single-stage endpoints
 
 Earlier revisions of this API had four separate endpoints
