@@ -63,6 +63,9 @@ def main():
     parser.add_argument("question", nargs="?", help="Question to ask. Omit with --interactive for a loop.")
     parser.add_argument("--interactive", action="store_true")
     parser.add_argument("--top-k", type=int, default=TOP_K)
+    parser.add_argument("--collection", default=COLLECTION_NAME,
+                         help=f"Chroma collection to search (default: {COLLECTION_NAME}). "
+                              "Use 'magnetics_knowledge' to ask the knowledge/ vault instead of the software docs.")
     parser.add_argument("--chroma-host", default="localhost")
     parser.add_argument("--chroma-port", type=int, default=8000)
     parser.add_argument("--chat-model", default=None,
@@ -83,10 +86,10 @@ def main():
     client = LMStudioClient(**client_kwargs)
     chroma = chromadb.HttpClient(host=args.chroma_host, port=args.chroma_port)
     try:
-        collection = chroma.get_collection(COLLECTION_NAME)
+        collection = chroma.get_collection(args.collection)
     except Exception as exc:
         raise SystemExit(
-            f"Collection '{COLLECTION_NAME}' not found - run scripts/rag/ingest.py first. ({exc})"
+            f"Collection '{args.collection}' not found - run scripts/rag/ingest.py first (with --collection {args.collection} if it's not the default). ({exc})"
         ) from exc
 
     if args.interactive:

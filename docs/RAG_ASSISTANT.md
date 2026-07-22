@@ -76,6 +76,33 @@ To index your Obsidian vault instead of (or in addition to) `docs/`:
 python scripts/rag/ingest.py --docs-dir "C:\path\to\your\vault"
 ```
 
+## The knowledge/ vault (the real retrieval corpus)
+
+`knowledge/` at the repo root is a curated **magnetics engineering knowledge
+base** — 18 notes covering inductor fundamentals, peak/RMS/ripple current,
+core materials, air gaps, area-product sizing, turns/AL, winding/AWG, copper
+loss, Steinmetz core loss, skin/proximity, thermal, units pitfalls, and an
+input-interview guide for the future natural-language-input feature. Open it
+as an Obsidian vault (`Open folder as vault` → `knowledge/`) and grow it there
+— it, not `docs/`, is what the conversational assistant should answer from.
+(`docs/` documents the *software*; `knowledge/` holds the *engineering*.)
+
+Keep the two corpora in separate Chroma collections so they don't blend:
+
+```bash
+# index the engineering knowledge vault
+python scripts/rag/ingest.py --docs-dir knowledge --collection magnetics_knowledge
+
+# ask it questions
+python scripts/rag/query.py --interactive --collection magnetics_knowledge
+```
+
+"Learning" = adding/editing a note in Obsidian, then re-running the ingest
+command. Nothing updates itself; every fact the assistant can cite is a note
+you can open, verify, and delete. Rules for adding notes are in
+`knowledge/00_START_HERE.md` — the important one: a wrong note becomes a
+confidently-cited wrong answer, so only verified information goes in.
+
 ## Performance: pick a model your hardware can actually run
 
 First real end-to-end run (2026-07-21): ingest worked (186 chunks), retrieval

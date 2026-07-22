@@ -51,6 +51,11 @@ def main():
     parser.add_argument("--docs-dir", type=Path, default=REPO_ROOT / "docs",
                          help="Folder of .md files to index (default: docs/). "
                               "Point this at your Obsidian vault to index that instead.")
+    parser.add_argument("--collection", default=COLLECTION_NAME,
+                         help=f"Chroma collection to write into (default: {COLLECTION_NAME}). "
+                              "Use a separate collection per corpus - e.g. 'magnetics_knowledge' "
+                              "for the knowledge/ vault - so software docs and engineering "
+                              "knowledge don't blend in retrieval.")
     parser.add_argument("--chroma-host", default="localhost")
     parser.add_argument("--chroma-port", type=int, default=8000)
     args = parser.parse_args()
@@ -62,7 +67,7 @@ def main():
 
     client = LMStudioClient()
     chroma = chromadb.HttpClient(host=args.chroma_host, port=args.chroma_port)
-    collection = chroma.get_or_create_collection(COLLECTION_NAME)
+    collection = chroma.get_or_create_collection(args.collection)
 
     for start in range(0, len(chunks), BATCH_SIZE):
         batch = chunks[start:start + BATCH_SIZE]
@@ -75,7 +80,7 @@ def main():
         )
         print(f"Upserted {start + len(batch)}/{len(chunks)}")
 
-    print(f"Done. Collection '{COLLECTION_NAME}' now has {collection.count()} chunks.")
+    print(f"Done. Collection '{args.collection}' now has {collection.count()} chunks.")
 
 
 if __name__ == "__main__":
