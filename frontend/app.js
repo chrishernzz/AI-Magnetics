@@ -7,6 +7,7 @@ let sortAscending = true;
 
 function buildPayload() {
     const toleranceRaw = document.getElementById("tolerance").value;
+    const rippleRaw = document.getElementById("rippleCurrent").value;
 
     const payload = {
         inductanceUH: Number(document.getElementById("inductance").value),
@@ -20,8 +21,105 @@ function buildPayload() {
     if (toleranceRaw !== "") {
         payload.inductanceTolerancePercent = Number(toleranceRaw);
     }
+    if (rippleRaw !== "") {
+        payload.rippleCurrentPeakToPeakA = Number(rippleRaw);
+    }
 
     return payload;
+}
+
+// field name in the /parse-requirements response -> form input id
+const PARSE_FIELD_TO_INPUT = {
+    inductanceUH: "inductance",
+    peakCurrentA: "current",
+    rmsCurrentA: "rmsCurrent",
+    rippleCurrentPeakToPeakA: "rippleCurrent",
+    switchingFreqKHz: "frequency",
+    ambientTemperatureC: "ambientTemp",
+    allowableTempRiseC: "tempRise",
+    inductanceTolerancePercent: "tolerance",
+};
+
+// Fills the form from the extraction result - the form itself is the
+// confirmation step, so nothing here ever triggers the design run.
+async function parseDescription() {
+    const text = document.getElementById("nlInput").value.trim();
+    const feedback = document.getElementById("parseFeedback");
+    const button = document.getElementById("parseButton");
+    if (!text) {
+        feedback.innerHTML = `<p class="parse-error">Describe the inductor first - e.g. "470 uH, 1.5 A peak, 1 A RMS, 80 kHz".</p>`;
+        return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Reading your description... (local model, may take a minute)";
+    feedback.innerHTML = "";
+
+    try {
+        const response = await fetch("/parse-requirements", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const detail = body.detail || `Server error ${response.status}`;
+            feedback.innerHTML = `<p class="parse-error">${detail}</p>`;
+            return;
+        }
+
+        // The form has no average-current input, so when RMS wasn't stated but
+        // average + ripple were, derive RMS here (triangular ripple - same
+        // formula the API documents) and fill it VISIBLY so the engineer
+        // confirms the derived number like any other value.
+        const f = body.fields;
+        if (f.rmsCurrentA == null && f.averageCurrentA != null && f.rippleCurrentPeakToPeakA != null) {
+            const derived = Math.sqrt(f.averageCurrentA ** 2 + f.rippleCurrentPeakToPeakA ** 2 / 12);
+            f.rmsCurrentA = Math.round(derived * 1000) / 1000;
+        }
+
+        const filled = [];
+        Object.entries(PARSE_FIELD_TO_INPUT).forEach(([field, inputId]) => {
+            const value = body.fields[field];
+            const input = document.getElementById(inputId);
+            if (value !== null && value !== undefined && input) {
+                input.value = value;
+                input.classList.add("ai-filled");
+                filled.push(field);
+            } else if (input) {
+                input.classList.remove("ai-filled");
+            }
+        });
+        checkCurrentSanity();
+
+        const sections = [];
+        if (filled.length) {
+            sections.push(`<p class="parse-ok">Filled ${filled.length} field(s) from your description - highlighted below. Review before generating.</p>`);
+        } else {
+            sections.push(`<p class="parse-error">No usable values found in that description.</p>`);
+        }
+        if (body.errors.length) {
+            sections.push(`<div class="parse-errors"><strong>Problems:</strong><ul>${body.errors.map((e) => `<li>${e}</li>`).join("")}</ul></div>`);
+        }
+        if (body.questions.length) {
+            sections.push(`<div class="parse-questions"><strong>To complete the spec:</strong><ul>${body.questions
+                .map((q) => `<li><em>${q.question}</em><div class="question-why">${q.why}</div></li>`)
+                .join("")}</ul></div>`);
+        }
+        if (body.warnings.length) {
+            sections.push(`<div class="parse-warnings"><strong>Worth checking:</strong><ul>${body.warnings.map((w) => `<li>${w}</li>`).join("")}</ul></div>`);
+        }
+        if (body.assumedDefaults.length) {
+            sections.push(`<div class="parse-warnings"><strong>Defaults in use:</strong><ul>${body.assumedDefaults.map((a) => `<li>${a}</li>`).join("")}</ul></div>`);
+        }
+        feedback.innerHTML = sections.join("");
+    } catch (error) {
+        console.error(error);
+        feedback.innerHTML = `<p class="parse-error">Could not reach the server: ${error.message}</p>`;
+    } finally {
+        button.disabled = false;
+        button.textContent = "Fill Form From Description";
+    }
 }
 
 function checkCurrentSanity() {
@@ -464,6 +562,7 @@ async function generateRecommendation() {
 
 window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("generateButton").addEventListener("click", generateRecommendation);
+    document.getElementById("parseButton").addEventListener("click", parseDescription);
     ["current", "rmsCurrent"].forEach((id) => {
         document.getElementById(id).addEventListener("input", checkCurrentSanity);
     });

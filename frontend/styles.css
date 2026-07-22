@@ -178,6 +178,73 @@ button:hover {
     font-size: 0.95rem;
 }
 
+/* Natural-language input */
+
+.nl-input-group textarea {
+    width: 100%;
+    margin-top: 8px;
+    padding: 13px 14px;
+    border-radius: 8px;
+    border: 1px solid #c9c9cc;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.nl-input-group textarea:focus {
+    outline: none;
+    border-color: var(--brand-red);
+    box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.12);
+}
+
+.secondary-button {
+    background: var(--paper);
+    color: var(--brand-red);
+    border: 1px solid var(--brand-red);
+    flex: 1;
+    min-width: 190px;
+}
+
+.secondary-button:hover {
+    background: rgba(200, 16, 46, 0.06);
+}
+
+.secondary-button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+    transform: none;
+}
+
+.nl-note {
+    margin-top: 10px;
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+
+.parse-feedback { font-size: 0.88rem; line-height: 1.5; }
+.parse-feedback ul { margin: 6px 0 0 18px; padding: 0; }
+.parse-feedback li { margin-bottom: 6px; }
+.parse-ok { color: #15803d; margin-top: 10px; }
+.parse-error, .parse-errors { color: var(--brand-red-dark); margin-top: 10px; }
+.parse-questions { color: var(--ink); margin-top: 10px; }
+.parse-warnings { color: #b45309; margin-top: 10px; }
+
+.question-why {
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+    margin-top: 2px;
+}
+
+/* Inputs the AI just filled - visibly marked so "review before generating"
+   is a glance, not a hunt. Cleared per-field on the next parse. */
+.requirements-card input.ai-filled {
+    border-color: var(--brand-red);
+    background: rgba(200, 16, 46, 0.04);
+}
+
 .status-message.error {
     color: var(--brand-red-dark);
     font-weight: 600;

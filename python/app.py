@@ -112,3 +112,6 @@ def read_index():
 
 from routes.inductor_design import router as inductor_design_router
 app.include_router(inductor_design_router)
+
+from routes.parse_requirements import router as parse_requirements_router
+app.include_router(parse_requirements_router)

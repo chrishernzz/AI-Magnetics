@@ -23,6 +23,19 @@
             <h2>Design Requirements</h2>
             <p class="section-description">Direct inductor inputs (no topology assumed).</p>
 
+            <fieldset class="field-group nl-input-group">
+                <legend>Describe It In Plain English</legend>
+                <textarea id="nlInput" rows="3"
+                    placeholder="e.g. I need a 470 uH inductor, 1.5 A peak, 1 A RMS, 0.3 A ripple, switching at 80 kHz"></textarea>
+                <div class="button-row">
+                    <button id="parseButton" class="secondary-button" type="button">Fill Form From Description</button>
+                </div>
+                <div id="parseFeedback" class="parse-feedback"></div>
+                <p class="nl-note">The AI only fills in the form below - review the values (it asks
+                    rather than guesses when something is missing), then click Generate as usual.
+                    Requires the local LM Studio server; unavailable on the hosted site.</p>
+            </fieldset>
+
             <fieldset class="field-group">
                 <legend>Electrical</legend>
 
@@ -41,6 +54,11 @@
                 </label>
                 <input id="rmsCurrent" type="number" value="1.4" min="0" step="0.1">
                 <p id="currentWarning" class="field-warning"></p>
+
+                <label for="rippleCurrent">Ripple Current p-p (A, optional)
+                    <span class="hint" title="Peak-to-peak ripple current. Required for a real core-loss number - flux-density swing is computed from it, never approximated from peak flux. Leave blank and core loss reports not-evaluated.">?</span>
+                </label>
+                <input id="rippleCurrent" type="number" placeholder="needed for core loss" min="0" step="0.05">
 
                 <label for="frequency">Switching Frequency (kHz)
                     <span class="hint" title="PWM switching frequency. Determines which materials are frequency-compatible candidates.">?</span>
