@@ -63,9 +63,70 @@ body {
 
 .main-grid {
     display: grid;
-    grid-template-columns: 320px 1fr 320px;
+    grid-template-columns: 340px 1fr;
     gap: 20px;
     padding: 25px 35px 10px;
+}
+
+/* Active Rules & Assumptions - a collapsed one-line strip by default, not a
+   permanent third column. It's reference info for the run just made, worth
+   a click, not worth a third of the screen at all times. */
+.rules-strip {
+    margin: 0 35px 20px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 0 24px;
+}
+
+.rules-strip summary {
+    cursor: pointer;
+    padding: 16px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+    list-style: none;
+}
+
+.rules-strip summary::-webkit-details-marker {
+    display: none;
+}
+
+.rules-strip summary::before {
+    content: "▸";
+    color: var(--brand-red);
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+
+.rules-strip[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.rules-strip-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--brand-black);
+    white-space: nowrap;
+}
+
+.rules-summary-line {
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+}
+
+.rules-detail {
+    padding: 0 0 20px;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+    line-height: 1.7;
+}
+
+.rules-detail strong {
+    color: var(--brand-black);
 }
 
 .card {
@@ -431,12 +492,15 @@ summary {
     color: var(--brand-red-dark);
 }
 
-/* Triage strip */
+/* Triage strip - nested inside .candidates-card now (not its own bordered
+   card) so triage counts, the ranking note, and the table read as one
+   connected block instead of three stacked boxes. */
 
 .triage-strip {
-    margin: 0 35px 20px;
-    padding: 20px 24px;
+    margin: 0 0 16px;
+    padding: 0 0 16px 16px;
     border-left: 4px solid var(--brand-red);
+    border-bottom: 1px solid var(--line);
 }
 
 .triage-counts {

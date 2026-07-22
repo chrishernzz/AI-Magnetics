@@ -108,24 +108,24 @@
                 Run the recommendation to see the top passing candidate.
             </div>
         </section>
-
-        <section class="card assistant-card">
-            <h2>Active Rules &amp; Assumptions</h2>
-            <div id="assistant">
-                The active DesignRules (Ku, Bmax, J, tolerances) used for this run will appear here - never hidden constants.
-            </div>
-        </section>
     </div>
 
-    <div id="feasibility" class="card result-panel"></div>
+    <details class="rules-strip">
+        <summary>
+            <span class="rules-strip-title">Active Rules &amp; Assumptions</span>
+            <span id="rulesSummaryLine" class="rules-summary-line">Run a recommendation to see the active DesignRules for this run - never hidden constants.</span>
+        </summary>
+        <div id="assistant" class="rules-detail"></div>
+    </details>
 
-    <div id="triageStrip" class="card triage-strip"></div>
+    <div id="feasibility" class="card result-panel"></div>
 
     <div class="card candidates-card">
         <div class="candidates-header">
             <h2>Candidates</h2>
             <div id="filterChips" class="filter-chips"></div>
         </div>
+        <div id="triageStrip" class="triage-strip"></div>
         <p id="rankingNote" class="ranking-note" hidden>
             Passing candidates are ranked by <strong>total loss</strong> (Cu Loss + Core Loss, whichever are evaluated) — lowest first, not by core size.
             A candidate with no loss data at all falls back to smallest-core-first instead, so a missing number never wins or loses a ranking on its own.

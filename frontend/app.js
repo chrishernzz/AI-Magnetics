@@ -189,6 +189,8 @@ function clearResults() {
     if (parseFeedback) parseFeedback.innerHTML = "";
     const rankingNote = document.getElementById("rankingNote");
     if (rankingNote) rankingNote.hidden = true;
+    const rulesSummaryLine = document.getElementById("rulesSummaryLine");
+    if (rulesSummaryLine) rulesSummaryLine.textContent = "Generating...";
 }
 
 function switchInputMode(mode) {
@@ -228,6 +230,16 @@ function renderRules(rules) {
         <p>Maximum fill factor: <strong>${rules.maximumFillFactor}</strong></p>
         <p>Default inductance tolerance: <strong>${rules.defaultInductanceTolerancePercent}%</strong></p>
     `;
+
+    // Collapsed-by-default one-liner shown next to the summary triangle, so
+    // the full breakdown above only has to be opened when actually wanted.
+    const summaryLine = document.getElementById("rulesSummaryLine");
+    if (summaryLine) {
+        summaryLine.textContent =
+            `Ku ${rules.windowUtilization} · Bmax ${rules.defaultFluxDensityLimitT}T · ` +
+            `J ${rules.allowableCurrentDensityAperCm2}A/cm² · Sat margin ${rules.minimumSaturationMarginPercent}% · ` +
+            `Fill ${rules.maximumFillFactor} · Tol ${rules.defaultInductanceTolerancePercent}%`;
+    }
 }
 
 function renderFeasibility(result) {
