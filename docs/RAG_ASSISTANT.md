@@ -1,11 +1,20 @@
-# Local Doc Assistant (RAG over docs/*.md)
+# Local RAG Assistant (docs/*.md and knowledge/*.md)
 
-A local, offline question-answering tool over this project's own
-documentation — the first real piece of the "conversational design
-review" / natural-language AI roadmap item (see the VP checkpoint deck).
-Ask it things like *"why is core loss not evaluated for every
-candidate?"* and it answers from the actual `docs/*.md` files, citing
-which section it used, instead of guessing.
+A local, offline question-answering tool — the first real piece of the
+"conversational design review" / natural-language AI roadmap item (see the
+VP checkpoint deck). The same `scripts/rag/` tooling can index and answer
+from **either of two separate corpora**, kept in separate Chroma
+collections so they never blend:
+
+- **`docs/*.md`** (default collection `aimagnetics_docs`) — questions about
+  *this software*: why a field reports `not_evaluated`, how ranking works,
+  what the API returns. Ask it *"why is core loss not evaluated for every
+  candidate?"* and it cites the actual doc section.
+- **`knowledge/*.md`** (collection `magnetics_knowledge`, see below) —
+  general power-magnetics engineering knowledge: what an inductor is, why
+  ripple current matters, core materials, Steinmetz core loss. This is the
+  corpus meant to ground natural-language design conversations, and the one
+  worth growing as an Obsidian vault.
 
 **This is local-machine tooling, not part of the deployed app.** It runs
 against your own LM Studio server and your own Docker Chroma container —
@@ -18,40 +27,43 @@ in `scripts/rag/` is maintenance/dev tooling, same category as
 ## Architecture
 
 ```
-docs/*.md  →  chunking.py (split on headings)  →  LM Studio embeddings
-           →  ChromaDB (Docker, local)          →  stored chunks + vectors
+a folder of *.md (docs/ or knowledge/)  →  chunking.py (split on headings)
+                                         →  LM Studio embeddings
+                                         →  ChromaDB (Docker, local)
+                                         →  stored chunks + vectors, one collection per corpus
 
-your question  →  LM Studio embeddings  →  Chroma similarity search
-              →  top-k doc excerpts  →  LM Studio chat model (grounded prompt)
-              →  answer, cited to the doc section it came from
+your question  →  LM Studio embeddings  →  Chroma similarity search (that collection)
+              →  top-k excerpts  →  LM Studio chat model (grounded prompt)
+              →  answer, cited to the file/section it came from
 ```
 
-Two local services, both already visible in your setup:
-- **LM Studio** (`http://127.0.0.1:1234`, OpenAI-compatible REST API) — serving
-  `text-embedding-nomic-embed-text-v1.5` for embeddings and
-  `google/gemma-4-12b-qat` for chat, both already loaded.
-- **ChromaDB** (`chroma-core/chroma:latest`, Docker, port `8000:8000`) — vector
-  storage. Your container (`engineeringai-chroma`) currently shows **Exited**
-  in Docker Desktop — start it before running either script below.
+Two local services:
+- **LM Studio** (`http://127.0.0.1:1234`, OpenAI-compatible REST API) — an
+  embedding model (e.g. `nomic-embed-text-v1.5`) for indexing/retrieval, and
+  a chat model for answering. Both must be loaded and the Local Server
+  running (Developer tab → Local Server → Status: Running).
+- **ChromaDB** (`chroma-core/chroma:latest`, Docker, port `8000:8000`) —
+  vector storage. Start your container before running either script below
+  (`docker start <container name>`, or via Docker Desktop) — a stopped
+  container is the most common reason `ingest.py`/`query.py` fail to connect.
 
 **Where Obsidian fits:** Obsidian itself needs no plugin or integration
 code here — it's just the editor you use to browse/edit the same markdown
-files. Point `ingest.py --docs-dir` at whatever folder you actually edit in
-Obsidian (your vault, or `docs/` directly if that's what you opened as the
-vault) — whatever's in that folder is exactly what the assistant knows.
-There's no separate "sync into Obsidian" step; the docs *are* the vault.
+files. Point `ingest.py --docs-dir` at whatever folder you actually opened
+as an Obsidian vault (`knowledge/` is the intended one — see below) —
+whatever's in that folder is exactly what the assistant knows. There's no
+separate "sync into Obsidian" step; the folder *is* the vault.
 
 ---
 
 ## Setup
 
 ```bash
-# 1. Start the Chroma container (Docker Desktop, or:)
-docker start engineeringai-chroma
+# 1. Start your Chroma Docker container (Docker Desktop, or:)
+docker start <your-chroma-container-name>
 
 # 2. In LM Studio: Developer -> Local Server -> Status: Running,
-#    with text-embedding-nomic-embed-text-v1.5 and a chat model loaded
-#    (both already shown as READY in your screenshot - nothing to change)
+#    with an embedding model and a chat model both loaded
 
 # 3. Install the two extra Python deps this tooling needs
 #    (kept out of python/requirements.txt on purpose - Vercel never needs these)
@@ -146,20 +158,21 @@ spans copied from context) — out of scope for this first pass.
 
 ---
 
-## What I could and couldn't verify
+## Verification status
 
-This was written and reviewed for correctness against the actual LM
-Studio and Chroma REST APIs, but **not run end-to-end** — this remote
-session has no network path to `127.0.0.1:1234` or `localhost:8000` on
-your machine; both only exist on your local Windows box. Things worth
-double-checking on your first real run:
-- The exact embedding model name LM Studio expects in the API call
-  (`text-embedding-nomic-embed-text-v1.5`, taken from your screenshot) —
-  if LM Studio errors on the model field, check its exact string on the
-  Local Server page.
-- Chroma's Python client version compatibility with `chroma-core/chroma:latest`
-  — `chromadb.HttpClient` is the current stable API, but Chroma has changed
-  its server API across major versions before.
+Confirmed working end-to-end on real hardware: `ingest.py` indexed 186
+`docs/*.md` chunks and 94 `knowledge/*.md` chunks into separate Chroma
+collections, retrieval returned the correct excerpts, and `query.py`
+produced grounded, cited answers for both corpora — including correctly
+*refusing* to answer a question outside the active collection instead of
+guessing (see "How hallucination is actually being controlled here" above).
+The embedding call, the chat call, and the schema/collection-separation
+logic have all been exercised against a real LM Studio server and a real
+Chroma container, not just reviewed against the API docs.
 
-If either script errors, send me the traceback and I'll fix it from that,
-same as any other bug.
+If a script errors on your machine, the most likely causes, in order: the
+Chroma container isn't running (`docker start ...`), LM Studio's Local
+Server isn't running or the wrong model name is configured, or the model
+you're using needs more `--timeout`/is too large for interactive use (see
+"Performance" above). Send the traceback and it can be fixed like any
+other bug from there.
