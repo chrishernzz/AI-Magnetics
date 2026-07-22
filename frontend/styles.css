@@ -178,9 +178,46 @@ button:hover {
     font-size: 0.95rem;
 }
 
-/* Natural-language input */
+/* Input-mode tabs: Describe It / Manual Entry - only one panel visible at a
+   time, so the natural-language box and the eight-field manual form never
+   compete for attention on screen simultaneously. */
+.input-mode-tabs {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+    border-bottom: 1px solid var(--line);
+}
 
-.nl-input-group textarea {
+.input-mode-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 4px;
+    margin-right: 20px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transform: none;
+}
+
+.input-mode-tab:hover {
+    color: var(--brand-red);
+    transform: none;
+}
+
+.input-mode-tab.active {
+    color: var(--brand-red);
+    border-bottom-color: var(--brand-red);
+}
+
+.input-mode-panel {
+    padding-top: 16px;
+}
+
+#describeTab textarea {
     width: 100%;
     margin-top: 8px;
     padding: 13px 14px;
@@ -193,7 +230,7 @@ button:hover {
     resize: vertical;
 }
 
-.nl-input-group textarea:focus {
+#describeTab textarea:focus {
     outline: none;
     border-color: var(--brand-red);
     box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.12);
@@ -291,38 +328,6 @@ button:hover {
     margin: 12px 0 0;
     color: var(--ink-soft);
     font-size: 0.8rem;
-}
-
-/* Manual Entry - collapsed by default now that natural-language description
-   is the primary path; still the same real <input> elements underneath, so
-   Generate Recommendation reads from them unchanged either way. */
-.manual-fields {
-    margin-top: 20px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 4px 18px;
-}
-
-.manual-fields summary {
-    cursor: pointer;
-    padding: 12px 0;
-    font-weight: 700;
-    color: var(--brand-red);
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.manual-fields-hint {
-    text-transform: none;
-    letter-spacing: normal;
-    font-weight: 400;
-    color: var(--ink-soft);
-    font-size: 0.78rem;
-}
-
-.manual-fields[open] {
-    padding-bottom: 18px;
 }
 
 .status-message.error {

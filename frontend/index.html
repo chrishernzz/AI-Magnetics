@@ -23,29 +23,28 @@
             <h2>Design Requirements</h2>
             <p class="section-description">Direct inductor inputs (no topology assumed).</p>
 
-            <fieldset class="field-group nl-input-group">
-                <legend>Describe It In Plain English</legend>
+            <div class="input-mode-tabs" role="tablist">
+                <button type="button" class="input-mode-tab active" data-mode="describe" role="tab" aria-selected="true">Describe It</button>
+                <button type="button" class="input-mode-tab" data-mode="manual" role="tab" aria-selected="false">Manual Entry</button>
+            </div>
+
+            <div id="describeTab" class="input-mode-panel">
                 <textarea id="nlInput" rows="3"
                     placeholder="e.g. I need a 470 uH inductor, 1.5 A peak, 1 A RMS, 0.3 A ripple, switching at 80 kHz"></textarea>
                 <div class="button-row">
                     <button id="parseButton" class="secondary-button" type="button">Fill Form From Description</button>
                 </div>
                 <div id="parseFeedback" class="parse-feedback"></div>
-                <p class="nl-note">Describe what you need - the AI reads it and asks a clarifying
-                    question for anything it can't determine, rather than guessing.</p>
-                    <!--Requires the local LM Studio server; unavailable on the hosted site.-->
-            </fieldset>
 
-            <div id="verifyCard" class="verify-card" hidden>
-                <h3>What I understood - please verify</h3>
-                <dl id="verifyList" class="verify-list"></dl>
-                <p class="verify-note">This is exactly what will be sent to the design engine.
-                    Wrong? Edit it below in Manual Entry, or rewrite your description above and parse again.</p>
+                <div id="verifyCard" class="verify-card" hidden>
+                    <h3>What I understood - please verify</h3>
+                    <dl id="verifyList" class="verify-list"></dl>
+                    <p class="verify-note">This is exactly what will be sent to the design engine.
+                        Wrong? Switch to the Manual Entry tab to correct a value, or rewrite your description above and parse again.</p>
+                </div>
             </div>
 
-            <details class="manual-fields">
-                <summary>Manual Entry / Edit Values <span class="manual-fields-hint">(auto-filled from your description above; open to type numbers directly instead)</span></summary>
-
+            <div id="manualTab" class="input-mode-panel" hidden>
                 <fieldset class="field-group">
                     <legend>Electrical</legend>
 
@@ -90,7 +89,7 @@
                     </label>
                     <input id="tolerance" type="number" placeholder="default 10" min="0" step="1">
                 </fieldset>
-            </details>
+            </div>
 
             <div class="button-row">
                 <button id="generateButton" class="primary-button" type="button">
@@ -127,7 +126,7 @@
             <h2>Candidates</h2>
             <div id="filterChips" class="filter-chips"></div>
         </div>
-        <p class="ranking-note">
+        <p id="rankingNote" class="ranking-note" hidden>
             Passing candidates are ranked by <strong>total loss</strong> (Cu Loss + Core Loss, whichever are evaluated) — lowest first, not by core size.
             A candidate with no loss data at all falls back to smallest-core-first instead, so a missing number never wins or loses a ranking on its own.
         </p>

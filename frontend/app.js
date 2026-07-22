@@ -182,6 +182,23 @@ function clearResults() {
     if (table) table.innerHTML = "";
     const chips = document.getElementById("filterChips");
     if (chips) chips.innerHTML = "";
+    // A stale "describe the inductor first" error from an earlier failed
+    // parse attempt has nothing to do with a run that just started - clear
+    // it so it doesn't sit there looking like something is still wrong.
+    const parseFeedback = document.getElementById("parseFeedback");
+    if (parseFeedback) parseFeedback.innerHTML = "";
+    const rankingNote = document.getElementById("rankingNote");
+    if (rankingNote) rankingNote.hidden = true;
+}
+
+function switchInputMode(mode) {
+    document.querySelectorAll(".input-mode-tab").forEach((tab) => {
+        const active = tab.dataset.mode === mode;
+        tab.classList.toggle("active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    document.getElementById("describeTab").hidden = mode !== "describe";
+    document.getElementById("manualTab").hidden = mode !== "manual";
 }
 
 async function postRequest(endpoint, payload) {
@@ -576,6 +593,11 @@ async function generateRecommendation() {
         renderCandidateTable(result);
         renderDesignSummary(result);
 
+        // The ranking policy only means anything once there's something to
+        // rank - showing it before any run just reads as unexplained noise.
+        const rankingNote = document.getElementById("rankingNote");
+        if (rankingNote) rankingNote.hidden = result.candidates.length + result.rejectedCandidates.length === 0;
+
         setStatus(
             result.status === "ok"
                 ? "Recommendation generated successfully."
@@ -593,6 +615,9 @@ async function generateRecommendation() {
 window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("generateButton").addEventListener("click", generateRecommendation);
     document.getElementById("parseButton").addEventListener("click", parseDescription);
+    document.querySelectorAll(".input-mode-tab").forEach((tab) => {
+        tab.addEventListener("click", () => switchInputMode(tab.dataset.mode));
+    });
     ["current", "rmsCurrent"].forEach((id) => {
         document.getElementById(id).addEventListener("input", checkCurrentSanity);
     });
