@@ -23,15 +23,21 @@ DEFAULT_BASE_URL = "http://127.0.0.1:1234/v1"
 
 
 class LMStudioClient:
+    # timeout is generous on purpose: prompt processing for a ~1k-token RAG
+    # prompt on a big model running mostly on CPU was measured at ~1.4-4.9
+    # tokens/sec, which blows straight past a 120s timeout and makes LM
+    # Studio log "client disconnected" mid-generation. Slow is annoying;
+    # a timeout that cancels an answer that was going to finish is worse.
     def __init__(self, base_url: str = DEFAULT_BASE_URL, embedding_model: str = "text-embedding-nomic-embed-text-v1.5",
-                 chat_model: str = "google/gemma-4-12b-qat"):
+                 chat_model: str = "google/gemma-4-12b-qat", timeout_seconds: int = 900):
         self.base_url = base_url.rstrip("/")
         self.embedding_model = embedding_model
         self.chat_model = chat_model
+        self.timeout_seconds = timeout_seconds
 
     def _post(self, path: str, payload: dict) -> dict:
         try:
-            response = requests.post(f"{self.base_url}{path}", json=payload, timeout=120)
+            response = requests.post(f"{self.base_url}{path}", json=payload, timeout=self.timeout_seconds)
         except requests.exceptions.ConnectionError as exc:
             raise RuntimeError(
                 f"Could not reach LM Studio at {self.base_url}{path}. Is the local server running "

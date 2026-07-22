@@ -76,6 +76,26 @@ To index your Obsidian vault instead of (or in addition to) `docs/`:
 python scripts/rag/ingest.py --docs-dir "C:\path\to\your\vault"
 ```
 
+## Performance: pick a model your hardware can actually run
+
+First real end-to-end run (2026-07-21): ingest worked (186 chunks), retrieval
+worked, but the answer timed out — LM Studio's log showed Gemma 12B QAT
+processing the ~1k-token RAG prompt at **1.4–4.9 tokens/sec**, i.e. running
+almost entirely on CPU. The client's timeout has since been raised to 900s so
+slow answers finish instead of being cancelled mid-generation, but multi-minute
+answers make interactive Q&A miserable. The real fix is a smaller chat model:
+a ~3–4B instruct model (e.g. `gemma-3-4b`, `llama-3.2-3b-instruct`) answers
+doc questions like these fine and runs several times faster; raising GPU
+Offload in LM Studio (if VRAM allows) helps either way. Switch without editing
+source:
+
+```bash
+python scripts/rag/query.py --interactive --chat-model "your-model-id-here"
+```
+
+The embedding model (nomic, 84 MB) is not the bottleneck — embeddings came
+back instantly; only chat generation is slow.
+
 ---
 
 ## How hallucination is actually being controlled here

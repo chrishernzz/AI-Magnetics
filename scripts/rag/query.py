@@ -65,12 +65,22 @@ def main():
     parser.add_argument("--top-k", type=int, default=TOP_K)
     parser.add_argument("--chroma-host", default="localhost")
     parser.add_argument("--chroma-port", type=int, default=8000)
+    parser.add_argument("--chat-model", default=None,
+                         help="LM Studio chat model identifier to use (default: the one in lm_studio_client.py). "
+                              "Use this to switch to a smaller/faster model without editing source.")
+    parser.add_argument("--timeout", type=int, default=None,
+                         help="Seconds to wait for LM Studio per request (default 900 - big models on CPU are slow).")
     args = parser.parse_args()
 
     if not args.question and not args.interactive:
         parser.error("Provide a question, or pass --interactive")
 
-    client = LMStudioClient()
+    client_kwargs = {}
+    if args.chat_model:
+        client_kwargs["chat_model"] = args.chat_model
+    if args.timeout:
+        client_kwargs["timeout_seconds"] = args.timeout
+    client = LMStudioClient(**client_kwargs)
     chroma = chromadb.HttpClient(host=args.chroma_host, port=args.chroma_port)
     try:
         collection = chroma.get_collection(COLLECTION_NAME)
