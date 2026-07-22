@@ -23,6 +23,7 @@ Given your inductor requirements (inductance, peak/RMS current, switching freque
 | **Requirements traceability** | [REQUIREMENTS.md](REQUIREMENTS.md) |
 | **Worked example / manual test** | [TESTRESULTSMEAN.md](TESTRESULTSMEAN.md) |
 | **Day-to-day run commands** | [WHEN_TO_RUN_PROGRAM.md](WHEN_TO_RUN_PROGRAM.md) |
+| **Ask a local LLM questions about these docs** | [RAG_ASSISTANT.md](RAG_ASSISTANT.md) |
 
 ---
 ## The Design Workflow (Phase 1)
