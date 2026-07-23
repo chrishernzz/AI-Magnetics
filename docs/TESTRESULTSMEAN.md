@@ -1,5 +1,7 @@
 # AIMagnetics Test Case: Heavy-Duty Powder Iron Design
 
+**For a worked example you can actually reproduce against the live app today, see [WORKED_EXAMPLE_MODE1.md](WORKED_EXAMPLE_MODE1.md)** (Buck converter input, run through the current `POST /inductor-design` pipeline with real captured output). This document is kept for historical reference only.
+
 **Historical worked example - not reproducible against the live app anymore.** This walks through Stages 1-3 (Material Selection, Area Product, Core Selection) using the math as it worked when this document was written, back when `/material-selection`/`/calculate`/`/core-selection` and `CoreSelection.cpp`'s single-pick logic existed. Those endpoints and that file have since been deleted (see [ARCHITECTURE.md](ARCHITECTURE.md)) - the underlying Ap formula is unchanged and still correct as a hand-check, but you can no longer `curl` these exact steps or see this exact debug output, since there's only one endpoint now (`POST /inductor-design`) and it returns every compatible candidate rather than one core selected by this document's loss heuristic. For a live, automated equivalent, see `tests/python/test_reference_designs.py` and [WORKFLOW.md](WORKFLOW.md)'s "Stage 4+" section.
 
 ## Test 3: Heavy-Duty Design (Primary Validation Test)

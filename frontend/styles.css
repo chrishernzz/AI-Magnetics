@@ -28,37 +28,75 @@ body {
     min-height: 100vh;
 }
 
-.hero {
+/* A slim, sticky app header - not a marketing hero. Engineers open this
+   tool to work in it, not to be sold on it, so the header states what the
+   tool is in one line and gets out of the way. */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 20px;
-    padding: 40px 35px;
-    background: linear-gradient(120deg, var(--brand-black) 0%, var(--brand-black) 40%, var(--brand-red) 150%);
-    color: #ffffff;
+    gap: 8px 24px;
+    padding: 14px 35px;
+    background: var(--brand-black);
+    border-bottom: 2px solid var(--brand-red);
 }
 
-.hero h1 {
-    font-size: 3rem;
-    letter-spacing: -0.04em;
+.topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-.hero p {
-    margin-top: 10px;
-    max-width: 720px;
-    color: #e8e8ea;
+.topbar-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: var(--brand-red);
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.85rem;
+    letter-spacing: 0.01em;
+    flex-shrink: 0;
+}
+
+.topbar-titles {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+
+.topbar-name {
+    color: #fff;
+    font-weight: 700;
     font-size: 1.05rem;
-    line-height: 1.6;
+    letter-spacing: -0.01em;
 }
 
-.hero-note {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 12px;
-    padding: 18px 22px;
-    max-width: 380px;
-    color: #f4f4f5;
+.topbar-tagline {
+    color: #b9b9bd;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.topbar-note {
+    color: #d4d4d7;
+    font-size: 0.82rem;
+    max-width: 480px;
+    text-align: right;
+}
+
+@media (max-width: 720px) {
+    .topbar-note {
+        display: none;
+    }
 }
 
 .main-grid {
@@ -182,8 +220,8 @@ body {
 .summary-card,
 .diagnostics-card {
     position: sticky;
-    top: 20px;
-    max-height: calc(100vh - 40px);
+    top: 82px; /* clears the sticky .topbar (~64px) plus a small gap */
+    max-height: calc(100vh - 102px);
     overflow-y: auto;
 }
 
@@ -242,6 +280,22 @@ body {
     color: var(--ink-soft);
     font-weight: 400;
     font-style: italic;
+}
+
+/* A quiet highlight when a live-recalculated value actually changes -
+   confirms the recalculation happened without a number silently jumping. */
+.value-flash {
+    border-radius: 4px;
+    animation: value-flash 0.6s ease;
+}
+
+@keyframes value-flash {
+    from {
+        background-color: rgba(200, 16, 46, 0.16);
+    }
+    to {
+        background-color: transparent;
+    }
 }
 
 .diagnostics-note {
@@ -387,6 +441,14 @@ button:hover {
 
 .mode-section {
     margin-top: 4px;
+}
+
+/* Necessary, not decorative: a brief settle-in when a section that was
+   display:none becomes visible, so the mode switch reads as a transition
+   rather than an abrupt content swap. Re-triggers automatically every
+   time the [hidden] attribute is removed. */
+.mode-section:not([hidden]) {
+    animation: panel-in 0.2s ease;
 }
 
 .topology-derived-banner {
@@ -898,6 +960,21 @@ summary {
     border-left: 3px solid var(--brand-red);
 }
 
+.detail-row:not([hidden]) {
+    animation: panel-in 0.16s ease;
+}
+
+@keyframes panel-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .table-empty {
     padding: 24px;
     color: var(--ink-soft);
@@ -932,4 +1009,12 @@ summary {
     background: var(--brand-red);
     color: #fff;
     margin-left: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
 }

@@ -32,7 +32,8 @@ V1 supports Buck only — Boost/Flyback are future work, not started.
 | **Call the API** | [API_REFERENCE.md](API_REFERENCE.md) |
 | **Add new cores or materials** | [DATA_FILES.md](DATA_FILES.md) |
 | **Requirements traceability** | [REQUIREMENTS.md](REQUIREMENTS.md) |
-| **Worked example / manual test** | [TESTRESULTSMEAN.md](TESTRESULTSMEAN.md) |
+| **Worked example (Mode 1, Buck converter)** | [WORKED_EXAMPLE_MODE1.md](WORKED_EXAMPLE_MODE1.md) |
+| **Worked example (Mode 2, historical) / manual test** | [TESTRESULTSMEAN.md](TESTRESULTSMEAN.md) |
 | **Day-to-day run commands** | [WHEN_TO_RUN_PROGRAM.md](WHEN_TO_RUN_PROGRAM.md) |
 
 ---

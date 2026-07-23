@@ -106,6 +106,19 @@ function setDiagnosticsRowPending(rowId, isPending) {
     if (row) row.classList.toggle("is-pending", isPending);
 }
 
+// Briefly highlights a diagnostics value when it actually changes, so a
+// live recalculation reads as "this updated" instead of a number silently
+// jumping. A no-op (no flash) when the new text matches the old one.
+function setDiagValue(id, text) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.textContent === text) return;
+    el.textContent = text;
+    el.classList.remove("value-flash");
+    void el.offsetWidth; // restart the CSS animation
+    el.classList.add("value-flash");
+}
+
 async function updateBuckDiagnosticsLive() {
     const note = document.getElementById("diagBuckNote");
     const rowIds = ["diagDutyCycle", "diagRippleA", "diagPeakCurrent", "diagAvgCurrent", "diagInductance"];
@@ -119,11 +132,11 @@ async function updateBuckDiagnosticsLive() {
 
     try {
         const derived = await postRequest(TOPOLOGY_ENDPOINT, payload);
-        document.getElementById("diagDutyCycle").textContent = `${(derived.dutyCycle * 100).toFixed(1)}%`;
-        document.getElementById("diagRippleA").textContent = `${derived.rippleCurrentPeakToPeakA.toFixed(3)} A`;
-        document.getElementById("diagPeakCurrent").textContent = `${derived.peakCurrentA.toFixed(3)} A`;
-        document.getElementById("diagAvgCurrent").textContent = `${derived.averageCurrentA.toFixed(3)} A`;
-        document.getElementById("diagInductance").textContent = `${derived.inductanceUH.toFixed(3)} µH`;
+        setDiagValue("diagDutyCycle", `${(derived.dutyCycle * 100).toFixed(1)}%`);
+        setDiagValue("diagRippleA", `${derived.rippleCurrentPeakToPeakA.toFixed(3)} A`);
+        setDiagValue("diagPeakCurrent", `${derived.peakCurrentA.toFixed(3)} A`);
+        setDiagValue("diagAvgCurrent", `${derived.averageCurrentA.toFixed(3)} A`);
+        setDiagValue("diagInductance", `${derived.inductanceUH.toFixed(3)} µH`);
         rowIds.forEach((id) => setDiagnosticsRowPending(id, false));
         if (note) note.textContent = "";
     } catch (error) {
@@ -141,15 +154,14 @@ function updateDirectDiagnosticsLive() {
     const rmsA = Number(document.getElementById("rmsCurrent").value);
     const rippleRaw = document.getElementById("rippleCurrent").value;
 
-    const energyEl = document.getElementById("diagStoredEnergy");
-    if (energyEl) {
+    if (document.getElementById("diagStoredEnergy")) {
         if (inductanceUH > 0 && peakA > 0) {
             // E = 0.5 x L x I^2 - the same headline formula already shown in
             // the Inductance field's hint tooltip, just kept live here too.
             const energyMJ = 0.5 * (inductanceUH * 1e-6) * peakA * peakA * 1e3;
-            energyEl.textContent = `${energyMJ.toFixed(4)} mJ`;
+            setDiagValue("diagStoredEnergy", `${energyMJ.toFixed(4)} mJ`);
         } else {
-            energyEl.textContent = "–";
+            setDiagValue("diagStoredEnergy", "–");
         }
     }
 

@@ -6,7 +6,9 @@ This guide explains how to use the AIMagnetics web interface and what each input
 
 ## The Interface
 
-Open **http://127.0.0.1:8000** (see [GETTING_STARTED.md](GETTING_STARTED.md) for how to start the server). You'll see a three-column layout: input form on the left, live Diagnostics in the middle, and Design Summary/results on the right. The Diagnostics and Design Summary cards stay in view as you scroll the input form.
+Open **http://127.0.0.1:8000** (see [GETTING_STARTED.md](GETTING_STARTED.md) for how to start the server). A slim, sticky header (`AIMagnetics` + a one-line description) stays pinned at the top - it's a tool header, not a marketing banner, so it stays out of the way of the actual work. Below it is a three-column layout: input form on the left, live Diagnostics in the middle, and Design Summary/results on the right. The Diagnostics and Design Summary cards stay in view (sticky, below the header) as you scroll the input form.
+
+A few small, deliberately restrained animations give feedback without being distracting: switching between Mode 1/Mode 2 fades the newly-shown section in, a live Diagnostics value briefly highlights when it actually changes (not on every keystroke - only when the number itself moves), and expanding a candidate row settles in rather than snapping open. All of it respects `prefers-reduced-motion`.
 
 ---
 
