@@ -59,6 +59,8 @@ the codebase regardless of which mode produced the request.
 **Example:** Vin = 36-60V, Vout = 12V, Iout = 40A, fsw = 500kHz, ripple = 20%
 → worst case at Vin=60V: D = 0.2, ripple = 8A, L = 2.4µH, Ipeak = 44A
 (this is the hand-calculated case `tests/python/test_buck_electrical_solver.py` checks against).
+For the same request carried all the way through core selection, turns/gap,
+validation, winding, and losses, see [WORKED_EXAMPLE_MODE1.md](WORKED_EXAMPLE_MODE1.md).
 
 ---
 

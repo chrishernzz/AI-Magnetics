@@ -7,20 +7,32 @@
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <div class="hero">
-        <div>
-            <h1>AIMagnetics</h1>
-            <p>Engineer-focused single-winding power inductor design tool.</p>
+    <header class="topbar">
+        <div class="topbar-brand">
+            <span class="topbar-mark">AI</span>
+            <div class="topbar-titles">
+                <span class="topbar-name">AIMagnetics</span>
+                <span class="topbar-tagline">Power Inductor Design Engine</span>
+            </div>
         </div>
-        <div class="hero-note">
-            Enter your known inductor requirements and get explainable, physics-checked candidate designs -
-            every pass and every rejection comes with the reason.
-        </div>
-    </div>
+        <p class="topbar-note">Explainable, physics-checked candidates — every pass and every rejection comes with the reason.</p>
+    </header>
 
     <div class="main-grid">
         <section class="card requirements-card">
-            <h2>Design Requirements</h2>
+            <div class="card-head">
+                <span class="card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                        <line x1="3" y1="5" x2="15" y2="5"/><circle cx="7" cy="5" r="1.5" fill="currentColor" stroke="none"/>
+                        <line x1="3" y1="9" x2="15" y2="9"/><circle cx="11" cy="9" r="1.5" fill="currentColor" stroke="none"/>
+                        <line x1="3" y1="13" x2="15" y2="13"/><circle cx="5.5" cy="13" r="1.5" fill="currentColor" stroke="none"/>
+                    </svg>
+                </span>
+                <div class="card-head-titles">
+                    <h2>Design Requirements</h2>
+                    <span class="card-subtitle">Buck converter or direct inductor inputs</span>
+                </div>
+            </div>
 
             <div class="mode-toggle" role="tablist" aria-label="Input mode">
                 <button type="button" id="modeDirectBtn" class="mode-toggle-btn" aria-selected="true">I know my inductor requirements</button>
@@ -168,7 +180,17 @@
         </section>
 
         <section class="card diagnostics-card">
-            <h2>Diagnostics</h2>
+            <div class="card-head">
+                <span class="card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="2,10 6,10 8,4 10,14 12,10 16,10"/>
+                    </svg>
+                </span>
+                <div class="card-head-titles">
+                    <h2>Diagnostics</h2>
+                    <span class="card-subtitle">Recalculated live, before you commit</span>
+                </div>
+            </div>
 
             <div id="buckDiagnostics" class="diagnostics-panel" hidden>
                 <p class="diagnostics-intro">Live, recalculated on every change - the same formulas <code>Calculate Magnetic Requirements</code> uses, just before you commit to them.</p>
@@ -195,6 +217,12 @@
                     </div>
                 </dl>
                 <p id="diagBuckNote" class="diagnostics-note">Enter your Buck converter requirements to see live diagnostics.</p>
+
+                <div class="waveform-card">
+                    <div class="waveform-title">Inductor Current - One Switching Period</div>
+                    <svg id="rippleWaveform" class="waveform-svg" viewBox="0 0 300 90" preserveAspectRatio="none"></svg>
+                    <div class="waveform-legend"><span class="legend-dot"></span><span>I<sub>L</sub> at Vin Maximum</span></div>
+                </div>
             </div>
 
             <div id="directDiagnostics" class="diagnostics-panel">
@@ -211,7 +239,18 @@
         </section>
 
         <section class="card summary-card">
-            <h2>Design Summary</h2>
+            <div class="card-head">
+                <span class="card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="9" cy="9" r="6.5"/>
+                        <polyline points="6,9.2 8.2,11.4 12.2,6.8"/>
+                    </svg>
+                </span>
+                <div class="card-head-titles">
+                    <h2>Design Summary</h2>
+                    <span class="card-subtitle">Top-ranked passing candidate</span>
+                </div>
+            </div>
             <div id="designSummary" class="summary-placeholder">
                 Run the recommendation to see the top passing candidate.
             </div>
@@ -230,7 +269,19 @@
 
     <div class="card candidates-card">
         <div class="candidates-header">
-            <h2>Candidates</h2>
+            <div class="card-head">
+                <span class="card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+                        <line x1="3" y1="5" x2="15" y2="5"/>
+                        <line x1="3" y1="9" x2="15" y2="9"/>
+                        <line x1="3" y1="13" x2="15" y2="13"/>
+                    </svg>
+                </span>
+                <div class="card-head-titles">
+                    <h2>Candidates</h2>
+                    <span class="card-subtitle">Every evaluated candidate - passing and rejected</span>
+                </div>
+            </div>
             <div id="filterChips" class="filter-chips"></div>
         </div>
         <div id="triageStrip" class="triage-strip"></div>

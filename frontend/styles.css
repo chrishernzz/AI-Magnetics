@@ -28,37 +28,75 @@ body {
     min-height: 100vh;
 }
 
-.hero {
+/* A slim, sticky app header - not a marketing hero. Engineers open this
+   tool to work in it, not to be sold on it, so the header states what the
+   tool is in one line and gets out of the way. */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 20px;
-    padding: 40px 35px;
-    background: linear-gradient(120deg, var(--brand-black) 0%, var(--brand-black) 40%, var(--brand-red) 150%);
-    color: #ffffff;
+    gap: 8px 24px;
+    padding: 14px 35px;
+    background: var(--brand-black);
+    border-bottom: 2px solid var(--brand-red);
 }
 
-.hero h1 {
-    font-size: 3rem;
-    letter-spacing: -0.04em;
+.topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-.hero p {
-    margin-top: 10px;
-    max-width: 720px;
-    color: #e8e8ea;
+.topbar-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: var(--brand-red);
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.85rem;
+    letter-spacing: 0.01em;
+    flex-shrink: 0;
+}
+
+.topbar-titles {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+
+.topbar-name {
+    color: #fff;
+    font-weight: 700;
     font-size: 1.05rem;
-    line-height: 1.6;
+    letter-spacing: -0.01em;
 }
 
-.hero-note {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 12px;
-    padding: 18px 22px;
-    max-width: 380px;
-    color: #f4f4f5;
+.topbar-tagline {
+    color: #b9b9bd;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.topbar-note {
+    color: #d4d4d7;
+    font-size: 0.82rem;
+    max-width: 480px;
+    text-align: right;
+}
+
+@media (max-width: 720px) {
+    .topbar-note {
+        display: none;
+    }
 }
 
 .main-grid {
@@ -148,6 +186,52 @@ body {
     box-shadow: 0 1px 3px rgba(22, 22, 22, 0.06);
 }
 
+/* Card header - icon badge + title/subtitle, matching the icon-prefixed
+   card-title pattern engineering tools like OpenMagnetics use, so each
+   card reads at a glance instead of needing its body read first. */
+.card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.card-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--brand-red);
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.card-icon svg {
+    width: 17px;
+    height: 17px;
+}
+
+.card-head-titles {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.card-head-titles h2 {
+    line-height: 1.2;
+}
+
+.card-subtitle {
+    color: var(--ink-soft);
+    font-size: 0.8rem;
+}
+
+.candidates-header .card-head {
+    margin-bottom: 0;
+}
+
 .field-group {
     border: none;
     margin-top: 8px;
@@ -182,8 +266,8 @@ body {
 .summary-card,
 .diagnostics-card {
     position: sticky;
-    top: 20px;
-    max-height: calc(100vh - 40px);
+    top: 82px; /* clears the sticky .topbar (~64px) plus a small gap */
+    max-height: calc(100vh - 102px);
     overflow-y: auto;
 }
 
@@ -244,6 +328,22 @@ body {
     font-style: italic;
 }
 
+/* A quiet highlight when a live-recalculated value actually changes -
+   confirms the recalculation happened without a number silently jumping. */
+.value-flash {
+    border-radius: 4px;
+    animation: value-flash 0.6s ease;
+}
+
+@keyframes value-flash {
+    from {
+        background-color: rgba(200, 16, 46, 0.16);
+    }
+    to {
+        background-color: transparent;
+    }
+}
+
 .diagnostics-note {
     margin-top: 16px;
     color: var(--ink-soft);
@@ -259,24 +359,89 @@ body {
     color: #146334;
 }
 
+/* Ripple-current waveform - a small, real chart (not decorative) drawn
+   from the same duty-cycle/peak/ripple numbers already shown above it as
+   text, the way OpenMagnetics' Waveforms panel shows a live trace next to
+   its own diagnostics. */
+.waveform-card {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+}
+
+.waveform-title {
+    color: var(--ink-soft);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 10px;
+}
+
+.waveform-svg {
+    width: 100%;
+    height: 90px;
+    display: block;
+    overflow: visible;
+}
+
+.waveform-path {
+    fill: none;
+    stroke: var(--brand-red);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.waveform-gridline {
+    stroke: var(--line);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+}
+
+.waveform-label {
+    font-size: 8px;
+    fill: var(--ink-soft);
+    font-family: inherit;
+}
+
+.waveform-legend {
+    margin-top: 8px;
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--brand-red);
+    display: inline-block;
+    flex-shrink: 0;
+}
+
 .requirements-card label {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-top: 20px;
+    margin-top: 16px;
     color: var(--ink-soft);
-    font-size: 0.95rem;
+    font-size: 0.92rem;
 }
 
 .requirements-card input {
     width: 100%;
-    margin-top: 8px;
-    padding: 13px 14px;
+    margin-top: 6px;
+    padding: 11px 13px;
     border-radius: 8px;
     border: 1px solid #c9c9cc;
     background: var(--paper);
     color: var(--ink);
-    font-size: 1rem;
+    font-size: 0.98rem;
+    font-variant-numeric: tabular-nums;
 }
 
 .requirements-card input:focus {
@@ -389,6 +554,14 @@ button:hover {
     margin-top: 4px;
 }
 
+/* Necessary, not decorative: a brief settle-in when a section that was
+   display:none becomes visible, so the mode switch reads as a transition
+   rather than an abrupt content swap. Re-triggers automatically every
+   time the [hidden] attribute is removed. */
+.mode-section:not([hidden]) {
+    animation: panel-in 0.2s ease;
+}
+
 .topology-derived-banner {
     background: rgba(200, 16, 46, 0.05);
     border: 1px solid rgba(200, 16, 46, 0.25);
@@ -454,34 +627,6 @@ button:hover {
     font-size: 0.9rem;
 }
 
-.check-list {
-    list-style: none;
-    margin-top: 10px;
-}
-
-.check-list li {
-    padding: 8px 0;
-    border-bottom: 1px solid var(--line);
-}
-
-.check-pass {
-    color: #15803d;
-}
-
-.check-fail {
-    color: var(--brand-red-dark);
-}
-
-.check-warn {
-    color: #b45309;
-}
-
-.check-explanation {
-    color: var(--ink-soft);
-    font-size: 0.85rem;
-    margin-top: 4px;
-}
-
 /* Candidate detail: KPI strip - the numbers an engineer actually judges a
    candidate by, up front in one scannable row before any narrative text. */
 .detail-kpis {
@@ -525,86 +670,60 @@ button:hover {
     color: var(--ink);
 }
 
-/* The verdict - why this candidate won or lost - stated plainly before
-   any per-check data the reader would otherwise have to interpret alone. */
-.detail-alert {
-    border-radius: 8px;
-    padding: 14px 16px;
-    margin-bottom: 16px;
-    border-left: 4px solid;
-}
-
-.detail-alert-fail {
-    background: #fdecec;
-    border-left-color: var(--brand-red);
-}
-
-.detail-alert-pass {
-    background: #eefaf1;
-    border-left-color: #15803d;
-}
-
-.detail-alert-title {
+/* One-line status - not a restatement of any check, just which outcome
+   this is and the pass/fail count. Every check's own detail lives in the
+   validation list below, once each. */
+.detail-status {
     font-weight: 700;
     font-size: 0.92rem;
+    margin-bottom: 12px;
 }
 
-.detail-alert-fail .detail-alert-title {
+.detail-status-fail {
     color: var(--brand-red-dark);
 }
 
-.detail-alert-pass .detail-alert-title {
+.detail-status-pass {
     color: #15803d;
 }
 
-.detail-alert-list {
+/* Validation checks - the single place every check is explained, each one
+   exactly once: a status chip, the check name, its actual value against
+   its limit (labeled, not a bare ratio), and - only for a check that
+   needs attention - one real explanation line directly underneath it. */
+.validation-list {
     list-style: none;
-    margin-top: 10px;
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
-.detail-alert-list li {
-    color: var(--ink);
-    font-size: 0.88rem;
-    line-height: 1.5;
+.validation-row {
+    border-radius: 8px;
+    border-left: 3px solid;
+    padding: 9px 12px;
 }
 
-/* Validation checks - two per row, one compact line each. The full
-   explanation sentence only appears for checks that need attention
-   (fail / not evaluated) - a passing check's number next to its limit
-   already says everything a pass needs to say. */
-.validation-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 20px;
-    margin-top: 8px;
+.validation-row-pass {
+    background: #f3faf5;
+    border-left-color: #15803d;
 }
 
-.validation-item {
-    padding: 9px 0;
-    border-bottom: 1px solid var(--line);
+.validation-row-fail {
+    background: #fdecec;
+    border-left-color: var(--brand-red);
 }
 
-.validation-item-attention {
-    grid-column: 1 / -1;
+.validation-row-warn {
+    background: #fff8ec;
+    border-left-color: #b45309;
 }
 
-.validation-item-head {
+.validation-row-main {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
-}
-
-.validation-item-status {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    flex-shrink: 0;
-    width: 62px;
 }
 
 .validation-item-name {
@@ -621,16 +740,22 @@ button:hover {
     white-space: nowrap;
 }
 
+.validation-item-value strong {
+    color: var(--ink);
+    font-weight: 700;
+}
+
+.validation-row-explain {
+    margin-top: 6px;
+    color: var(--ink);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
 .validation-footnote {
     margin-top: 10px;
     color: var(--ink-soft);
     font-size: 0.78rem;
-}
-
-@media (max-width: 720px) {
-    .validation-grid {
-        grid-template-columns: 1fr;
-    }
 }
 
 details {
@@ -825,13 +950,7 @@ summary {
     letter-spacing: 0.04em;
     background: var(--brand-black);
     border-bottom: 1px solid #000;
-    cursor: pointer;
     white-space: nowrap;
-    user-select: none;
-}
-
-.candidate-table thead th:hover {
-    color: #ffb3bf;
 }
 
 .candidate-table thead th.numeric,
@@ -898,6 +1017,21 @@ summary {
     border-left: 3px solid var(--brand-red);
 }
 
+.detail-row:not([hidden]) {
+    animation: panel-in 0.16s ease;
+}
+
+@keyframes panel-in {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .table-empty {
     padding: 24px;
     color: var(--ink-soft);
@@ -932,4 +1066,12 @@ summary {
     background: var(--brand-red);
     color: #fff;
     margin-left: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
 }

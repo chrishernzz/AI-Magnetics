@@ -3,8 +3,6 @@ const TOPOLOGY_ENDPOINT = "/topology-design/buck";
 
 let lastResult = null;
 let currentFilter = "all"; // all | passing | rejected
-let sortKey = "status";
-let sortAscending = true;
 
 // Set when Mode 1 (Buck converter) has derived requirements - holds the
 // averageCurrentA/rippleCurrentPeakToPeakA pair so buildPayload() sends
@@ -106,6 +104,59 @@ function setDiagnosticsRowPending(rowId, isPending) {
     if (row) row.classList.toggle("is-pending", isPending);
 }
 
+// Briefly highlights a diagnostics value when it actually changes, so a
+// live recalculation reads as "this updated" instead of a number silently
+// jumping. A no-op (no flash) when the new text matches the old one.
+function setDiagValue(id, text) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.textContent === text) return;
+    el.textContent = text;
+    el.classList.remove("value-flash");
+    void el.offsetWidth; // restart the CSS animation
+    el.classList.add("value-flash");
+}
+
+// Draws the inductor current over two switching periods as a real triangle
+// wave - rises for the duty-cycle fraction of the period, falls for the
+// rest - from the exact same peak/ripple/duty-cycle numbers already shown
+// as text above it. Not decorative: change any Buck input and this redraws
+// from the live derived values, same as the text rows next to it.
+function updateRippleWaveform(derived) {
+    const svg = document.getElementById("rippleWaveform");
+    if (!svg) return;
+
+    const W = 300;
+    const H = 90;
+    const PAD_Y = 10;
+    const ipk = derived.peakCurrentA;
+    const ripple = Math.max(derived.rippleCurrentPeakToPeakA, 1e-9);
+    const iMin = ipk - ripple;
+    const duty = Math.min(Math.max(derived.dutyCycle, 0.02), 0.98);
+    const periods = 2;
+    const periodW = W / periods;
+
+    const yOf = (i) => PAD_Y + (1 - (i - iMin) / ripple) * (H - 2 * PAD_Y);
+    const yTop = yOf(ipk);
+    const yBottom = yOf(iMin);
+
+    let points = [[0, yBottom]];
+    for (let p = 0; p < periods; p++) {
+        const x0 = p * periodW;
+        points.push([x0 + duty * periodW, yTop]);
+        points.push([x0 + periodW, yBottom]);
+    }
+    const pathD = "M " + points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L ");
+
+    svg.innerHTML = `
+        <line x1="0" y1="${yTop.toFixed(1)}" x2="${W}" y2="${yTop.toFixed(1)}" class="waveform-gridline"></line>
+        <line x1="0" y1="${yBottom.toFixed(1)}" x2="${W}" y2="${yBottom.toFixed(1)}" class="waveform-gridline"></line>
+        <path d="${pathD}" class="waveform-path"></path>
+        <text x="4" y="${(yTop - 3).toFixed(1)}" class="waveform-label">${ipk.toFixed(2)} A</text>
+        <text x="4" y="${(yBottom - 3).toFixed(1)}" class="waveform-label">${iMin.toFixed(2)} A</text>
+    `;
+}
+
 async function updateBuckDiagnosticsLive() {
     const note = document.getElementById("diagBuckNote");
     const rowIds = ["diagDutyCycle", "diagRippleA", "diagPeakCurrent", "diagAvgCurrent", "diagInductance"];
@@ -119,12 +170,13 @@ async function updateBuckDiagnosticsLive() {
 
     try {
         const derived = await postRequest(TOPOLOGY_ENDPOINT, payload);
-        document.getElementById("diagDutyCycle").textContent = `${(derived.dutyCycle * 100).toFixed(1)}%`;
-        document.getElementById("diagRippleA").textContent = `${derived.rippleCurrentPeakToPeakA.toFixed(3)} A`;
-        document.getElementById("diagPeakCurrent").textContent = `${derived.peakCurrentA.toFixed(3)} A`;
-        document.getElementById("diagAvgCurrent").textContent = `${derived.averageCurrentA.toFixed(3)} A`;
-        document.getElementById("diagInductance").textContent = `${derived.inductanceUH.toFixed(3)} µH`;
+        setDiagValue("diagDutyCycle", `${(derived.dutyCycle * 100).toFixed(1)}%`);
+        setDiagValue("diagRippleA", `${derived.rippleCurrentPeakToPeakA.toFixed(3)} A`);
+        setDiagValue("diagPeakCurrent", `${derived.peakCurrentA.toFixed(3)} A`);
+        setDiagValue("diagAvgCurrent", `${derived.averageCurrentA.toFixed(3)} A`);
+        setDiagValue("diagInductance", `${derived.inductanceUH.toFixed(3)} µH`);
         rowIds.forEach((id) => setDiagnosticsRowPending(id, false));
+        updateRippleWaveform(derived);
         if (note) note.textContent = "";
     } catch (error) {
         // Expected constantly while typing (e.g. Vout momentarily blank, or
@@ -141,15 +193,14 @@ function updateDirectDiagnosticsLive() {
     const rmsA = Number(document.getElementById("rmsCurrent").value);
     const rippleRaw = document.getElementById("rippleCurrent").value;
 
-    const energyEl = document.getElementById("diagStoredEnergy");
-    if (energyEl) {
+    if (document.getElementById("diagStoredEnergy")) {
         if (inductanceUH > 0 && peakA > 0) {
             // E = 0.5 x L x I^2 - the same headline formula already shown in
             // the Inductance field's hint tooltip, just kept live here too.
             const energyMJ = 0.5 * (inductanceUH * 1e-6) * peakA * peakA * 1e3;
-            energyEl.textContent = `${energyMJ.toFixed(4)} mJ`;
+            setDiagValue("diagStoredEnergy", `${energyMJ.toFixed(4)} mJ`);
         } else {
-            energyEl.textContent = "–";
+            setDiagValue("diagStoredEnergy", "–");
         }
     }
 
@@ -443,29 +494,31 @@ function formatTotalLossCell(candidate) {
     return `${totalKnownLossW(candidate).toFixed(3)} W`;
 }
 
-// Compact by default: every check gets one line (status, name, value vs
-// limit) in a 2-column grid. The full explanation sentence is only shown
-// for NOT_EVALUATED checks here - a FAIL's explanation is already shown
-// once, prominently, in the "Why this was rejected" block above (every
-// FAIL is a rejection reason - a candidate is never labeled passing with
-// any check failed), so repeating it a second time in this grid was
-// showing the exact same sentence twice on rejected candidates.
-function renderValidationList(validations, rejectedCheckNames) {
+// The single place a candidate's checks are shown - no separate "why
+// rejected" banner duplicating this. Every check appears exactly once:
+// status chip, name, and "actual X · limit Y" (labeled, not a bare ratio);
+// a FAIL or NOT_EVALUATED check also gets its one real explanation line,
+// right there next to its own numbers instead of restated somewhere else
+// on the page.
+function renderValidationList(validations) {
     return validations
         .map((v) => {
             const notEvaluated = v.status === "NotEvaluated";
-            const alreadyExplainedAsRejection = !notEvaluated && !v.passed && rejectedCheckNames.has(v.checkName);
-            const showExplanationHere = notEvaluated || (!v.passed && !alreadyExplainedAsRejection);
-            const label = notEvaluated ? "NOT EVAL" : v.passed ? "PASS" : "FAIL";
-            const cssClass = notEvaluated ? "check-warn" : v.passed ? "check-pass" : "check-fail";
+            const rowClass = notEvaluated ? "validation-row-warn" : v.passed ? "validation-row-pass" : "validation-row-fail";
+            const chip = notEvaluated
+                ? '<span class="chip chip-warn">NOT EVAL</span>'
+                : v.passed
+                ? '<span class="chip chip-pass">PASS</span>'
+                : '<span class="chip chip-fail">FAIL</span>';
+            const needsExplanation = notEvaluated || !v.passed;
             return `
-        <li class="validation-item ${cssClass}${showExplanationHere ? " validation-item-attention" : ""}">
-            <div class="validation-item-head">
-                <span class="validation-item-status">${label}</span>
+        <li class="validation-row ${rowClass}">
+            <div class="validation-row-main">
+                ${chip}
                 <span class="validation-item-name">${v.checkName}</span>
-                <span class="validation-item-value">${v.calculatedValue.toFixed(3)} / ${v.limitValue.toFixed(3)} ${v.unit}${v.usedDefaultLimit ? " *" : ""}</span>
+                <span class="validation-item-value">actual <strong>${v.calculatedValue.toFixed(3)}</strong> · limit <strong>${v.limitValue.toFixed(3)}</strong> ${v.unit}${v.usedDefaultLimit ? " *" : ""}</span>
             </div>
-            ${showExplanationHere ? `<div class="check-explanation">${v.explanation}</div>` : ""}
+            ${needsExplanation ? `<div class="validation-row-explain">${v.explanation}</div>` : ""}
         </li>
     `;
         })
@@ -482,37 +535,6 @@ function candidateRows(result) {
     return passing.concat(rejected);
 }
 
-function sortValue(row, key) {
-    const c = row.candidate;
-    switch (key) {
-        case "status":
-            return row.passed ? 0 : 1;
-        case "core":
-            return c.core.partNumber;
-        case "material":
-            return c.material.materialFamily;
-        case "turns":
-            return c.turnsAndGap.turns;
-        case "gap":
-            return c.turnsAndGap.gapMm;
-        case "calcL":
-            return c.turnsAndGap.calculatedInductanceUH;
-        case "error":
-            return Math.abs(c.turnsAndGap.inductanceErrorPercent);
-        case "fill":
-            return c.winding.fillFactor;
-        case "cuLoss":
-            return c.losses.copperLossStatus === "Evaluated" ? c.losses.copperLossW : -1;
-        case "coreLoss":
-            return c.losses.coreLossStatus === "Evaluated" ? c.losses.coreLossW : -1;
-        case "totalLoss":
-            // matches the backend's own ranking metric - see totalKnownLossW() above
-            return hasAnyLossData(c) ? totalKnownLossW(c) : -1;
-        default:
-            return 0;
-    }
-}
-
 function renderCandidateDetail(candidate, isRecommended) {
     const warnings = candidate.material.missingDataWarnings
         .concat(candidate.winding.missingData || [])
@@ -521,14 +543,7 @@ function renderCandidateDetail(candidate, isRecommended) {
     const failCount = candidate.validations.filter((v) => v.status !== "NotEvaluated" && !v.passed).length;
     const notEvalCount = candidate.validations.filter((v) => v.status === "NotEvaluated").length;
     const passCount = candidate.validations.length - failCount - notEvalCount;
-    const validationSummary = [
-        `${passCount} pass`,
-        failCount ? `${failCount} fail` : null,
-        notEvalCount ? `${notEvalCount} not evaluated` : null,
-    ].filter(Boolean).join(", ");
-
     const usedDefaultLimit = candidate.validations.some((v) => v.usedDefaultLimit);
-    const rejectedCheckNames = new Set(candidate.rejectionReasons.map((r) => r.checkName));
 
     // KPIs first, always - the numbers an engineer actually judges a
     // candidate by, in one scannable strip, before any narrative text.
@@ -558,31 +573,18 @@ function renderCandidateDetail(candidate, isRecommended) {
         <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong></p>
     `;
 
-    // The single most important question a candidate's detail has to
-    // answer - "why did this win, or why did this lose" - stated in
-    // plain terms before anything else, not buried after a wall of
-    // per-check data the engineer has to interpret themselves.
-    const verdict = candidate.rejectionReasons.length
-        ? `
-        <div class="detail-alert detail-alert-fail">
-            <div class="detail-alert-title">Rejected - ${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>
-            <ul class="detail-alert-list">
-                ${candidate.rejectionReasons.map((r) => `<li><strong>${r.checkName}:</strong> ${r.explanation}</li>`).join("")}
-            </ul>
-        </div>`
-        : `
-        <div class="detail-alert detail-alert-pass">
-            <div class="detail-alert-title">${isRecommended ? "Recommended - " : "Passing - "}${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated (no data yet, not a failure)` : ""}</div>
-        </div>`;
+    // One-line status, not a restatement of any check - the list below is
+    // the single place every check (and, for a failure, its real reason)
+    // is actually explained.
+    const statusLine = candidate.rejectionReasons.length
+        ? `<div class="detail-status detail-status-fail">Rejected — ${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>`
+        : `<div class="detail-status detail-status-pass">${isRecommended ? "Recommended" : "Passing"} — ${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated` : ""}</div>`;
 
     return `
         ${kpis}
-        ${verdict}
-        <details>
-            <summary>Validation checks (${validationSummary})</summary>
-            <ul class="check-list validation-grid">${renderValidationList(candidate.validations, rejectedCheckNames)}</ul>
-            ${usedDefaultLimit ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
-        </details>
+        ${statusLine}
+        <ul class="validation-list">${renderValidationList(candidate.validations)}</ul>
+        ${usedDefaultLimit ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
         ${
             warnings.length
                 ? `<details><summary>Missing-data warnings</summary><ul>${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
@@ -595,16 +597,15 @@ function renderCandidateTable(result) {
     const table = document.getElementById("candidateTable");
     if (!table) return;
 
+    // Fixed order - candidateRows() already returns passing candidates
+    // ranked by the backend (lowest total loss first), then rejected. Since
+    // the tool always names one specific recommended candidate, letting a
+    // reader re-sort by another column can't change which one that is -
+    // it would just be a different view of the same fixed recommendation,
+    // so there's no sort control here.
     let rows = candidateRows(result);
     if (currentFilter === "passing") rows = rows.filter((r) => r.passed);
     if (currentFilter === "rejected") rows = rows.filter((r) => !r.passed);
-
-    rows.sort((a, b) => {
-        const av = sortValue(a, sortKey);
-        const bv = sortValue(b, sortKey);
-        const cmp = typeof av === "string" ? av.localeCompare(bv) : av - bv;
-        return sortAscending ? cmp : -cmp;
-    });
 
     if (rows.length === 0) {
         table.innerHTML = `<tbody><tr><td class="table-empty">No candidates match this filter.</td></tr></tbody>`;
@@ -612,31 +613,26 @@ function renderCandidateTable(result) {
     }
 
     const headers = [
-        { key: "status", label: "Status" },
-        { key: "core", label: "Core" },
-        { key: "material", label: "Material" },
-        { key: "turns", label: "Turns", numeric: true },
-        { key: "gap", label: "Gap (mm)", numeric: true },
-        { key: "calcL", label: "Calc L (µH)", numeric: true },
-        { key: "error", label: "Error %", numeric: true },
-        { key: "fill", label: "Fill %", numeric: true },
-        { key: "cuLoss", label: "Cu Loss", numeric: true },
-        { key: "coreLoss", label: "Core Loss", numeric: true },
-        { key: "totalLoss", label: "Total Loss", numeric: true },
+        { label: "Status" },
+        { label: "Core" },
+        { label: "Material" },
+        { label: "Turns", numeric: true },
+        { label: "Gap (mm)", numeric: true },
+        { label: "Calc L (µH)", numeric: true },
+        { label: "Error %", numeric: true },
+        { label: "Fill %", numeric: true },
+        { label: "Cu Loss", numeric: true },
+        { label: "Core Loss", numeric: true },
+        { label: "Total Loss", numeric: true },
     ];
 
-    const headerHtml = headers
-        .map((h) => {
-            const active = h.key === sortKey ? (sortAscending ? " ▲" : " ▼") : "";
-            return `<th data-sort-key="${h.key}"${h.numeric ? ' class="numeric"' : ""}>${h.label}${active}</th>`;
-        })
-        .join("");
+    const headerHtml = headers.map((h) => `<th${h.numeric ? ' class="numeric"' : ""}>${h.label}</th>`).join("");
 
     const bodyHtml = rows
         .map((row, index) => {
             const c = row.candidate;
             const badge = row.passed
-                ? `<span class="chip chip-pass">PASS</span>${row.isRecommended ? '<span class="chip chip-recommended">★ Recommended</span>' : ""}`
+                ? `<span class="chip chip-pass">PASS</span>${row.isRecommended ? '<span class="chip chip-recommended">Recommended</span>' : ""}`
                 : '<span class="chip chip-fail">REJECT</span>';
             const rowClass = ["candidate-row", row.passed ? "row-pass" : "row-reject", row.isRecommended ? "row-recommended" : ""]
                 .filter(Boolean)
@@ -663,19 +659,6 @@ function renderCandidateTable(result) {
         .join("");
 
     table.innerHTML = `<thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody>`;
-
-    table.querySelectorAll("th[data-sort-key]").forEach((th) => {
-        th.addEventListener("click", () => {
-            const key = th.dataset.sortKey;
-            if (sortKey === key) {
-                sortAscending = !sortAscending;
-            } else {
-                sortKey = key;
-                sortAscending = true;
-            }
-            renderCandidateTable(lastResult);
-        });
-    });
 
     table.querySelectorAll(".candidate-row").forEach((tr) => {
         tr.addEventListener("click", () => {
@@ -759,8 +742,6 @@ async function generateRecommendation() {
         const result = await postRequest(ENDPOINT, payload);
         lastResult = result;
         currentFilter = "all";
-        sortKey = "status";
-        sortAscending = true;
 
         console.log("DesignRecommendation", result);
 
