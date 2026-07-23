@@ -7,6 +7,7 @@ let sortAscending = true;
 
 function buildPayload() {
     const toleranceRaw = document.getElementById("tolerance").value;
+    const rippleRaw = document.getElementById("rippleCurrent").value;
 
     const payload = {
         inductanceUH: Number(document.getElementById("inductance").value),
@@ -19,6 +20,9 @@ function buildPayload() {
 
     if (toleranceRaw !== "") {
         payload.inductanceTolerancePercent = Number(toleranceRaw);
+    }
+    if (rippleRaw !== "") {
+        payload.rippleCurrentPeakToPeakA = Number(rippleRaw);
     }
 
     return payload;
@@ -54,6 +58,10 @@ function clearResults() {
     if (table) table.innerHTML = "";
     const chips = document.getElementById("filterChips");
     if (chips) chips.innerHTML = "";
+    const rankingNote = document.getElementById("rankingNote");
+    if (rankingNote) rankingNote.hidden = true;
+    const rulesSummaryLine = document.getElementById("rulesSummaryLine");
+    if (rulesSummaryLine) rulesSummaryLine.textContent = "Generating...";
 }
 
 async function postRequest(endpoint, payload) {
@@ -83,6 +91,16 @@ function renderRules(rules) {
         <p>Maximum fill factor: <strong>${rules.maximumFillFactor}</strong></p>
         <p>Default inductance tolerance: <strong>${rules.defaultInductanceTolerancePercent}%</strong></p>
     `;
+
+    // Collapsed-by-default one-liner shown next to the summary triangle, so
+    // the full breakdown above only has to be opened when actually wanted.
+    const summaryLine = document.getElementById("rulesSummaryLine");
+    if (summaryLine) {
+        summaryLine.textContent =
+            `Ku ${rules.windowUtilization} · Bmax ${rules.defaultFluxDensityLimitT}T · ` +
+            `J ${rules.allowableCurrentDensityAperCm2}A/cm² · Sat margin ${rules.minimumSaturationMarginPercent}% · ` +
+            `Fill ${rules.maximumFillFactor} · Tol ${rules.defaultInductanceTolerancePercent}%`;
+    }
 }
 
 function renderFeasibility(result) {
@@ -447,6 +465,11 @@ async function generateRecommendation() {
         renderFilterChips(result);
         renderCandidateTable(result);
         renderDesignSummary(result);
+
+        // The ranking policy only means anything once there's something to
+        // rank - showing it before any run just reads as unexplained noise.
+        const rankingNote = document.getElementById("rankingNote");
+        if (rankingNote) rankingNote.hidden = result.candidates.length + result.rejectedCandidates.length === 0;
 
         setStatus(
             result.status === "ok"
