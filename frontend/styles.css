@@ -244,6 +244,91 @@ button:hover {
     font-weight: 600;
 }
 
+/* Mode toggle - Mode 1 (Buck converter) vs Mode 2 (direct inductor
+   requirements). Both modes converge on the same requirements-card form
+   and the same Generate Recommendation flow. */
+.mode-toggle {
+    display: flex;
+    gap: 6px;
+    margin-top: 16px;
+    padding: 4px;
+    background: var(--paper-sunk);
+    border-radius: 10px;
+}
+
+.mode-toggle-btn {
+    flex: 1;
+    background: transparent;
+    color: var(--ink-soft);
+    border-radius: 7px;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: none;
+}
+
+.mode-toggle-btn:hover {
+    color: var(--ink);
+    transform: none;
+}
+
+.mode-toggle-btn.active {
+    background: var(--paper);
+    color: var(--brand-black);
+    box-shadow: 0 1px 3px rgba(22, 22, 22, 0.12);
+}
+
+.mode-section {
+    margin-top: 4px;
+}
+
+.topology-derived-banner {
+    background: rgba(200, 16, 46, 0.05);
+    border: 1px solid rgba(200, 16, 46, 0.25);
+    border-left: 4px solid var(--brand-red);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 18px 0 4px;
+    font-size: 0.86rem;
+    color: var(--ink-soft);
+    line-height: 1.65;
+}
+
+.topology-derived-banner p {
+    margin: 0 0 6px;
+}
+
+.topology-derived-banner p:last-of-type {
+    margin-bottom: 10px;
+}
+
+.topology-derived-banner strong {
+    color: var(--brand-black);
+}
+
+.topology-derived-banner button {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    padding: 7px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 6px;
+}
+
+.topology-derived-banner button:hover {
+    border-color: var(--brand-red);
+    color: var(--brand-red);
+    transform: none;
+}
+
+.requirements-card input:disabled {
+    background: var(--paper-sunk);
+    color: var(--ink-soft);
+    cursor: not-allowed;
+}
+
 .summary-placeholder {
     color: var(--ink-soft);
     line-height: 1.8;

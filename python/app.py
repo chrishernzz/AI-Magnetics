@@ -111,4 +111,6 @@ def read_index():
 
 
 from routes.inductor_design import router as inductor_design_router
+from routes.topology_design import router as topology_design_router
 app.include_router(inductor_design_router)
+app.include_router(topology_design_router)

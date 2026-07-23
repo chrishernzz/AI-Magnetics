@@ -10,12 +10,42 @@ Open **http://127.0.0.1:8000** (see [GETTING_STARTED.md](GETTING_STARTED.md) for
 
 ---
 
-## Input Fields
+## Two Modes: Buck Converter, or Direct Inductor Requirements
+
+At the top of the Design Requirements card is a mode toggle:
+
+- **"I know my inductor requirements"** (Mode 2, default) — enter the
+  inductor's own operating point directly. This is topology-agnostic:
+  the same fields apply whether the inductor sits in a buck, boost, or a
+  flyback's output stage.
+- **"I know my Buck converter requirements"** (Mode 1) — enter the
+  converter's operating point instead (input voltage range, output
+  voltage, output current, switching frequency, target ripple), and the
+  tool derives the inductor's requirements for you. V1 supports Buck
+  only; Boost/Flyback derivation is a later phase.
+
+Clicking **Calculate Magnetic Requirements** in Mode 1 calls
+`POST /topology-design/buck`, then automatically switches to Mode 2 with
+the derived values filled in, under a banner explaining exactly what was
+derived and at which worst-case input voltage (`Vin_max` — see
+[API_REFERENCE.md](API_REFERENCE.md) for why). The RMS Current field is
+disabled in this state, since the derived request uses average current +
+ripple current instead — the same triangular-ripple RMS derivation Mode 2
+already relies on when those two fields are supplied directly. Every field
+is still editable after deriving; click **"Clear and enter inductor
+requirements directly"** in the banner to discard the derivation and go
+back to entering everything by hand.
+
+Both modes end at the same place: the fields below, and the same
+**Generate Recommendation** button and pipeline.
+
+## Input Fields (Mode 2 - Direct Inductor Requirements)
 
 The inputs below apply regardless of which converter topology the inductor sits
 in (buck, boost, a flyback's output inductor, etc.) — the tool takes the
-inductor's own operating point directly, not the upstream converter spec
-(Buck/Boost requirement derivation is a later phase).
+inductor's own operating point directly, not the upstream converter spec.
+If you'd rather start from your Buck converter's operating point, use Mode 1
+above instead - it fills these in for you.
 
 ### 1. Inductance (µH)
 **What it is:** The desired inductance value for the inductor.

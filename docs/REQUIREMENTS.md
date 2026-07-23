@@ -4,6 +4,7 @@ Maps each input/output specified by your boss to the file that owns it, and whet
 
 | Requirement (from boss) | Owned by | Status |
 |---|---|---|
+| Buck converter requirement derivation | `src/backend/services/BuckElectricalSolver.cpp`, `POST /topology-design/buck` | ✅ Implemented (V1, Buck only) - derives `InductorDesignRequest` fields from converter-level inputs (Vin range, Vout, Iout, fsw, target ripple %), sized at the worst-case Vin_max; does not run the design pipeline itself. Boost/Buck-Boost/Flyback not started |
 | L (given) | `src/core/sizing/AreaProduct.cpp` · `src/core/magnetics/TurnsCalculation.cpp`/`TurnsAndGapDesign.cpp` | ✅ used in Area Product and in the Phase 1 turns/gap convergence loop |
 | Peak current | `src/core/sizing/AreaProduct.cpp` · `DesignValidation.cpp` (PeakFluxValidation/SaturationValidation) | ✅ used in Area Product and peak-flux/saturation checks - never used for RMS-dependent checks |
 | RMS current | `RequirementDerivationService.cpp` (direct, or derived from `averageCurrentA`+`rippleCurrentPeakToPeakA` for triangular ripple) · `src/core/winding/WindingDesign.cpp` · `src/core/losses/CopperLoss.cpp` | ✅ required/derivable input, used for winding sizing and DC copper loss; never inferred from peak current |

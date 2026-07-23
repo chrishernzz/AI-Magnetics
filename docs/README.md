@@ -8,6 +8,17 @@ Given your inductor requirements (inductance, peak/RMS current, switching freque
 **Output:** `POST /inductor-design` returns a `DesignRecommendation` — passing and rejected candidates, each with material, core, turns/gap, validation results, winding design, and losses; or `status: "no_feasible_design"` with the reason, never a silent oversized fallback
 **Known Phase 1 gaps:** DC copper loss is now evaluated with a real, geometry-derived DCR for cores with mean-length-per-turn data (see [DATA_FILES.md](DATA_FILES.md)). Core loss is now a real, computed value (`Pv = k*f^alpha*B^beta`) whenever the material has Steinmetz coefficients AND the request supplies `rippleCurrentPeakToPeakA`; `not_evaluated` otherwise. Passing candidates are now ranked by real total loss instead of area product alone. High-frequency (skin/proximity) loss and thermal rise remain genuinely unimplemented.
 
+**Two ways in:** engineers who already know their inductor's requirements
+use `InductorDesignRequest` directly (Mode 2, above). Engineers who instead
+know their **Buck converter's** operating point (Vin range, Vout, Iout,
+switching frequency, target ripple) can use `POST /topology-design/buck`
+(Mode 1) to derive those requirements first — it returns the exact same
+`InductorDesignRequest` shape, so Mode 1 is purely an alternate way to
+produce the input Mode 2 already accepts; every stage from there on is
+identical regardless of which mode produced it. See
+[API_REFERENCE.md](API_REFERENCE.md) and [WORKFLOW.md](WORKFLOW.md).
+V1 supports Buck only — Boost/Flyback are future work, not started.
+
 ---
 ## Quick Links
 
@@ -26,6 +37,7 @@ Given your inductor requirements (inductance, peak/RMS current, switching freque
 
 ---
 ## The Design Workflow (Phase 1)
+0. **(Optional) Buck converter requirement derivation** — `POST /topology-design/buck` converts converter-level inputs (Vin range, Vout, Iout, switching frequency, target ripple) into the same `InductorDesignRequest` step 1 below consumes, sized at the worst-case input voltage (`BuckElectricalSolver.cpp`). Skip this step entirely if you already know your inductor's requirements directly.
 1. **Material candidates** — every material whose frequency range covers the request (not just the first match)
 2. **Area Product (Ap)** — minimum core size needed without overheating, using the named `DesignRules::phase1Default()` ruleset (Ku, Bmax, J) — never hard-coded in the route layer
 3. **Core candidates** — every core matching a compatible material; `no_feasible_design` (not a silent oversized fallback) if none meet the Ap requirement
@@ -58,6 +70,7 @@ See [WORKFLOW.md](WORKFLOW.md) for formulas and the current status of each stage
 - ✅ Saturation flux density (`BmaxT`) — real, material-specific data for all 32 materials in the current snapshot; `SaturationValidation`/`PeakFluxValidation` use it automatically instead of the Phase 1 default
 - ✅ Core loss (`src/core/losses/CoreLoss.cpp`) — real Steinmetz equation `Pv = k*f^alpha*B^beta` (W/m³) using `data/real_core_loss_coefficients.csv`; `Evaluated` when the material has coefficients at this frequency and the request supplies `rippleCurrentPeakToPeakA` (flux-density swing is never approximated from peak flux), `not_evaluated` otherwise. Temperature correction not yet applied (see [FORMULAS.md](FORMULAS.md) section 9). The web form now has an optional Ripple Current field for this
 - ✅ Candidate ranking (`InductorDesignService.cpp`) — passing candidates are sorted by real total loss (copper + core, whichever are `Evaluated`) ascending instead of area-product-only; falls back to area-product-ascending only when a candidate has no loss data at all, so a missing number never wins or loses a ranking. Surfaced in the frontend via a Core Loss / Total Loss column pair and a ranking-policy note above the candidate table
+- ✅ Mode 1: Buck converter requirement derivation (`src/backend/services/BuckElectricalSolver.cpp`, `POST /topology-design/buck`) — derives inductance, peak current, average current, and ripple current from Buck converter operating requirements (Vin range, Vout, Iout, switching frequency, target ripple %), sized at the worst-case Vin. Outputs the same `InductorDesignRequest` Mode 2 accepts directly, so nothing downstream (including RMS-current derivation) is duplicated. Buck only in V1 — Boost/Flyback are not implemented. Web form has a mode toggle for this ("I know my Buck converter requirements")
 - ⚠️ High-frequency (skin/proximity) loss — not implemented in Phase 1, reported `not_evaluated`
 - ⚠️ Thermal evaluation (`src/core/thermal/ThermalEvaluation.cpp`) — `not_evaluated`: no thermal-resistance model or data yet
 - ⚠️ Core geometry — `real_cores.csv` has no shape column, so every candidate (including powder toroids) goes through the same discrete-air-gap model; no toroid-specific (distributed-gap) physics yet (see [DATA_FILES.md](DATA_FILES.md))
