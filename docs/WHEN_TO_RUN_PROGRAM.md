@@ -35,9 +35,7 @@ looking at. See GETTING_STARTED.md's Step 2 note for the exact message.
 No rebuild needed — the C++ engine reads CSVs at runtime. Just restart uvicorn (Ctrl+C, then re-run the same command) so the new file gets 
 picked up.
 
-## If you only changed a note in knowledge/ or a file in docs/
+## If you only changed a file in docs/
 
-No rebuild, and no uvicorn restart either — neither folder is read by the
-running app. `knowledge/` only matters to `scripts/rag/ingest.py`, which
-you re-run by hand whenever you want the assistant to pick up the change
-(see RAG_ASSISTANT.md). `docs/` isn't read by any code at all.
+No rebuild, and no uvicorn restart either — `docs/` isn't read by any code
+at all.

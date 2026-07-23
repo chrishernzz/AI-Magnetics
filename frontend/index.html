@@ -23,73 +23,50 @@
             <h2>Design Requirements</h2>
             <p class="section-description">Direct inductor inputs (no topology assumed).</p>
 
-            <div class="input-mode-tabs" role="tablist">
-                <button type="button" class="input-mode-tab active" data-mode="describe" role="tab" aria-selected="true">Describe It</button>
-                <button type="button" class="input-mode-tab" data-mode="manual" role="tab" aria-selected="false">Manual Entry</button>
-            </div>
+            <fieldset class="field-group">
+                <legend>Electrical</legend>
 
-            <div id="describeTab" class="input-mode-panel">
-                <textarea id="nlInput" rows="3"
-                    placeholder="e.g. I need a 470 uH inductor, 1.5 A peak, 1 A RMS, 0.3 A ripple, switching at 80 kHz"></textarea>
-                <div class="button-row">
-                    <button id="parseButton" class="secondary-button" type="button">Fill Form From Description</button>
-                </div>
-                <div id="parseFeedback" class="parse-feedback"></div>
+                <label for="inductance">Inductance (µH)
+                    <span class="hint" title="Target inductance. E = 0.5 x L x I^2 - too small raises ripple, too large oversizes the core.">?</span>
+                </label>
+                <input id="inductance" type="number" value="250" min="0" step="1">
 
-                <div id="verifyCard" class="verify-card" hidden>
-                    <h3>What I understood - please verify</h3>
-                    <dl id="verifyList" class="verify-list"></dl>
-                    <p class="verify-note">This is exactly what will be sent to the design engine.
-                        Wrong? Switch to the Manual Entry tab to correct a value, or rewrite your description above and parse again.</p>
-                </div>
-            </div>
+                <label for="current">Peak Current (A)
+                    <span class="hint" title="Highest instantaneous current. Drives area product, peak flux density and saturation margin - never used to infer RMS.">?</span>
+                </label>
+                <input id="current" type="number" value="2" min="0" step="0.1">
 
-            <div id="manualTab" class="input-mode-panel" hidden>
-                <fieldset class="field-group">
-                    <legend>Electrical</legend>
+                <label for="rmsCurrent">RMS Current (A)
+                    <span class="hint" title="Drives winding size, current density and DC copper loss. Always a separate number from peak current.">?</span>
+                </label>
+                <input id="rmsCurrent" type="number" value="1.4" min="0" step="0.1">
+                <p id="currentWarning" class="field-warning"></p>
 
-                    <label for="inductance">Inductance (µH)
-                        <span class="hint" title="Target inductance. E = 0.5 x L x I^2 - too small raises ripple, too large oversizes the core.">?</span>
-                    </label>
-                    <input id="inductance" type="number" value="250" min="0" step="1">
+                <label for="rippleCurrent">Ripple Current p-p (A, optional)
+                    <span class="hint" title="Peak-to-peak ripple current. Required for a real core-loss number - flux-density swing is computed from it, never approximated from peak flux. Leave blank and core loss reports not-evaluated.">?</span>
+                </label>
+                <input id="rippleCurrent" type="number" placeholder="needed for core loss" min="0" step="0.05">
 
-                    <label for="current">Peak Current (A)
-                        <span class="hint" title="Highest instantaneous current. Drives area product, peak flux density and saturation margin - never used to infer RMS.">?</span>
-                    </label>
-                    <input id="current" type="number" value="2" min="0" step="0.1">
+                <label for="frequency">Switching Frequency (kHz)
+                    <span class="hint" title="PWM switching frequency. Determines which materials are frequency-compatible candidates.">?</span>
+                </label>
+                <input id="frequency" type="number" value="100" min="0" step="1">
+            </fieldset>
 
-                    <label for="rmsCurrent">RMS Current (A)
-                        <span class="hint" title="Drives winding size, current density and DC copper loss. Always a separate number from peak current.">?</span>
-                    </label>
-                    <input id="rmsCurrent" type="number" value="1.4" min="0" step="0.1">
-                    <p id="currentWarning" class="field-warning"></p>
+            <fieldset class="field-group">
+                <legend>Thermal &amp; Tolerance</legend>
 
-                    <label for="rippleCurrent">Ripple Current p-p (A, optional)
-                        <span class="hint" title="Peak-to-peak ripple current. Required for a real core-loss number - flux-density swing is computed from it, never approximated from peak flux. Leave blank and core loss reports not-evaluated.">?</span>
-                    </label>
-                    <input id="rippleCurrent" type="number" placeholder="needed for core loss" min="0" step="0.05">
+                <label for="ambientTemp">Ambient Temperature (°C)</label>
+                <input id="ambientTemp" type="number" value="25" min="-40" step="1">
 
-                    <label for="frequency">Switching Frequency (kHz)
-                        <span class="hint" title="PWM switching frequency. Determines which materials are frequency-compatible candidates.">?</span>
-                    </label>
-                    <input id="frequency" type="number" value="100" min="0" step="1">
-                </fieldset>
+                <label for="tempRise">Allowable Temperature Rise (°C)</label>
+                <input id="tempRise" type="number" value="40" min="0" step="1">
 
-                <fieldset class="field-group">
-                    <legend>Thermal &amp; Tolerance</legend>
-
-                    <label for="ambientTemp">Ambient Temperature (°C)</label>
-                    <input id="ambientTemp" type="number" value="25" min="-40" step="1">
-
-                    <label for="tempRise">Allowable Temperature Rise (°C)</label>
-                    <input id="tempRise" type="number" value="40" min="0" step="1">
-
-                    <label for="tolerance">Inductance Tolerance (%, optional)
-                        <span class="hint" title="How far the realized inductance may deviate from target before a candidate is rejected. Defaults to 10% if left blank.">?</span>
-                    </label>
-                    <input id="tolerance" type="number" placeholder="default 10" min="0" step="1">
-                </fieldset>
-            </div>
+                <label for="tolerance">Inductance Tolerance (%, optional)
+                    <span class="hint" title="How far the realized inductance may deviate from target before a candidate is rejected. Defaults to 10% if left blank.">?</span>
+                </label>
+                <input id="tolerance" type="number" placeholder="default 10" min="0" step="1">
+            </fieldset>
 
             <div class="button-row">
                 <button id="generateButton" class="primary-button" type="button">

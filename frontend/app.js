@@ -28,130 +28,6 @@ function buildPayload() {
     return payload;
 }
 
-// field name in the /parse-requirements response -> form input id
-const PARSE_FIELD_TO_INPUT = {
-    inductanceUH: "inductance",
-    peakCurrentA: "current",
-    rmsCurrentA: "rmsCurrent",
-    rippleCurrentPeakToPeakA: "rippleCurrent",
-    switchingFreqKHz: "frequency",
-    ambientTemperatureC: "ambientTemp",
-    allowableTempRiseC: "tempRise",
-    inductanceTolerancePercent: "tolerance",
-};
-
-// field name -> {label, unit} for the plain-English verify card - this is the
-// primary "did the AI get it right" view, so an engineer doesn't have to open
-// Manual Entry and hunt through eight separate inputs just to check.
-const PARSE_FIELD_LABELS = {
-    inductanceUH: ["Inductance", "µH"],
-    peakCurrentA: ["Peak Current", "A"],
-    rmsCurrentA: ["RMS Current", "A"],
-    rippleCurrentPeakToPeakA: ["Ripple Current (p-p)", "A"],
-    switchingFreqKHz: ["Switching Frequency", "kHz"],
-    ambientTemperatureC: ["Ambient Temperature", "°C"],
-    allowableTempRiseC: ["Allowable Temp Rise", "°C"],
-    inductanceTolerancePercent: ["Inductance Tolerance", "%"],
-};
-
-function renderVerifyCard(fields) {
-    const card = document.getElementById("verifyCard");
-    const list = document.getElementById("verifyList");
-    list.innerHTML = Object.entries(PARSE_FIELD_LABELS)
-        .map(([field, [label, unit]]) => {
-            const value = fields[field];
-            const display = value !== null && value !== undefined
-                ? `${value} ${unit}`
-                : `<span class="verify-missing">not stated - see below</span>`;
-            return `<dt>${label}</dt><dd>${display}</dd>`;
-        })
-        .join("");
-    card.hidden = false;
-}
-
-// Fills the form from the extraction result - the form itself is the
-// confirmation step, so nothing here ever triggers the design run.
-async function parseDescription() {
-    const text = document.getElementById("nlInput").value.trim();
-    const feedback = document.getElementById("parseFeedback");
-    const button = document.getElementById("parseButton");
-    if (!text) {
-        feedback.innerHTML = `<p class="parse-error">Describe the inductor first - e.g. "470 uH, 1.5 A peak, 1 A RMS, 80 kHz".</p>`;
-        return;
-    }
-
-    button.disabled = true;
-    button.textContent = "Reading your description... (local model, may take a minute)";
-    feedback.innerHTML = "";
-
-    try {
-        const response = await fetch("/parse-requirements", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text }),
-        });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            const detail = body.detail || `Server error ${response.status}`;
-            feedback.innerHTML = `<p class="parse-error">${detail}</p>`;
-            return;
-        }
-
-        // The form has no average-current input, so when RMS wasn't stated but
-        // average + ripple were, derive RMS here (triangular ripple - same
-        // formula the API documents) and fill it VISIBLY so the engineer
-        // confirms the derived number like any other value.
-        const f = body.fields;
-        if (f.rmsCurrentA == null && f.averageCurrentA != null && f.rippleCurrentPeakToPeakA != null) {
-            const derived = Math.sqrt(f.averageCurrentA ** 2 + f.rippleCurrentPeakToPeakA ** 2 / 12);
-            f.rmsCurrentA = Math.round(derived * 1000) / 1000;
-        }
-
-        const filled = [];
-        Object.entries(PARSE_FIELD_TO_INPUT).forEach(([field, inputId]) => {
-            const value = body.fields[field];
-            const input = document.getElementById(inputId);
-            if (value !== null && value !== undefined && input) {
-                input.value = value;
-                input.classList.add("ai-filled");
-                filled.push(field);
-            } else if (input) {
-                input.classList.remove("ai-filled");
-            }
-        });
-        checkCurrentSanity();
-        renderVerifyCard(f);
-
-        const sections = [];
-        if (filled.length) {
-            sections.push(`<p class="parse-ok">Understood ${filled.length} field(s) - see "What I understood" above. Manual Entry is optional (open it only to correct something).</p>`);
-        } else {
-            sections.push(`<p class="parse-error">No usable values found in that description.</p>`);
-        }
-        if (body.errors.length) {
-            sections.push(`<div class="parse-errors"><strong>Problems:</strong><ul>${body.errors.map((e) => `<li>${e}</li>`).join("")}</ul></div>`);
-        }
-        if (body.questions.length) {
-            sections.push(`<div class="parse-questions"><strong>To complete the spec:</strong><ul>${body.questions
-                .map((q) => `<li><em>${q.question}</em><div class="question-why">${q.why}</div></li>`)
-                .join("")}</ul></div>`);
-        }
-        if (body.warnings.length) {
-            sections.push(`<div class="parse-warnings"><strong>Worth checking:</strong><ul>${body.warnings.map((w) => `<li>${w}</li>`).join("")}</ul></div>`);
-        }
-        if (body.assumedDefaults.length) {
-            sections.push(`<div class="parse-warnings"><strong>Defaults in use:</strong><ul>${body.assumedDefaults.map((a) => `<li>${a}</li>`).join("")}</ul></div>`);
-        }
-        feedback.innerHTML = sections.join("");
-    } catch (error) {
-        console.error(error);
-        feedback.innerHTML = `<p class="parse-error">Could not reach the server: ${error.message}</p>`;
-    } finally {
-        button.disabled = false;
-        button.textContent = "Fill Form From Description";
-    }
-}
-
 function checkCurrentSanity() {
     const warningElement = document.getElementById("currentWarning");
     if (!warningElement) return;
@@ -182,25 +58,10 @@ function clearResults() {
     if (table) table.innerHTML = "";
     const chips = document.getElementById("filterChips");
     if (chips) chips.innerHTML = "";
-    // A stale "describe the inductor first" error from an earlier failed
-    // parse attempt has nothing to do with a run that just started - clear
-    // it so it doesn't sit there looking like something is still wrong.
-    const parseFeedback = document.getElementById("parseFeedback");
-    if (parseFeedback) parseFeedback.innerHTML = "";
     const rankingNote = document.getElementById("rankingNote");
     if (rankingNote) rankingNote.hidden = true;
     const rulesSummaryLine = document.getElementById("rulesSummaryLine");
     if (rulesSummaryLine) rulesSummaryLine.textContent = "Generating...";
-}
-
-function switchInputMode(mode) {
-    document.querySelectorAll(".input-mode-tab").forEach((tab) => {
-        const active = tab.dataset.mode === mode;
-        tab.classList.toggle("active", active);
-        tab.setAttribute("aria-selected", active ? "true" : "false");
-    });
-    document.getElementById("describeTab").hidden = mode !== "describe";
-    document.getElementById("manualTab").hidden = mode !== "manual";
 }
 
 async function postRequest(endpoint, payload) {
@@ -626,10 +487,6 @@ async function generateRecommendation() {
 
 window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("generateButton").addEventListener("click", generateRecommendation);
-    document.getElementById("parseButton").addEventListener("click", parseDescription);
-    document.querySelectorAll(".input-mode-tab").forEach((tab) => {
-        tab.addEventListener("click", () => switchInputMode(tab.dataset.mode));
-    });
     ["current", "rmsCurrent"].forEach((id) => {
         document.getElementById(id).addEventListener("input", checkCurrentSanity);
     });

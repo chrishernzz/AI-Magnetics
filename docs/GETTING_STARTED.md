@@ -122,30 +122,6 @@ See [WHEN_TO_RUN_PROGRAM.md](WHEN_TO_RUN_PROGRAM.md) for the exact commands.
 
 ---
 
-## Optional: Local LLM Features (Natural-Language Input, Doc/Knowledge Assistant)
-
-Two features — the "Describe It In Plain English" box in the web UI, and
-the standalone `scripts/rag/` doc/knowledge assistant — need extra local
-software beyond the app itself. Both are entirely optional; the core design
-engine works without any of this.
-
-- **[LM Studio](https://lmstudio.ai/)** running locally with its Local
-  Server started (Developer tab → Local Server → Status: Running), a chat
-  model loaded, and — for the RAG assistant only — an embedding model
-  (`nomic-embed-text-v1.5` or similar) loaded too. Available on
-  Windows, macOS, and Linux.
-- **Docker** with a running `chromadb/chroma` container — needed only for
-  `scripts/rag/` (`docker run -p 8000:8000 chromadb/chroma`), not for the
-  natural-language input box.
-- Install the extra Python dependency for the RAG scripts:
-  `pip install -r scripts/rag/requirements.txt`.
-
-See [RAG_ASSISTANT.md](RAG_ASSISTANT.md) for the full setup and usage of
-the doc/knowledge assistant, and [FRONTEND_GUIDE.md](FRONTEND_GUIDE.md) for
-the natural-language input box.
-
----
-
 ## Deploying to Vercel
 
 The app deploys to Vercel only (no separate frontend host) — `python/app.py`

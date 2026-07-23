@@ -10,42 +10,9 @@ Open **http://127.0.0.1:8000** (see [GETTING_STARTED.md](GETTING_STARTED.md) for
 
 ---
 
-## Natural-Language Input ("Describe It In Plain English") — the primary path
+## Input Fields
 
-This is the first thing on the page, above the form. Type a sentence like
-*"I need a 470 uH inductor, 1.5 A peak, 1 A RMS, 0.3 A ripple, switching at
-80 kHz"* and click **Fill Form From Description** — the local LM Studio
-model (schema-constrained JSON output) extracts the fields, and a
-**"What I understood — please verify"** card appears with the parsed values
-in plain labeled units. That card, not the form, is the confirmation step:
-check it at a glance, then click Generate. Missing information comes back
-as clarifying questions instead of a guess (each with the reason it
-matters — e.g. *"what ripple did you assume?"* because core loss needs it),
-and impossible combinations (RMS > peak) are flagged as errors.
-
-Design principles behind it (see `knowledge/input-interview-guide.md`):
-the model can only translate the sentence into fields — the JSON schema
-prevents prose or invented fields, an unstated quantity is `null` (never a
-typical-value guess), and every sanity check and question after extraction is
-deterministic Python, not AI. If RMS wasn't stated but average current and
-ripple were, RMS is derived with the documented triangular-ripple formula and
-shown *visibly* in the verify card for confirmation like any other value.
-
-**Requires LM Studio running locally** (`127.0.0.1:1234`, a chat model
-loaded) — on the hosted Vercel site (or if LM Studio isn't running) the
-button returns an explanatory error instead of a form fill, since that
-server can't reach your machine.
-
----
-
-## Manual Entry — fields, edit values directly, or fully skip natural language
-
-Collapsed by default under a **"Manual Entry / Edit Values"** disclosure,
-right below the description box — click it open to type numbers directly
-instead of describing them, or to correct one field the AI got wrong
-without re-describing the whole thing. This is the same real form as
-before; the natural-language box just fills it, it doesn't replace it. The
-fields below apply regardless of which converter topology the inductor sits
+The inputs below apply regardless of which converter topology the inductor sits
 in (buck, boost, a flyback's output inductor, etc.) — the tool takes the
 inductor's own operating point directly, not the upstream converter spec
 (Buck/Boost requirement derivation is a later phase).
@@ -63,7 +30,7 @@ inductor's own operating point directly, not the upstream converter spec
 ### 3. RMS Current (A)
 **What it is:** The RMS current through the inductor — a separate quantity from peak current.
 **Example:** `1.4`
-**Why it matters:** Drives winding sizing (fill factor, current density) and DC copper loss. The Manual Entry form has no separate average-current input, so it always requires RMS directly. The natural-language box can derive it for you: if your description states average current and peak-to-peak ripple instead of RMS, the derivation (`Irms = sqrt(Iavg^2 + ripple^2/12)`, triangular ripple) happens automatically and the result is shown in the verify card and filled here for confirmation.
+**Why it matters:** Drives winding sizing (fill factor, current density) and DC copper loss. If you only know average current and peak-to-peak ripple, the API can derive this for a triangular ripple waveform (`Irms = sqrt(Iavg^2 + ripple^2/12)`) — the web UI requires you to enter RMS current directly.
 
 ### 4. Switching Frequency (kHz)
 **What it is:** How fast the circuit switches (PWM frequency).

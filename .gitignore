@@ -52,5 +52,3 @@ python/magnetics_cpp*.so
 # OS files
 .DS_Store
 Thumbs.db
-# Obsidian workspace/config (created when knowledge/ is opened as a vault)
-knowledge/.obsidian/
