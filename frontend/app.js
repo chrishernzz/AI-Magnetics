@@ -288,6 +288,8 @@ function clearResults() {
         const element = document.getElementById(id);
         if (element) element.innerHTML = "";
     });
+    const feasibility = document.getElementById("feasibility");
+    if (feasibility) feasibility.hidden = true;
     const table = document.getElementById("candidateTable");
     if (table) table.innerHTML = "";
     const chips = document.getElementById("filterChips");
@@ -337,6 +339,10 @@ function renderRules(rules) {
     }
 }
 
+// Only rendered for the failure case - a passing run's counts are already
+// shown once, prominently, in the Candidates triage strip immediately
+// below. Repeating "N passed, M rejected" in a second boxed panel above
+// it was the same sentence twice in two different cards.
 function renderFeasibility(result) {
     const element = document.getElementById("feasibility");
     if (!element) return;
@@ -349,6 +355,7 @@ function renderFeasibility(result) {
                 <p>Largest available area product: <strong>${result.largestAvailableAreaProductCm4.toExponential(2)} cm⁴</strong></p>
             `;
         }
+        element.hidden = false;
         element.innerHTML = `
             <div class="result-block">
                 <h3>No Feasible Design</h3>
@@ -357,12 +364,8 @@ function renderFeasibility(result) {
             </div>
         `;
     } else {
-        element.innerHTML = `
-            <div class="result-block">
-                <h3>Status: OK</h3>
-                <p>${result.message}</p>
-            </div>
-        `;
+        element.hidden = true;
+        element.innerHTML = "";
     }
 }
 
@@ -440,17 +443,27 @@ function formatTotalLossCell(candidate) {
     return `${totalKnownLossW(candidate).toFixed(3)} W`;
 }
 
+// Compact by default: every check gets one line (status, name, value vs
+// limit) in a 2-column grid. The full explanation sentence is only shown
+// for FAIL/NOT_EVALUATED checks - a passing check's number next to its
+// limit already says everything a PASS needs to say, so repeating a full
+// sentence for all 6 checks on every row was the single biggest source of
+// scroll in the expanded candidate detail.
 function renderValidationList(validations) {
     return validations
         .map((v) => {
             const notEvaluated = v.status === "NotEvaluated";
-            const label = notEvaluated ? "NOT EVALUATED" : v.passed ? "PASS" : "FAIL";
+            const needsAttention = notEvaluated || !v.passed;
+            const label = notEvaluated ? "NOT EVAL" : v.passed ? "PASS" : "FAIL";
             const cssClass = notEvaluated ? "check-warn" : v.passed ? "check-pass" : "check-fail";
             return `
-        <li class="${cssClass}">
-            ${label} - ${v.checkName}: ${v.calculatedValue.toFixed(3)} ${v.unit}
-            (limit ${v.limitValue.toFixed(3)} ${v.unit})${v.usedDefaultLimit ? " [Phase 1 default limit]" : ""}
-            <div class="check-explanation">${v.explanation}</div>
+        <li class="validation-item ${cssClass}${needsAttention ? " validation-item-attention" : ""}">
+            <div class="validation-item-head">
+                <span class="validation-item-status">${label}</span>
+                <span class="validation-item-name">${v.checkName}</span>
+                <span class="validation-item-value">${v.calculatedValue.toFixed(3)} / ${v.limitValue.toFixed(3)} ${v.unit}${v.usedDefaultLimit ? " *" : ""}</span>
+            </div>
+            ${needsAttention ? `<div class="check-explanation">${v.explanation}</div>` : ""}
         </li>
     `;
         })
@@ -499,14 +512,31 @@ function renderCandidateDetail(candidate) {
         .concat(candidate.winding.missingData || [])
         .concat(candidate.losses.missingData || []);
 
+    const failCount = candidate.validations.filter((v) => v.status !== "NotEvaluated" && !v.passed).length;
+    const notEvalCount = candidate.validations.filter((v) => v.status === "NotEvaluated").length;
+    const validationSummary = [
+        `${candidate.validations.length - failCount - notEvalCount} pass`,
+        failCount ? `${failCount} fail` : null,
+        notEvalCount ? `${notEvalCount} not evaluated` : null,
+    ].filter(Boolean).join(", ");
+
+    const usedDefaultLimit = candidate.validations.some((v) => v.usedDefaultLimit);
+
     return `
-        <p>Winding: <strong>${candidate.winding.wireDescription}</strong>,
-           fill factor ${(candidate.winding.fillFactor * 100).toFixed(1)}%,
-           current density ${candidate.winding.currentDensityAperMm2.toFixed(2)} A/mm²</p>
-        <p>Core loss: <strong>${formatLoss(candidate.losses.coreLossStatus, candidate.losses.coreLossW)}</strong></p>
+        <dl class="detail-summary">
+            <div class="detail-summary-row">
+                <dt>Winding</dt>
+                <dd>${candidate.winding.wireDescription} · fill ${(candidate.winding.fillFactor * 100).toFixed(1)}% · ${candidate.winding.currentDensityAperMm2.toFixed(2)} A/mm²</dd>
+            </div>
+            <div class="detail-summary-row">
+                <dt>Core Loss</dt>
+                <dd>${formatLoss(candidate.losses.coreLossStatus, candidate.losses.coreLossW)}</dd>
+            </div>
+        </dl>
         <details>
-            <summary>Validation checks (${candidate.validations.length})</summary>
-            <ul class="check-list">${renderValidationList(candidate.validations)}</ul>
+            <summary>Validation checks (${validationSummary})</summary>
+            <ul class="check-list validation-grid">${renderValidationList(candidate.validations)}</ul>
+            ${usedDefaultLimit ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
         </details>
         ${
             candidate.rejectionReasons.length
