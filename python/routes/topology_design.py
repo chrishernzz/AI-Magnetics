@@ -58,7 +58,7 @@ def build_cpp_input(request: BuckTopologyInput) -> "magnetics_cpp.TopologyInput"
 
 #precondition: r is a valid derived requirement object returned from solve_buck_topology and buck topology calculations completed successfully
 #postcondition: returns a json-serializable dictionary and returned fields match InductorDesignRequest naming
-def _serialize_derived_request(r) -> dict:
+def _serialize_derived_request(r, duty_cycle: float) -> dict:
     return {
         "inductanceUH": r.inductanceUH,
         "peakCurrentA": r.peakCurrentA,
@@ -70,6 +70,9 @@ def _serialize_derived_request(r) -> dict:
         #downstream using the one triangular-ripple formula in the codebase (see BuckElectricalSolver.h for why).
         "averageCurrentA": r.averageCurrentA,
         "rippleCurrentPeakToPeakA": r.rippleCurrentPeakToPeakA,
+        #display-only diagnostic, not a design decision - computed here with the exact same one-line ratio (Vout / Vin_max) that BuckElectricalSolver uses internally to size L and the ripple
+        #target. Not added to InductorDesignRequest itself since that struct is intentionally topology-agnostic (shared with Mode 2, which has no concept of duty cycle).
+        "dutyCycle": duty_cycle,
     }
 
 #precondition: request body matches BuckTopologyInput schema: vinMinV, vinMaxV, voutV, ioutA, switchingFreqKHz, and rippleCurrentPercent are provided input values represent a physically valid buck converter and magnetics_cpp topology solver is available
@@ -83,4 +86,4 @@ def topology_design_buck(request: BuckTopologyInput) -> dict:
         #BuckElectricalSolver raises std::invalid_argument for physically invalid inputs (e.g. Vout >= Vin_max) - pybind11 surfaces this as a Python ValueError.
         raise HTTPException(status_code=422, detail=str(exc))
 
-    return _serialize_derived_request(derived)
+    return _serialize_derived_request(derived, request.voutV / request.vinMaxV)

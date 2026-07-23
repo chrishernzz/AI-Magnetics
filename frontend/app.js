@@ -77,6 +77,103 @@ function switchMode(mode) {
     buckBtn.setAttribute("aria-selected", String(showBuck));
     directBtn.classList.toggle("active", !showBuck);
     directBtn.setAttribute("aria-selected", String(!showBuck));
+
+    const buckDiagnostics = document.getElementById("buckDiagnostics");
+    const directDiagnostics = document.getElementById("directDiagnostics");
+    if (buckDiagnostics) buckDiagnostics.hidden = !showBuck;
+    if (directDiagnostics) directDiagnostics.hidden = showBuck;
+
+    if (showBuck) {
+        updateBuckDiagnosticsLive();
+    } else {
+        updateDirectDiagnosticsLive();
+    }
+}
+
+// Simple debounce - live diagnostics call the real backend on every
+// keystroke, so this keeps that to one request per pause in typing
+// instead of one per character.
+function debounce(fn, delayMs) {
+    let timer = null;
+    return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn(...args), delayMs);
+    };
+}
+
+function setDiagnosticsRowPending(rowId, isPending) {
+    const row = document.getElementById(rowId)?.closest(".diagnostics-row");
+    if (row) row.classList.toggle("is-pending", isPending);
+}
+
+async function updateBuckDiagnosticsLive() {
+    const note = document.getElementById("diagBuckNote");
+    const rowIds = ["diagDutyCycle", "diagRippleA", "diagPeakCurrent", "diagAvgCurrent", "diagInductance"];
+
+    let payload;
+    try {
+        payload = buildTopologyPayload();
+    } catch (error) {
+        return; // fields not all numeric yet mid-typing - leave last known values showing
+    }
+
+    try {
+        const derived = await postRequest(TOPOLOGY_ENDPOINT, payload);
+        document.getElementById("diagDutyCycle").textContent = `${(derived.dutyCycle * 100).toFixed(1)}%`;
+        document.getElementById("diagRippleA").textContent = `${derived.rippleCurrentPeakToPeakA.toFixed(3)} A`;
+        document.getElementById("diagPeakCurrent").textContent = `${derived.peakCurrentA.toFixed(3)} A`;
+        document.getElementById("diagAvgCurrent").textContent = `${derived.averageCurrentA.toFixed(3)} A`;
+        document.getElementById("diagInductance").textContent = `${derived.inductanceUH.toFixed(3)} µH`;
+        rowIds.forEach((id) => setDiagnosticsRowPending(id, false));
+        if (note) note.textContent = "";
+    } catch (error) {
+        // Expected constantly while typing (e.g. Vout momentarily blank, or
+        // temporarily >= Vin Max) - a quiet pending state, not a red error,
+        // since this fires on every keystroke rather than an explicit submit.
+        rowIds.forEach((id) => setDiagnosticsRowPending(id, true));
+        if (note) note.textContent = "Waiting for valid values - " + error.message;
+    }
+}
+
+function updateDirectDiagnosticsLive() {
+    const inductanceUH = Number(document.getElementById("inductance").value);
+    const peakA = Number(document.getElementById("current").value);
+    const rmsA = Number(document.getElementById("rmsCurrent").value);
+    const rippleRaw = document.getElementById("rippleCurrent").value;
+
+    const energyEl = document.getElementById("diagStoredEnergy");
+    if (energyEl) {
+        if (inductanceUH > 0 && peakA > 0) {
+            // E = 0.5 x L x I^2 - the same headline formula already shown in
+            // the Inductance field's hint tooltip, just kept live here too.
+            const energyMJ = 0.5 * (inductanceUH * 1e-6) * peakA * peakA * 1e3;
+            energyEl.textContent = `${energyMJ.toFixed(4)} mJ`;
+        } else {
+            energyEl.textContent = "–";
+        }
+    }
+
+    const currentNote = document.getElementById("diagCurrentNote");
+    if (currentNote) {
+        if (peakA > 0 && rmsA > 0 && rmsA > peakA) {
+            currentNote.textContent = "RMS current is higher than peak current - that can't happen physically, double check these values.";
+            currentNote.className = "diagnostics-note diagnostics-note-warn";
+        } else {
+            currentNote.textContent = "";
+            currentNote.className = "diagnostics-note";
+        }
+    }
+
+    const coreLossNote = document.getElementById("diagCoreLossNote");
+    if (coreLossNote) {
+        if (rippleRaw === "") {
+            coreLossNote.textContent = "No ripple current entered - core loss will report not evaluated for every candidate.";
+            coreLossNote.className = "diagnostics-note diagnostics-note-warn";
+        } else {
+            coreLossNote.textContent = "Ripple current supplied - core loss will be computed for candidates whose material has Steinmetz data at this frequency.";
+            coreLossNote.className = "diagnostics-note diagnostics-note-ok";
+        }
+    }
 }
 
 function setTopologyStatus(message, isError = false) {
@@ -631,5 +728,15 @@ window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("modeDirectBtn").addEventListener("click", () => switchMode("direct"));
     document.getElementById("modeBuckBtn").addEventListener("click", () => switchMode("buck"));
     document.getElementById("calculateTopologyButton").addEventListener("click", calculateTopology);
+
+    const debouncedBuckDiagnostics = debounce(updateBuckDiagnosticsLive, 350);
+    ["buckVinMin", "buckVinMax", "buckVout", "buckIout", "buckFrequency", "buckRipplePercent"].forEach((id) => {
+        document.getElementById(id).addEventListener("input", debouncedBuckDiagnostics);
+    });
+
+    ["inductance", "current", "rmsCurrent", "rippleCurrent"].forEach((id) => {
+        document.getElementById(id).addEventListener("input", updateDirectDiagnosticsLive);
+    });
+
     switchMode("direct");
 });
