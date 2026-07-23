@@ -63,9 +63,14 @@ body {
 
 .main-grid {
     display: grid;
-    grid-template-columns: 340px 1fr;
+    grid-template-columns: 400px 1fr;
     gap: 20px;
     padding: 25px 35px 10px;
+    /* Default grid behavior stretches both cards to match the taller one's
+       height - with a long requirements form and an empty summary card
+       before any run, that turned the summary card into a wall of blank
+       white space. Each card should size to its own content instead. */
+    align-items: start;
 }
 
 /* Active Rules & Assumptions - a collapsed one-line strip by default, not a
@@ -151,6 +156,27 @@ body {
     letter-spacing: 0.04em;
     padding: 0;
     margin-top: 18px;
+}
+
+/* Two fields per row instead of one stacked under the other - roughly
+   halves how far the requirements form scrolls, without hiding anything. */
+.field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 16px;
+}
+
+.field-full {
+    grid-column: 1 / -1;
+}
+
+/* Results stay in view while scrolling a long requirements form, instead
+   of disappearing off the top the moment you scroll past them. */
+.summary-card {
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
 }
 
 .requirements-card label {

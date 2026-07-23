@@ -28,45 +28,60 @@
             </div>
 
             <section id="buckModeSection" class="mode-section" hidden>
-                <p class="section-description">Enter your Buck converter's operating point - we derive what the inductor needs to do, sized at the worst-case input voltage (see hint on Vin Maximum).</p>
+                <p class="section-description">Enter your Buck converter's operating point - we derive what the inductor needs to do, sized at the worst-case input voltage (see hint on Vin Maximum). All fields required unless marked optional.</p>
 
                 <fieldset class="field-group">
                     <legend>Buck Converter</legend>
-
-                    <label for="buckVinMin">Vin Minimum (V)</label>
-                    <input id="buckVinMin" type="number" value="36" min="0" step="0.1">
-
-                    <label for="buckVinMax">Vin Maximum (V)
-                        <span class="hint" title="Inductance and ripple current are sized at Vin Maximum - a buck converter's inductor ripple current is worst (highest) at the top of the input range, so sizing there keeps ripple at or under target across the whole Vin range.">?</span>
-                    </label>
-                    <input id="buckVinMax" type="number" value="60" min="0" step="0.1">
-
-                    <label for="buckVout">Vout (V)</label>
-                    <input id="buckVout" type="number" value="12" min="0" step="0.1">
-
-                    <label for="buckIout">Iout (A)</label>
-                    <input id="buckIout" type="number" value="40" min="0" step="0.1">
-
-                    <label for="buckFrequency">Switching Frequency (kHz)</label>
-                    <input id="buckFrequency" type="number" value="500" min="0" step="1">
-
-                    <label for="buckRipplePercent">Inductor Ripple Current (%, of Iout)
-                        <span class="hint" title="Target peak-to-peak inductor ripple current as a percent of Iout. A common starting point is 20-40%.">?</span>
-                    </label>
-                    <input id="buckRipplePercent" type="number" value="20" min="1" step="1">
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="buckVinMin">Vin Minimum (V)</label>
+                            <input id="buckVinMin" type="number" value="36" min="0" step="0.1">
+                        </div>
+                        <div class="field">
+                            <label for="buckVinMax">Vin Maximum (V)
+                                <span class="hint" title="Inductance and ripple current are sized at Vin Maximum - a buck converter's inductor ripple current is worst (highest) at the top of the input range, so sizing there keeps ripple at or under target across the whole Vin range.">?</span>
+                            </label>
+                            <input id="buckVinMax" type="number" value="60" min="0" step="0.1">
+                        </div>
+                        <div class="field">
+                            <label for="buckVout">Vout (V)
+                                <span class="hint" title="Must be less than Vin Maximum - a buck converter cannot regulate an output at or above its input voltage. Calculate will return a clear error if it isn't.">?</span>
+                            </label>
+                            <input id="buckVout" type="number" value="12" min="0" step="0.1">
+                        </div>
+                        <div class="field">
+                            <label for="buckIout">Iout (A)</label>
+                            <input id="buckIout" type="number" value="40" min="0" step="0.1">
+                        </div>
+                        <div class="field">
+                            <label for="buckFrequency">Switching Frequency (kHz)</label>
+                            <input id="buckFrequency" type="number" value="500" min="0" step="1">
+                        </div>
+                        <div class="field">
+                            <label for="buckRipplePercent">Ripple Current (%, of Iout)
+                                <span class="hint" title="Target peak-to-peak inductor ripple current as a percent of Iout. A common starting point is 20-40%.">?</span>
+                            </label>
+                            <input id="buckRipplePercent" type="number" value="20" min="1" step="1">
+                        </div>
+                    </div>
                 </fieldset>
 
                 <fieldset class="field-group">
                     <legend>Thermal &amp; Tolerance</legend>
-
-                    <label for="buckAmbientTemp">Ambient Temperature (°C)</label>
-                    <input id="buckAmbientTemp" type="number" value="25" min="-40" step="1">
-
-                    <label for="buckTempRise">Allowable Temperature Rise (°C)</label>
-                    <input id="buckTempRise" type="number" value="40" min="0" step="1">
-
-                    <label for="buckTolerance">Inductance Tolerance (%, optional)</label>
-                    <input id="buckTolerance" type="number" placeholder="default 10" min="0" step="1">
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="buckAmbientTemp">Ambient Temperature (°C)</label>
+                            <input id="buckAmbientTemp" type="number" value="25" min="-40" step="1">
+                        </div>
+                        <div class="field">
+                            <label for="buckTempRise">Allowable Temp Rise (°C)</label>
+                            <input id="buckTempRise" type="number" value="40" min="0" step="1">
+                        </div>
+                        <div class="field field-full">
+                            <label for="buckTolerance">Inductance Tolerance (%, optional)</label>
+                            <input id="buckTolerance" type="number" placeholder="default 10" min="0" step="1">
+                        </div>
+                    </div>
                 </fieldset>
 
                 <div class="button-row">
@@ -85,47 +100,59 @@
 
             <fieldset class="field-group">
                 <legend>Electrical</legend>
-
-                <label for="inductance">Inductance (µH)
-                    <span class="hint" title="Target inductance. E = 0.5 x L x I^2 - too small raises ripple, too large oversizes the core.">?</span>
-                </label>
-                <input id="inductance" type="number" value="250" min="0" step="1">
-
-                <label for="current">Peak Current (A)
-                    <span class="hint" title="Highest instantaneous current. Drives area product, peak flux density and saturation margin - never used to infer RMS.">?</span>
-                </label>
-                <input id="current" type="number" value="2" min="0" step="0.1">
-
-                <label for="rmsCurrent">RMS Current (A)
-                    <span class="hint" title="Drives winding size, current density and DC copper loss. Always a separate number from peak current.">?</span>
-                </label>
-                <input id="rmsCurrent" type="number" value="1.4" min="0" step="0.1">
-                <p id="currentWarning" class="field-warning"></p>
-
-                <label for="rippleCurrent">Ripple Current p-p (A, optional)
-                    <span class="hint" title="Peak-to-peak ripple current. Required for a real core-loss number - flux-density swing is computed from it, never approximated from peak flux. Leave blank and core loss reports not-evaluated.">?</span>
-                </label>
-                <input id="rippleCurrent" type="number" placeholder="needed for core loss" min="0" step="0.05">
-
-                <label for="frequency">Switching Frequency (kHz)
-                    <span class="hint" title="PWM switching frequency. Determines which materials are frequency-compatible candidates.">?</span>
-                </label>
-                <input id="frequency" type="number" value="100" min="0" step="1">
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="inductance">Inductance (µH)
+                            <span class="hint" title="Target inductance. E = 0.5 x L x I^2 - too small raises ripple, too large oversizes the core.">?</span>
+                        </label>
+                        <input id="inductance" type="number" value="250" min="0" step="1">
+                    </div>
+                    <div class="field">
+                        <label for="current">Peak Current (A)
+                            <span class="hint" title="Highest instantaneous current. Drives area product, peak flux density and saturation margin - never used to infer RMS.">?</span>
+                        </label>
+                        <input id="current" type="number" value="2" min="0" step="0.1">
+                    </div>
+                    <div class="field">
+                        <label for="rmsCurrent">RMS Current (A)
+                            <span class="hint" title="Drives winding size, current density and DC copper loss. Always a separate number from peak current.">?</span>
+                        </label>
+                        <input id="rmsCurrent" type="number" value="1.4" min="0" step="0.1">
+                        <p id="currentWarning" class="field-warning"></p>
+                    </div>
+                    <div class="field">
+                        <label for="rippleCurrent">Ripple Current p-p (A, optional)
+                            <span class="hint" title="Peak-to-peak ripple current. Required for a real core-loss number - flux-density swing is computed from it, never approximated from peak flux. Leave blank and core loss reports not-evaluated.">?</span>
+                        </label>
+                        <input id="rippleCurrent" type="number" placeholder="for core loss" min="0" step="0.05">
+                    </div>
+                    <div class="field field-full">
+                        <label for="frequency">Switching Frequency (kHz)
+                            <span class="hint" title="PWM switching frequency. Determines which materials are frequency-compatible candidates.">?</span>
+                        </label>
+                        <input id="frequency" type="number" value="100" min="0" step="1">
+                    </div>
+                </div>
             </fieldset>
 
             <fieldset class="field-group">
                 <legend>Thermal &amp; Tolerance</legend>
-
-                <label for="ambientTemp">Ambient Temperature (°C)</label>
-                <input id="ambientTemp" type="number" value="25" min="-40" step="1">
-
-                <label for="tempRise">Allowable Temperature Rise (°C)</label>
-                <input id="tempRise" type="number" value="40" min="0" step="1">
-
-                <label for="tolerance">Inductance Tolerance (%, optional)
-                    <span class="hint" title="How far the realized inductance may deviate from target before a candidate is rejected. Defaults to 10% if left blank.">?</span>
-                </label>
-                <input id="tolerance" type="number" placeholder="default 10" min="0" step="1">
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="ambientTemp">Ambient Temperature (°C)</label>
+                        <input id="ambientTemp" type="number" value="25" min="-40" step="1">
+                    </div>
+                    <div class="field">
+                        <label for="tempRise">Allowable Temp Rise (°C)</label>
+                        <input id="tempRise" type="number" value="40" min="0" step="1">
+                    </div>
+                    <div class="field field-full">
+                        <label for="tolerance">Inductance Tolerance (%, optional)
+                            <span class="hint" title="How far the realized inductance may deviate from target before a candidate is rejected. Defaults to 10% if left blank.">?</span>
+                        </label>
+                        <input id="tolerance" type="number" placeholder="default 10" min="0" step="1">
+                    </div>
+                </div>
             </fieldset>
 
             <div class="button-row">
