@@ -482,6 +482,94 @@ button:hover {
     margin-top: 4px;
 }
 
+/* Candidate detail summary (Winding, Core Loss) - compact label/value rows
+   matching the Diagnostics column's pattern, instead of full sentences. */
+.detail-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.detail-summary-row {
+    display: flex;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.detail-summary-row dt {
+    color: var(--ink-soft);
+    min-width: 80px;
+    flex-shrink: 0;
+}
+
+.detail-summary-row dd {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+/* Validation checks - two per row, one compact line each. The full
+   explanation sentence only appears for checks that need attention
+   (fail / not evaluated) - a passing check's number next to its limit
+   already says everything a pass needs to say. */
+.validation-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 20px;
+    margin-top: 8px;
+}
+
+.validation-item {
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.validation-item-attention {
+    grid-column: 1 / -1;
+}
+
+.validation-item-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.validation-item-status {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    width: 62px;
+}
+
+.validation-item-name {
+    font-weight: 600;
+    color: var(--brand-black);
+    flex: 1;
+    min-width: 110px;
+}
+
+.validation-item-value {
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.validation-footnote {
+    margin-top: 10px;
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+}
+
+@media (max-width: 720px) {
+    .validation-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 details {
     margin-top: 12px;
 }
