@@ -119,6 +119,46 @@ function setDiagValue(id, text) {
     el.classList.add("value-flash");
 }
 
+// Draws the inductor current over two switching periods as a real triangle
+// wave - rises for the duty-cycle fraction of the period, falls for the
+// rest - from the exact same peak/ripple/duty-cycle numbers already shown
+// as text above it. Not decorative: change any Buck input and this redraws
+// from the live derived values, same as the text rows next to it.
+function updateRippleWaveform(derived) {
+    const svg = document.getElementById("rippleWaveform");
+    if (!svg) return;
+
+    const W = 300;
+    const H = 90;
+    const PAD_Y = 10;
+    const ipk = derived.peakCurrentA;
+    const ripple = Math.max(derived.rippleCurrentPeakToPeakA, 1e-9);
+    const iMin = ipk - ripple;
+    const duty = Math.min(Math.max(derived.dutyCycle, 0.02), 0.98);
+    const periods = 2;
+    const periodW = W / periods;
+
+    const yOf = (i) => PAD_Y + (1 - (i - iMin) / ripple) * (H - 2 * PAD_Y);
+    const yTop = yOf(ipk);
+    const yBottom = yOf(iMin);
+
+    let points = [[0, yBottom]];
+    for (let p = 0; p < periods; p++) {
+        const x0 = p * periodW;
+        points.push([x0 + duty * periodW, yTop]);
+        points.push([x0 + periodW, yBottom]);
+    }
+    const pathD = "M " + points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L ");
+
+    svg.innerHTML = `
+        <line x1="0" y1="${yTop.toFixed(1)}" x2="${W}" y2="${yTop.toFixed(1)}" class="waveform-gridline"></line>
+        <line x1="0" y1="${yBottom.toFixed(1)}" x2="${W}" y2="${yBottom.toFixed(1)}" class="waveform-gridline"></line>
+        <path d="${pathD}" class="waveform-path"></path>
+        <text x="4" y="${(yTop - 3).toFixed(1)}" class="waveform-label">${ipk.toFixed(2)} A</text>
+        <text x="4" y="${(yBottom - 3).toFixed(1)}" class="waveform-label">${iMin.toFixed(2)} A</text>
+    `;
+}
+
 async function updateBuckDiagnosticsLive() {
     const note = document.getElementById("diagBuckNote");
     const rowIds = ["diagDutyCycle", "diagRippleA", "diagPeakCurrent", "diagAvgCurrent", "diagInductance"];
@@ -138,6 +178,7 @@ async function updateBuckDiagnosticsLive() {
         setDiagValue("diagAvgCurrent", `${derived.averageCurrentA.toFixed(3)} A`);
         setDiagValue("diagInductance", `${derived.inductanceUH.toFixed(3)} µH`);
         rowIds.forEach((id) => setDiagnosticsRowPending(id, false));
+        updateRippleWaveform(derived);
         if (note) note.textContent = "";
     } catch (error) {
         // Expected constantly while typing (e.g. Vout momentarily blank, or

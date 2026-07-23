@@ -8,7 +8,11 @@ This guide explains how to use the AIMagnetics web interface and what each input
 
 Open **http://127.0.0.1:8000** (see [GETTING_STARTED.md](GETTING_STARTED.md) for how to start the server). A slim, sticky header (`AIMagnetics` + a one-line description) stays pinned at the top - it's a tool header, not a marketing banner, so it stays out of the way of the actual work. Below it is a three-column layout: input form on the left, live Diagnostics in the middle, and Design Summary/results on the right. The Diagnostics and Design Summary cards stay in view (sticky, below the header) as you scroll the input form.
 
+Every card leads with a small icon badge, title, and one-line subtitle (e.g. Diagnostics / "Recalculated live, before you commit") instead of a bare heading - each card reads at a glance without having to read its body first.
+
 A few small, deliberately restrained animations give feedback without being distracting: switching between Mode 1/Mode 2 fades the newly-shown section in, a live Diagnostics value briefly highlights when it actually changes (not on every keystroke - only when the number itself moves), and expanding a candidate row settles in rather than snapping open. All of it respects `prefers-reduced-motion`.
+
+**In Buck mode**, the Diagnostics card also draws a small real waveform - the inductor current over one switching period (a triangle wave: rises for the duty-cycle fraction of the period, falls for the rest) - directly from the same live `dutyCycle`/`peakCurrentA`/`rippleCurrentPeakToPeakA` numbers shown as text above it. It's not a static illustration: change any Buck input and it redraws from the current derived values, same as the numbers next to it.
 
 ---
 
