@@ -13,7 +13,7 @@ is C++ compiled into a Python extension (`magnetics_cpp`), not pure Python.
 ### Windows
 - **A C++ compiler**: install **"Build Tools for Visual Studio"** ([download](https://visualstudio.microsoft.com/downloads/) → scroll to "Tools for Visual Studio") with the **"Desktop development with C++"** workload checked. A plain VS Code install does *not* include this — CMake's configure step fails with "no CMAKE_CXX_COMPILER could be found" without it.
 - **CMake 3.16+** — easiest via `pip install cmake` (see the PATH note below), or the [official installer](https://cmake.org/download/).
-- **Python 3.12** (pinned in `.python-version`; `pyproject.toml` requires `>=3.11`). If you have multiple Python versions installed, use the launcher to be explicit: `py -3.12` instead of bare `python`.
+- **Python 3.12** (pinned in `.python-version`; `pyproject.toml` requires `>=3.11`). If you have multiple Python versions installed, use the launcher to be explicit: `py -3.12` instead of bare `python`. **This matters for `pip install` too, not just for running commands** — see the callout below.
 
 ### macOS
 - **A C++ compiler**: run `xcode-select --install` (Apple's Command Line Tools, includes Clang) if you don't already have one — CMake's configure step fails without it.
@@ -42,11 +42,24 @@ avoids the PATH problem entirely, and is safe to use even when `cmake` *is*
 on PATH).
 
 ### Python packages
+
+**Install these with the exact same Python you're going to build and run
+with — bare `pip install X` can silently target a *different* Python than
+the one you use later if more than one is installed.** On Windows with
+multiple Pythons, that means `py -3.12 -m pip install X`, never bare
+`pip install X`:
+
 ```bash
-pip install pybind11
-pip install -r python/requirements.txt   # fastapi, uvicorn[standard], requests
+# Windows, multiple Pythons installed:
+py -3.12 -m pip install cmake pybind11
+py -3.12 -m pip install -r python/requirements.txt   # fastapi, uvicorn[standard], requests
+
+# macOS/Linux, or Windows with only one Python / an activated venv:
+python -m pip install cmake pybind11
+python -m pip install -r python/requirements.txt
 ```
-`pybind11` must be installed *before* running CMake — `CMakeLists.txt` calls `python -m pybind11 --cmakedir` to locate it.
+
+`pybind11` must be installed *before* running CMake — `CMakeLists.txt` calls `python -m pybind11 --cmakedir` to locate it. `cmake` must be installed this way too if you plan to invoke it as `python -m cmake` (see the PATH note below) — installing the `cmake` *package* under one Python and then running `py -3.12 -m cmake` when `py -3.12` never had it installed fails with `No module named cmake`, and looks similar enough to a real error that it's easy to miss and move on as if the build succeeded when it didn't.
 
 The real core/material data (`data/real_materials.csv`, `data/real_cores.csv`)
 is already checked into the repo — no extra install needed to run the app.
@@ -80,7 +93,9 @@ This compiles `magnetics_engine` → `magnetics_services` → the `magnetics_cpp
 
 **Use `--config Release`, not `Debug`, especially on Windows.** `--config` only matters for multi-configuration generators (Visual Studio on Windows); on a single-config generator (Makefiles/Ninja, the Mac/Linux default) it's silently ignored, which is why this never showed up there. On Windows, MSVC's Debug configuration turns on full STL iterator/container checking (`_ITERATOR_DEBUG_LEVEL=2`), and this engine builds and copies a lot of `std::vector<...>` candidate lists and strings per request - under Debug that can run an order of magnitude slower than Release for no benefit (Phase 1 has no native debugger workflow that needs it). If the tool feels sluggish only on Windows, rebuild with `--config Release`.
 
-**If you ever see `AttributeError: '...CoreData' object has no attribute 'X'`** (or any attribute) when starting the app, your compiled extension is stale — built from an older version of the C++ source that didn't have that field yet. Re-run Step 2 to rebuild it from the current source; this isn't a bug in the running code, it's a build artifact that's out of date with the checked-out branch.
+**If you ever see an `AttributeError` mentioning `magnetics_cpp`** when starting the app or using the UI — either flavor: `AttributeError: '...CoreData' object has no attribute 'X'` (an existing binding is missing a field) or `AttributeError: module 'magnetics_cpp' has no attribute 'TopologyInput'`/`'solve_buck_topology'`/etc. (an entire class or function added by a newer commit doesn't exist in your build at all) — your compiled extension is stale, built from an older version of the C++ source than the branch you have checked out. Re-run Step 2 to rebuild it; this isn't a bug in the running code, it's a build artifact out of sync with the source. This is especially likely right after pulling/merging in someone else's branch that touched `src/` or `src/python_bindings/InductorDesignBindings.cpp` — a `git pull`/merge never rebuilds the compiled extension for you, only the next manual Step 2 does.
+
+**Confirm Step 2 actually rebuilt something before restarting the server** — don't assume success just because your terminal returned to a prompt. If either CMake command in Step 1/2 printed an error (e.g. `No module named cmake` from running `python -m cmake` before `cmake` was installed for *that* Python — see the Python packages section above), the build silently didn't happen, and restarting `uvicorn` afterward just reloads the same stale `.pyd`/`.so`, reproducing the exact same `AttributeError` even though you "rebuilt." Watch for `Built target magnetics_cpp` at the end of Step 2's output specifically.
 
 ### Step 3: Run the app
 ```bash
@@ -107,8 +122,9 @@ ctest --test-dir build_pybind -C Debug -V
 
 # Python: scenario/reference-design checks against data/test_scenarios.csv
 # and data/reference_designs.csv (needs magnetics_cpp built first - Step 2 above)
-pip install -r python/requirements-dev.txt
-pytest tests/python
+# use the same python/py -3.12 you built with - see "Python packages" above
+python -m pip install -r python/requirements-dev.txt
+python -m pytest tests/python
 ```
 
 ---
