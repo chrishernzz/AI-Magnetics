@@ -177,23 +177,6 @@ before computing rather than returning a negative or NaN inductance.
 
 ---
 
-## Removed: the old single-stage endpoints
-
-Earlier revisions of this API had four separate endpoints
-(`/material-selection`, `/calculate`, `/core-selection`,
-`/turns-calculation`) that each re-ran every prior stage internally and,
-in `/core-selection`'s case, used to silently substitute an oversized core
-when nothing actually fit. They were kept for a while as deprecated
-wrappers, then removed outright once nothing (including the frontend)
-called them anymore — `POST /inductor-design` above is the only endpoint
-now, and it does everything those four used to do plus the parts they
-never did (turns/gap convergence, magnetic validation, winding design,
-loss evaluation). The C++ they were backed by
-(`MaterialSelection.cpp`, `CoreSelection.cpp`, `MaterialSelectionService`,
-`CoreSelectionService`) was deleted along with them.
-
----
-
 ## GET /
 
 Serves `index.html` (the web UI) via `FileResponse`.

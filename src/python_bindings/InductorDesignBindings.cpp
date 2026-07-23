@@ -27,13 +27,12 @@ namespace py = pybind11;
 PYBIND11_MODULE(magnetics_cpp, m) {
     m.doc() = "AIMagnetics C++ bindings for Python";
 
-    // ============================================================
-    // Area product / stored energy - shared by the Phase 1 pipeline
-    // (called internally in C++ by InductorDesignService) and by
-    // tests/python/test_unit_conversions.py, which calls these directly
-    // to verify the formula independently of the full pipeline.
-    // ============================================================
-
+    /*============================================================
+    Area product / stored energy - shared by the Phase 1 pipeline
+    (called internally in C++ by InductorDesignService) and by
+    tests/python/test_unit_conversions.py, which calls these directly
+    to verify the formula independently of the full pipeline.
+    ============================================================*/
     py::class_<AreaProductInput>(m, "AreaProductInput")
         .def(py::init<>())
         .def_readwrite("inductanceH", &AreaProductInput::inductanceH)
@@ -44,11 +43,12 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("fluxDensityT", &AreaProductInput::fluxDensityT)
         .def_readwrite("currentDensityAPerCm2", &AreaProductInput::currentDensityAPerCm2);
 
+    //areaproductinput contains valid nonzero inductance and current values : returns required area product in cm^4 for magnetic core selection
     m.def("calculate_ap", &calculateAp, "Calculate the area product (Ap) from input");
+    //inductance and current are provided in henries and amperes : returns stored magnetic energy in joules
     m.def("calculate_stored_energy", &calculateStoredEnergy, "Calculate stored energy for the given inductance and current");
 
-    // Raw data structs, populated once at FastAPI startup with real data
-    // (see python/app.py) - both Materials and Cores are loaded here.
+    //Raw data structs, populated once at FastAPI startup with real data (see python/app.py) - both Materials and Cores are loaded here.
     py::class_<CoreData>(m, "CoreData")
         .def(py::init<>())
         .def_readwrite("partNumber", &CoreData::partNumber)
@@ -80,21 +80,23 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("ct0", &CoreLossCoefficientData::ct0)
         .def_readwrite("ct1", &CoreLossCoefficientData::ct1)
         .def_readwrite("ct2", &CoreLossCoefficientData::ct2);
+
+    //vector contains valid core records : in-memory core database is replaced with supplied data
     m.def("set_core_database", &CoreDatabase::setData, "Replace the in-memory core database (called once at startup with real data)");
+    //vector contains valid material records : in-memory material database is replaced with supplied data
     m.def("set_material_database", &MaterialDatabase::setData, "Replace the in-memory material database (called once at startup with real data)");
+    //coefficient records are available for supported materials : in-memory loss coefficient database is updated
     m.def("set_core_loss_coefficient_database", &CoreLossCoefficientDatabase::setData, "Replace the in-memory core-loss (Steinmetz) coefficient database (called once at startup with real data)");
 
     py::class_<CoreLossCoefficientLookup>(m, "CoreLossCoefficientLookup")
         .def(py::init<>())
         .def_readwrite("found", &CoreLossCoefficientLookup::found)
         .def_readwrite("coefficients", &CoreLossCoefficientLookup::coefficients);
-    m.def("find_core_loss_coefficients", &findCoreLossCoefficients,
-          "Look up the real Steinmetz coefficient row for a material at a given switching frequency, if one exists");
+    m.def("find_core_loss_coefficients", &findCoreLossCoefficients, "Look up the real Steinmetz coefficient row for a material at a given switching frequency, if one exists");
 
-    // ============================================================
-    // Phase 1 inductor design engine
-    // ============================================================
-
+    /*============================================================
+    Phase 1 inductor design engine
+    ============================================================*/
     py::enum_<EvaluationStatus>(m, "EvaluationStatus")
         .value("Evaluated", EvaluationStatus::Evaluated)
         .value("NotEvaluated", EvaluationStatus::NotEvaluated)
@@ -239,10 +241,12 @@ PYBIND11_MODULE(magnetics_cpp, m) {
     m.def("run_inductor_design", &InductorDesignService::run,
           "Run the full Phase 1 inductor design pipeline and return an explainable DesignRecommendation");
 
-    //MODE 1: Topology is not exposed here - TopologyInput's constructor
-    //already defaults it to Topology::Buck, the only implemented value, so
-    //there is nothing for Python to set. Adding Boost/Flyback later is the
-    //point where this would need its own py::enum_.
+    /*
+    MODE 1: Topology is not exposed here - TopologyInput's constructor
+    already defaults it to Topology::Buck, the only implemented value, so
+    there is nothing for Python to set. Adding Boost/Flyback later is the
+    point where this would need its own py::enum_.
+    */
     py::class_<TopologyInput>(m, "TopologyInput")
         .def(py::init<>())
         .def_readwrite("vinMinV", &TopologyInput::vinMinV)

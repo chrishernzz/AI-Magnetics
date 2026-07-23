@@ -111,8 +111,6 @@ CMake builds this as a Python extension module and places the compiled `.pyd`/`.
 
 The **Services** layer (`src/backend/services/`) sits directly between the pybind11 bindings and the core engine — e.g. `InductorDesignService::run()` orchestrates `MaterialEvaluation` → `AreaProduct` → `CoreEvaluation` → `TurnsAndGapDesign` → `DesignValidation` → `WindingDesign` → `LossEvaluation` → `ThermalEvaluation`. There is no separate "Controller" layer in C++; HTTP parsing happens entirely in the Python route functions. `BuckElectricalSolver` sits beside `InductorDesignService`, not inside it - it produces an `InductorDesignRequest` and stops, rather than running the pipeline itself, so Mode 1 is strictly "one more way to produce Mode 2's input" and not a second, parallel pipeline.
 
-**Removed:** `MaterialSelection.cpp/h` and `CoreSelection.cpp` (the old single-pick logic, superseded by `src/core/sizing/MaterialEvaluation.cpp`/`CoreEvaluation.cpp`), `MaterialSelectionService`/`CoreSelectionService` (thin wrappers around the above, with nothing left to wrap), and `AreaProductService.h/.cpp` (never actually bound to Python in either the old or new bindings file - dead code from before this Phase 1 work even started). `src/core/sizing/CoreSelection.h` stays, header-only, because `src/core/magnetics/TurnsCalculation.h` still embeds its `CoreSelectionResult` struct.
-
 ---
 
 ## Data Flow: From User Input to Result
@@ -173,10 +171,6 @@ Frontend renders candidates, rejected candidates (with rejection reasons and
 missing-data warnings), and the active DesignRules - no field is a hidden
 assumption.
 ```
-
-The four old single-stage endpoints, which followed a simpler flow (each
-re-running upstream stages internally, no gap/validation/winding/loss
-steps), have been removed - `POST /inductor-design` is the only entry point.
 
 ---
 

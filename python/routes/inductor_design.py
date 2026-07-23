@@ -10,13 +10,7 @@ direct inductor specification with no topology knowledge (spec section 6).
 POST /inductor-design is the single entry point: it runs the full C++
 pipeline (materials -> area product -> cores -> turns/gap -> magnetic
 validation -> winding -> losses -> thermal -> ranking) exactly once per
-request and returns one explainable DesignRecommendation. The old
-single-stage endpoints (/material-selection, /calculate, /core-selection,
-/turns-calculation) and the single-pick C++ logic behind them
-(MaterialSelection.cpp, CoreSelection.cpp, MaterialSelectionService,
-CoreSelectionService) have been removed - they only ever re-ran earlier
-stages redundantly and, in CoreSelection.cpp's case, used to silently
-fall back to an oversized core when nothing actually fit.
+request and returns one explainable DesignRecommendation.
 """
 from typing import Optional
 
@@ -29,23 +23,22 @@ router = APIRouter()
 
 
 class InductorDesignRequest(BaseModel):
-    # Required direct inputs (spec section 5)
+    #required direct inputs (spec section 5)
     inductanceUH: float
     peakCurrentA: float
     switchingFreqKHz: float
     ambientTemperatureC: float
     allowableTempRiseC: float
 
-    # Required in principle, but may be omitted if it can be derived from
-    # averageCurrentA + rippleCurrentPeakToPeakA (triangular ripple only -
-    # see RequirementDerivationService). Never inferred from peakCurrentA.
+    #required in principle, but may be omitted if it can be derived from
+    #averageCurrentA + rippleCurrentPeakToPeakA (triangular ripple only -
+    #see RequirementDerivationService). Never inferred from peakCurrentA.
     rmsCurrentA: Optional[float] = None
 
-    # Falls back to DesignRules.defaultInductanceTolerancePercent if omitted.
+    #falls back to DesignRules.defaultInductanceTolerancePercent if omitted.
     inductanceTolerancePercent: Optional[float] = None
 
-    # Optional direct inputs (spec section 5) - prepared for, not all
-    # consumed by every stage yet.
+    #optional direct inputs (spec section 5) - prepared for, not all consumed by every stage yet.
     averageCurrentA: Optional[float] = None
     rippleCurrentPeakToPeakA: Optional[float] = None
     maximumDcrMilliOhm: Optional[float] = None
@@ -55,7 +48,8 @@ class InductorDesignRequest(BaseModel):
     preferredMaterialFamily: Optional[str] = None
     preferredCoreGeometry: Optional[str] = None
 
-
+#precondition: request is a valid InductorDesignRequest object and required fields have already passed pydantic validation
+#postcondition: returns a populated magnetics_cpp.InductorDesignRequest and all matching fields are copied from python to c++ object
 def build_cpp_request(request: InductorDesignRequest) -> "magnetics_cpp.InductorDesignRequest":
     cpp_request = magnetics_cpp.InductorDesignRequest()
     cpp_request.inductanceUH = request.inductanceUH
@@ -75,7 +69,8 @@ def build_cpp_request(request: InductorDesignRequest) -> "magnetics_cpp.Inductor
     cpp_request.preferredCoreGeometry = request.preferredCoreGeometry
     return cpp_request
 
-
+#precondition: v is a validation object from magnetics_cpp and v contains all expected validation fields
+#postcondition: returns a json-serializable dictionary and enum values are converted into strings
 def _serialize_validation(v) -> dict:
     return {
         "passed": v.passed,
@@ -88,7 +83,8 @@ def _serialize_validation(v) -> dict:
         "status": v.status.name,
     }
 
-
+#precondition: m is a valid material result object and material selection stage has completed
+#postcondition: returns a serializable material dictionary and missing data warnings are converted to python lists
 def _serialize_material(m) -> dict:
     return {
         "materialFamily": m.materialFamily,
@@ -103,7 +99,8 @@ def _serialize_material(m) -> dict:
         "missingDataWarnings": list(m.missingDataWarnings),
     }
 
-
+#precondition: c is a valid core-selection object and core search stage has completed
+#postcondition: returns a serializable core dictionary and geometric and magnetic properties are preserved
 def _serialize_core(c) -> dict:
     return {
         "partNumber": c.partNumber,
@@ -118,7 +115,8 @@ def _serialize_core(c) -> dict:
         "meetsAreaProduct": c.meetsAreaProduct,
     }
 
-
+#precondition: turns and gap calculations have completed and t contains calculated winding parameters
+#postcondition: returns a serializable turns/gap dictionary, convergence and tolerance information are preserved
 def _serialize_turns_and_gap(t) -> dict:
     return {
         "turns": t.turns,
@@ -131,7 +129,8 @@ def _serialize_turns_and_gap(t) -> dict:
         "rejectionReasons": list(t.rejectionReasons),
     }
 
-
+#precondition: winding design stage has completed and w contains winding analysis data
+#postcondition: returns a serializable winding dictionary and resistance status enum is converted to string
 def _serialize_winding(w) -> dict:
     return {
         "wireDescription": w.wireDescription,
@@ -146,7 +145,8 @@ def _serialize_winding(w) -> dict:
         "missingData": list(w.missingData),
     }
 
-
+#precondition: loss calculations have completed and l contains copper, core, and hf losses
+#postcondition: returns a serializable loss dictionary and status enums are converted to strings
 def _serialize_losses(l) -> dict:
     return {
         "copperLossStatus": l.copperLossStatus.name,
@@ -158,7 +158,8 @@ def _serialize_losses(l) -> dict:
         "missingData": list(l.missingData),
     }
 
-
+#precondition: thermal stage has completed and t contains predicted thermal results
+#postcondition: returns a serializable thermal dictionary and status enum is converted to string
 def _serialize_thermal(t) -> dict:
     return {
         "status": t.status.name,
@@ -166,11 +167,13 @@ def _serialize_thermal(t) -> dict:
         "missingDataExplanation": t.missingDataExplanation,
     }
 
-
+#precondition: r is a valid rejection reason object and rejection analysis has completed
+#postcondition: returns a serializable rejection dictionary and rejection explanation is preserved
 def _serialize_rejection(r) -> dict:
     return {"checkName": r.checkName, "explanation": r.explanation}
 
-
+#precondition: c is a candidate generated by the c++ design engine and all design pipeline stages have produced results
+#postcondition: returns a fully serialized candidate dictionary and all nested objects are recursively serialized
 def _serialize_candidate(c) -> dict:
     return {
         "material": _serialize_material(c.material),
@@ -184,7 +187,8 @@ def _serialize_candidate(c) -> dict:
         "rejectionReasons": [_serialize_rejection(r) for r in c.rejectionReasons],
     }
 
-
+#precondition: r contains valid design rule values and rule configuration has been loaded
+#postcondition: returns a serializable rule dictionary and all active rule thresholds are preserved
 def _serialize_rules(r) -> dict:
     return {
         "windowUtilization": r.windowUtilization,
@@ -196,7 +200,8 @@ def _serialize_rules(r) -> dict:
         "minimumSingleStrandAwg": r.minimumSingleStrandAwg,
     }
 
-
+#precondition: rec is a completed design recommendation and the c++ pipeline executed successfully
+#postcondition: returns a fully json-serializable respones, all candidates, rejected candidates, and rules are included
 def serialize_recommendation(rec) -> dict:
     return {
         "status": rec.status,
@@ -208,16 +213,16 @@ def serialize_recommendation(rec) -> dict:
         "largestAvailableAreaProductCm4": rec.largestAvailableAreaProductCm4,
     }
 
-
+#precondition: request body matches InductorDesignRequest scheme, required electrical parameters are provided, and c++ design engine is available and initialized
+#postcondition: exactly one full design pipeline execution occurs, successful execution returns a serialized recommendation, and invalid derived requirements return http 422
 @router.post("/inductor-design")
 def inductor_design(request: InductorDesignRequest) -> dict:
+    #builds the request in c++
     cpp_request = build_cpp_request(request)
     try:
         recommendation = magnetics_cpp.run_inductor_design(cpp_request)
     except ValueError as exc:
-        # RequirementDerivationService raises std::invalid_argument (e.g.
-        # rmsCurrentA not supplied and not derivable) - pybind11 surfaces
-        # this as a Python ValueError.
+        #requirementDerivationService raises std::invalid_argument (e.g. rmsCurrentA not supplied and not derivable) - pybind11 surfaces this as a Python ValueError.
         raise HTTPException(status_code=422, detail=str(exc))
 
     return serialize_recommendation(recommendation)
