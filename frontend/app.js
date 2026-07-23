@@ -445,25 +445,27 @@ function formatTotalLossCell(candidate) {
 
 // Compact by default: every check gets one line (status, name, value vs
 // limit) in a 2-column grid. The full explanation sentence is only shown
-// for FAIL/NOT_EVALUATED checks - a passing check's number next to its
-// limit already says everything a PASS needs to say, so repeating a full
-// sentence for all 6 checks on every row was the single biggest source of
-// scroll in the expanded candidate detail.
-function renderValidationList(validations) {
+// for NOT_EVALUATED checks here - a FAIL's explanation is already shown
+// once, prominently, in the "Why this was rejected" block above (every
+// FAIL is a rejection reason - a candidate is never labeled passing with
+// any check failed), so repeating it a second time in this grid was
+// showing the exact same sentence twice on rejected candidates.
+function renderValidationList(validations, rejectedCheckNames) {
     return validations
         .map((v) => {
             const notEvaluated = v.status === "NotEvaluated";
-            const needsAttention = notEvaluated || !v.passed;
+            const alreadyExplainedAsRejection = !notEvaluated && !v.passed && rejectedCheckNames.has(v.checkName);
+            const showExplanationHere = notEvaluated || (!v.passed && !alreadyExplainedAsRejection);
             const label = notEvaluated ? "NOT EVAL" : v.passed ? "PASS" : "FAIL";
             const cssClass = notEvaluated ? "check-warn" : v.passed ? "check-pass" : "check-fail";
             return `
-        <li class="validation-item ${cssClass}${needsAttention ? " validation-item-attention" : ""}">
+        <li class="validation-item ${cssClass}${showExplanationHere ? " validation-item-attention" : ""}">
             <div class="validation-item-head">
                 <span class="validation-item-status">${label}</span>
                 <span class="validation-item-name">${v.checkName}</span>
                 <span class="validation-item-value">${v.calculatedValue.toFixed(3)} / ${v.limitValue.toFixed(3)} ${v.unit}${v.usedDefaultLimit ? " *" : ""}</span>
             </div>
-            ${needsAttention ? `<div class="check-explanation">${v.explanation}</div>` : ""}
+            ${showExplanationHere ? `<div class="check-explanation">${v.explanation}</div>` : ""}
         </li>
     `;
         })
@@ -471,8 +473,12 @@ function renderValidationList(validations) {
 }
 
 function candidateRows(result) {
-    const passing = result.candidates.map((c) => ({ candidate: c, passed: true }));
-    const rejected = result.rejectedCandidates.map((c) => ({ candidate: c, passed: false }));
+    // result.candidates is already ranked (lowest total loss first, see
+    // InductorDesignService.cpp) - index 0 is the one Design Summary calls
+    // out as the top pick, so it's tagged here to carry that same fact
+    // into the table regardless of how the table itself is sorted.
+    const passing = result.candidates.map((c, i) => ({ candidate: c, passed: true, isRecommended: i === 0 }));
+    const rejected = result.rejectedCandidates.map((c) => ({ candidate: c, passed: false, isRecommended: false }));
     return passing.concat(rejected);
 }
 
@@ -507,44 +513,76 @@ function sortValue(row, key) {
     }
 }
 
-function renderCandidateDetail(candidate) {
+function renderCandidateDetail(candidate, isRecommended) {
     const warnings = candidate.material.missingDataWarnings
         .concat(candidate.winding.missingData || [])
         .concat(candidate.losses.missingData || []);
 
     const failCount = candidate.validations.filter((v) => v.status !== "NotEvaluated" && !v.passed).length;
     const notEvalCount = candidate.validations.filter((v) => v.status === "NotEvaluated").length;
+    const passCount = candidate.validations.length - failCount - notEvalCount;
     const validationSummary = [
-        `${candidate.validations.length - failCount - notEvalCount} pass`,
+        `${passCount} pass`,
         failCount ? `${failCount} fail` : null,
         notEvalCount ? `${notEvalCount} not evaluated` : null,
     ].filter(Boolean).join(", ");
 
     const usedDefaultLimit = candidate.validations.some((v) => v.usedDefaultLimit);
+    const rejectedCheckNames = new Set(candidate.rejectionReasons.map((r) => r.checkName));
+
+    // KPIs first, always - the numbers an engineer actually judges a
+    // candidate by, in one scannable strip, before any narrative text.
+    const kpis = `
+        <div class="detail-kpis">
+            <div class="detail-kpi">
+                <span class="detail-kpi-label">Total Loss</span>
+                <span class="detail-kpi-value">${formatTotalLossCell(candidate)}</span>
+            </div>
+            <div class="detail-kpi">
+                <span class="detail-kpi-label">Core Loss</span>
+                <span class="detail-kpi-value">${formatLoss(candidate.losses.coreLossStatus, candidate.losses.coreLossW)}</span>
+            </div>
+            <div class="detail-kpi">
+                <span class="detail-kpi-label">Fill Factor</span>
+                <span class="detail-kpi-value">${(candidate.winding.fillFactor * 100).toFixed(1)}%</span>
+            </div>
+            <div class="detail-kpi">
+                <span class="detail-kpi-label">Current Density</span>
+                <span class="detail-kpi-value">${candidate.winding.currentDensityAperMm2.toFixed(2)} A/mm²</span>
+            </div>
+            <div class="detail-kpi">
+                <span class="detail-kpi-label">Turns / Gap</span>
+                <span class="detail-kpi-value">${candidate.turnsAndGap.turns}t, ${candidate.turnsAndGap.gapMm.toFixed(2)}mm</span>
+            </div>
+        </div>
+        <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong></p>
+    `;
+
+    // The single most important question a candidate's detail has to
+    // answer - "why did this win, or why did this lose" - stated in
+    // plain terms before anything else, not buried after a wall of
+    // per-check data the engineer has to interpret themselves.
+    const verdict = candidate.rejectionReasons.length
+        ? `
+        <div class="detail-alert detail-alert-fail">
+            <div class="detail-alert-title">Rejected - ${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>
+            <ul class="detail-alert-list">
+                ${candidate.rejectionReasons.map((r) => `<li><strong>${r.checkName}:</strong> ${r.explanation}</li>`).join("")}
+            </ul>
+        </div>`
+        : `
+        <div class="detail-alert detail-alert-pass">
+            <div class="detail-alert-title">${isRecommended ? "Recommended - " : "Passing - "}${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated (no data yet, not a failure)` : ""}</div>
+        </div>`;
 
     return `
-        <dl class="detail-summary">
-            <div class="detail-summary-row">
-                <dt>Winding</dt>
-                <dd>${candidate.winding.wireDescription} · fill ${(candidate.winding.fillFactor * 100).toFixed(1)}% · ${candidate.winding.currentDensityAperMm2.toFixed(2)} A/mm²</dd>
-            </div>
-            <div class="detail-summary-row">
-                <dt>Core Loss</dt>
-                <dd>${formatLoss(candidate.losses.coreLossStatus, candidate.losses.coreLossW)}</dd>
-            </div>
-        </dl>
+        ${kpis}
+        ${verdict}
         <details>
             <summary>Validation checks (${validationSummary})</summary>
-            <ul class="check-list validation-grid">${renderValidationList(candidate.validations)}</ul>
+            <ul class="check-list validation-grid">${renderValidationList(candidate.validations, rejectedCheckNames)}</ul>
             ${usedDefaultLimit ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
         </details>
-        ${
-            candidate.rejectionReasons.length
-                ? `<details open><summary>Rejection reasons</summary><ul class="check-list">${candidate.rejectionReasons
-                      .map((r) => `<li class="check-fail">${r.checkName}: ${r.explanation}</li>`)
-                      .join("")}</ul></details>`
-                : ""
-        }
         ${
             warnings.length
                 ? `<details><summary>Missing-data warnings</summary><ul>${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
@@ -598,10 +636,13 @@ function renderCandidateTable(result) {
         .map((row, index) => {
             const c = row.candidate;
             const badge = row.passed
-                ? '<span class="chip chip-pass">PASS</span>'
+                ? `<span class="chip chip-pass">PASS</span>${row.isRecommended ? '<span class="chip chip-recommended">★ Recommended</span>' : ""}`
                 : '<span class="chip chip-fail">REJECT</span>';
+            const rowClass = ["candidate-row", row.passed ? "row-pass" : "row-reject", row.isRecommended ? "row-recommended" : ""]
+                .filter(Boolean)
+                .join(" ");
             return `
-                <tr class="candidate-row ${row.passed ? "row-pass" : "row-reject"}" data-row-index="${index}">
+                <tr class="${rowClass}" data-row-index="${index}">
                     <td>${badge}</td>
                     <td>${c.core.partNumber}</td>
                     <td>${c.material.materialFamily}</td>
@@ -615,7 +656,7 @@ function renderCandidateTable(result) {
                     <td class="numeric">${formatTotalLossCell(c)}</td>
                 </tr>
                 <tr class="detail-row" data-detail-index="${index}" hidden>
-                    <td colspan="11">${renderCandidateDetail(c)}</td>
+                    <td colspan="11">${renderCandidateDetail(c, row.isRecommended)}</td>
                 </tr>
             `;
         })

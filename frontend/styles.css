@@ -482,30 +482,93 @@ button:hover {
     margin-top: 4px;
 }
 
-/* Candidate detail summary (Winding, Core Loss) - compact label/value rows
-   matching the Diagnostics column's pattern, instead of full sentences. */
-.detail-summary {
+/* Candidate detail: KPI strip - the numbers an engineer actually judges a
+   candidate by, up front in one scannable row before any narrative text. */
+.detail-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.detail-kpi {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.detail-kpi-label {
+    color: var(--ink-soft);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.detail-kpi-value {
+    color: var(--brand-black);
+    font-weight: 700;
+    font-size: 1.02rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.detail-winding-line {
+    color: var(--ink-soft);
+    font-size: 0.88rem;
+    margin-bottom: 16px;
+}
+
+.detail-winding-line strong {
+    color: var(--ink);
+}
+
+/* The verdict - why this candidate won or lost - stated plainly before
+   any per-check data the reader would otherwise have to interpret alone. */
+.detail-alert {
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    border-left: 4px solid;
+}
+
+.detail-alert-fail {
+    background: #fdecec;
+    border-left-color: var(--brand-red);
+}
+
+.detail-alert-pass {
+    background: #eefaf1;
+    border-left-color: #15803d;
+}
+
+.detail-alert-title {
+    font-weight: 700;
+    font-size: 0.92rem;
+}
+
+.detail-alert-fail .detail-alert-title {
+    color: var(--brand-red-dark);
+}
+
+.detail-alert-pass .detail-alert-title {
+    color: #15803d;
+}
+
+.detail-alert-list {
+    list-style: none;
+    margin-top: 10px;
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-bottom: 14px;
 }
 
-.detail-summary-row {
-    display: flex;
-    gap: 10px;
-    font-size: 0.9rem;
-}
-
-.detail-summary-row dt {
-    color: var(--ink-soft);
-    min-width: 80px;
-    flex-shrink: 0;
-}
-
-.detail-summary-row dd {
+.detail-alert-list li {
     color: var(--ink);
-    font-weight: 600;
+    font-size: 0.88rem;
+    line-height: 1.5;
 }
 
 /* Validation checks - two per row, one compact line each. The full
@@ -804,6 +867,19 @@ summary {
     border-left-color: var(--brand-red);
 }
 
+/* The one candidate Design Summary is actually recommending - tagged in
+   the table too (not just the separate Design Summary card) so it reads
+   as "this is the one" wherever an engineer happens to be looking,
+   including after re-sorting the table by another column. */
+.candidate-row.row-recommended {
+    background: #fdf1f1;
+    border-left-width: 4px;
+}
+
+.candidate-row.row-recommended:nth-child(4n + 1) {
+    background: #fce7e7;
+}
+
 .candidate-row:hover {
     background: #fdecec;
 }
@@ -850,4 +926,10 @@ summary {
 .chip-warn {
     background: #fef3c7;
     color: #b45309;
+}
+
+.chip-recommended {
+    background: var(--brand-red);
+    color: #fff;
+    margin-left: 6px;
 }
