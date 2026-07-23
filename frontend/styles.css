@@ -627,34 +627,6 @@ button:hover {
     font-size: 0.9rem;
 }
 
-.check-list {
-    list-style: none;
-    margin-top: 10px;
-}
-
-.check-list li {
-    padding: 8px 0;
-    border-bottom: 1px solid var(--line);
-}
-
-.check-pass {
-    color: #15803d;
-}
-
-.check-fail {
-    color: var(--brand-red-dark);
-}
-
-.check-warn {
-    color: #b45309;
-}
-
-.check-explanation {
-    color: var(--ink-soft);
-    font-size: 0.85rem;
-    margin-top: 4px;
-}
-
 /* Candidate detail: KPI strip - the numbers an engineer actually judges a
    candidate by, up front in one scannable row before any narrative text. */
 .detail-kpis {
@@ -698,86 +670,60 @@ button:hover {
     color: var(--ink);
 }
 
-/* The verdict - why this candidate won or lost - stated plainly before
-   any per-check data the reader would otherwise have to interpret alone. */
-.detail-alert {
-    border-radius: 8px;
-    padding: 14px 16px;
-    margin-bottom: 16px;
-    border-left: 4px solid;
-}
-
-.detail-alert-fail {
-    background: #fdecec;
-    border-left-color: var(--brand-red);
-}
-
-.detail-alert-pass {
-    background: #eefaf1;
-    border-left-color: #15803d;
-}
-
-.detail-alert-title {
+/* One-line status - not a restatement of any check, just which outcome
+   this is and the pass/fail count. Every check's own detail lives in the
+   validation list below, once each. */
+.detail-status {
     font-weight: 700;
     font-size: 0.92rem;
+    margin-bottom: 12px;
 }
 
-.detail-alert-fail .detail-alert-title {
+.detail-status-fail {
     color: var(--brand-red-dark);
 }
 
-.detail-alert-pass .detail-alert-title {
+.detail-status-pass {
     color: #15803d;
 }
 
-.detail-alert-list {
+/* Validation checks - the single place every check is explained, each one
+   exactly once: a status chip, the check name, its actual value against
+   its limit (labeled, not a bare ratio), and - only for a check that
+   needs attention - one real explanation line directly underneath it. */
+.validation-list {
     list-style: none;
-    margin-top: 10px;
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
-.detail-alert-list li {
-    color: var(--ink);
-    font-size: 0.88rem;
-    line-height: 1.5;
+.validation-row {
+    border-radius: 8px;
+    border-left: 3px solid;
+    padding: 9px 12px;
 }
 
-/* Validation checks - two per row, one compact line each. The full
-   explanation sentence only appears for checks that need attention
-   (fail / not evaluated) - a passing check's number next to its limit
-   already says everything a pass needs to say. */
-.validation-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 20px;
-    margin-top: 8px;
+.validation-row-pass {
+    background: #f3faf5;
+    border-left-color: #15803d;
 }
 
-.validation-item {
-    padding: 9px 0;
-    border-bottom: 1px solid var(--line);
+.validation-row-fail {
+    background: #fdecec;
+    border-left-color: var(--brand-red);
 }
 
-.validation-item-attention {
-    grid-column: 1 / -1;
+.validation-row-warn {
+    background: #fff8ec;
+    border-left-color: #b45309;
 }
 
-.validation-item-head {
+.validation-row-main {
     display: flex;
     align-items: baseline;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
-}
-
-.validation-item-status {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    flex-shrink: 0;
-    width: 62px;
 }
 
 .validation-item-name {
@@ -788,11 +734,10 @@ button:hover {
 }
 
 .validation-item-value {
-    display: block;
-    margin-top: 3px;
     color: var(--ink-soft);
     font-size: 0.85rem;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
 }
 
 .validation-item-value strong {
@@ -800,20 +745,17 @@ button:hover {
     font-weight: 700;
 }
 
-.validation-item-value-muted {
-    font-style: italic;
+.validation-row-explain {
+    margin-top: 6px;
+    color: var(--ink);
+    font-size: 0.85rem;
+    line-height: 1.5;
 }
 
 .validation-footnote {
     margin-top: 10px;
     color: var(--ink-soft);
     font-size: 0.78rem;
-}
-
-@media (max-width: 720px) {
-    .validation-grid {
-        grid-template-columns: 1fr;
-    }
 }
 
 details {
@@ -1008,13 +950,7 @@ summary {
     letter-spacing: 0.04em;
     background: var(--brand-black);
     border-bottom: 1px solid #000;
-    cursor: pointer;
     white-space: nowrap;
-    user-select: none;
-}
-
-.candidate-table thead th:hover {
-    color: #ffb3bf;
 }
 
 .candidate-table thead th.numeric,

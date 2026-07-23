@@ -3,8 +3,6 @@ const TOPOLOGY_ENDPOINT = "/topology-design/buck";
 
 let lastResult = null;
 let currentFilter = "all"; // all | passing | rejected
-let sortKey = "status";
-let sortAscending = true;
 
 // Set when Mode 1 (Buck converter) has derived requirements - holds the
 // averageCurrentA/rippleCurrentPeakToPeakA pair so buildPayload() sends
@@ -496,36 +494,31 @@ function formatTotalLossCell(candidate) {
     return `${totalKnownLossW(candidate).toFixed(3)} W`;
 }
 
-// Compact by default: every check gets one line (status, name, value vs
-// limit) in a 2-column grid, with "actual" and "limit" labeled explicitly
-// rather than a bare "24.151 / 10.000" pair a reader has to decode.
-//
-// A FAIL that's already a rejection reason is never repeated here in any
-// form (neither its explanation sentence nor its calculated/limit numbers,
-// which are the exact same numbers already stated in that sentence) - the
-// "Why this was rejected" block above is the one place those checks are
-// explained. This list only adds detail the banner didn't already give:
-// the full explanation for NOT_EVALUATED checks, and the actual/limit
-// numbers for every check that isn't already covered above.
-function renderValidationList(validations, rejectedCheckNames) {
+// The single place a candidate's checks are shown - no separate "why
+// rejected" banner duplicating this. Every check appears exactly once:
+// status chip, name, and "actual X · limit Y" (labeled, not a bare ratio);
+// a FAIL or NOT_EVALUATED check also gets its one real explanation line,
+// right there next to its own numbers instead of restated somewhere else
+// on the page.
+function renderValidationList(validations) {
     return validations
         .map((v) => {
             const notEvaluated = v.status === "NotEvaluated";
-            const alreadyExplainedAbove = !notEvaluated && !v.passed && rejectedCheckNames.has(v.checkName);
-            const showExplanationHere = notEvaluated || (!v.passed && !alreadyExplainedAbove);
-            const label = notEvaluated ? "NOT EVAL" : v.passed ? "PASS" : "FAIL";
-            const cssClass = notEvaluated ? "check-warn" : v.passed ? "check-pass" : "check-fail";
-            const valueLine = alreadyExplainedAbove
-                ? `<span class="validation-item-value validation-item-value-muted">see rejection reasons above</span>`
-                : `<span class="validation-item-value">actual <strong>${v.calculatedValue.toFixed(3)}</strong> · limit <strong>${v.limitValue.toFixed(3)}</strong> ${v.unit}${v.usedDefaultLimit ? " *" : ""}</span>`;
+            const rowClass = notEvaluated ? "validation-row-warn" : v.passed ? "validation-row-pass" : "validation-row-fail";
+            const chip = notEvaluated
+                ? '<span class="chip chip-warn">NOT EVAL</span>'
+                : v.passed
+                ? '<span class="chip chip-pass">PASS</span>'
+                : '<span class="chip chip-fail">FAIL</span>';
+            const needsExplanation = notEvaluated || !v.passed;
             return `
-        <li class="validation-item ${cssClass}${showExplanationHere ? " validation-item-attention" : ""}">
-            <div class="validation-item-head">
-                <span class="validation-item-status">${label}</span>
+        <li class="validation-row ${rowClass}">
+            <div class="validation-row-main">
+                ${chip}
                 <span class="validation-item-name">${v.checkName}</span>
+                <span class="validation-item-value">actual <strong>${v.calculatedValue.toFixed(3)}</strong> · limit <strong>${v.limitValue.toFixed(3)}</strong> ${v.unit}${v.usedDefaultLimit ? " *" : ""}</span>
             </div>
-            ${valueLine}
-            ${showExplanationHere ? `<div class="check-explanation">${v.explanation}</div>` : ""}
+            ${needsExplanation ? `<div class="validation-row-explain">${v.explanation}</div>` : ""}
         </li>
     `;
         })
@@ -542,37 +535,6 @@ function candidateRows(result) {
     return passing.concat(rejected);
 }
 
-function sortValue(row, key) {
-    const c = row.candidate;
-    switch (key) {
-        case "status":
-            return row.passed ? 0 : 1;
-        case "core":
-            return c.core.partNumber;
-        case "material":
-            return c.material.materialFamily;
-        case "turns":
-            return c.turnsAndGap.turns;
-        case "gap":
-            return c.turnsAndGap.gapMm;
-        case "calcL":
-            return c.turnsAndGap.calculatedInductanceUH;
-        case "error":
-            return Math.abs(c.turnsAndGap.inductanceErrorPercent);
-        case "fill":
-            return c.winding.fillFactor;
-        case "cuLoss":
-            return c.losses.copperLossStatus === "Evaluated" ? c.losses.copperLossW : -1;
-        case "coreLoss":
-            return c.losses.coreLossStatus === "Evaluated" ? c.losses.coreLossW : -1;
-        case "totalLoss":
-            // matches the backend's own ranking metric - see totalKnownLossW() above
-            return hasAnyLossData(c) ? totalKnownLossW(c) : -1;
-        default:
-            return 0;
-    }
-}
-
 function renderCandidateDetail(candidate, isRecommended) {
     const warnings = candidate.material.missingDataWarnings
         .concat(candidate.winding.missingData || [])
@@ -581,14 +543,7 @@ function renderCandidateDetail(candidate, isRecommended) {
     const failCount = candidate.validations.filter((v) => v.status !== "NotEvaluated" && !v.passed).length;
     const notEvalCount = candidate.validations.filter((v) => v.status === "NotEvaluated").length;
     const passCount = candidate.validations.length - failCount - notEvalCount;
-    const validationSummary = [
-        `${passCount} pass`,
-        failCount ? `${failCount} fail` : null,
-        notEvalCount ? `${notEvalCount} not evaluated` : null,
-    ].filter(Boolean).join(", ");
-
     const usedDefaultLimit = candidate.validations.some((v) => v.usedDefaultLimit);
-    const rejectedCheckNames = new Set(candidate.rejectionReasons.map((r) => r.checkName));
 
     // KPIs first, always - the numbers an engineer actually judges a
     // candidate by, in one scannable strip, before any narrative text.
@@ -618,31 +573,18 @@ function renderCandidateDetail(candidate, isRecommended) {
         <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong></p>
     `;
 
-    // The single most important question a candidate's detail has to
-    // answer - "why did this win, or why did this lose" - stated in
-    // plain terms before anything else, not buried after a wall of
-    // per-check data the engineer has to interpret themselves.
-    const verdict = candidate.rejectionReasons.length
-        ? `
-        <div class="detail-alert detail-alert-fail">
-            <div class="detail-alert-title">Rejected - ${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>
-            <ul class="detail-alert-list">
-                ${candidate.rejectionReasons.map((r) => `<li><strong>${r.checkName}:</strong> ${r.explanation}</li>`).join("")}
-            </ul>
-        </div>`
-        : `
-        <div class="detail-alert detail-alert-pass">
-            <div class="detail-alert-title">${isRecommended ? "Recommended - " : "Passing - "}${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated (no data yet, not a failure)` : ""}</div>
-        </div>`;
+    // One-line status, not a restatement of any check - the list below is
+    // the single place every check (and, for a failure, its real reason)
+    // is actually explained.
+    const statusLine = candidate.rejectionReasons.length
+        ? `<div class="detail-status detail-status-fail">Rejected — ${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>`
+        : `<div class="detail-status detail-status-pass">${isRecommended ? "Recommended" : "Passing"} — ${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated` : ""}</div>`;
 
     return `
         ${kpis}
-        ${verdict}
-        <details>
-            <summary>Validation checks (${validationSummary})</summary>
-            <ul class="check-list validation-grid">${renderValidationList(candidate.validations, rejectedCheckNames)}</ul>
-            ${usedDefaultLimit ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
-        </details>
+        ${statusLine}
+        <ul class="validation-list">${renderValidationList(candidate.validations)}</ul>
+        ${usedDefaultLimit ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
         ${
             warnings.length
                 ? `<details><summary>Missing-data warnings</summary><ul>${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
@@ -655,16 +597,15 @@ function renderCandidateTable(result) {
     const table = document.getElementById("candidateTable");
     if (!table) return;
 
+    // Fixed order - candidateRows() already returns passing candidates
+    // ranked by the backend (lowest total loss first), then rejected. Since
+    // the tool always names one specific recommended candidate, letting a
+    // reader re-sort by another column can't change which one that is -
+    // it would just be a different view of the same fixed recommendation,
+    // so there's no sort control here.
     let rows = candidateRows(result);
     if (currentFilter === "passing") rows = rows.filter((r) => r.passed);
     if (currentFilter === "rejected") rows = rows.filter((r) => !r.passed);
-
-    rows.sort((a, b) => {
-        const av = sortValue(a, sortKey);
-        const bv = sortValue(b, sortKey);
-        const cmp = typeof av === "string" ? av.localeCompare(bv) : av - bv;
-        return sortAscending ? cmp : -cmp;
-    });
 
     if (rows.length === 0) {
         table.innerHTML = `<tbody><tr><td class="table-empty">No candidates match this filter.</td></tr></tbody>`;
@@ -672,25 +613,20 @@ function renderCandidateTable(result) {
     }
 
     const headers = [
-        { key: "status", label: "Status" },
-        { key: "core", label: "Core" },
-        { key: "material", label: "Material" },
-        { key: "turns", label: "Turns", numeric: true },
-        { key: "gap", label: "Gap (mm)", numeric: true },
-        { key: "calcL", label: "Calc L (µH)", numeric: true },
-        { key: "error", label: "Error %", numeric: true },
-        { key: "fill", label: "Fill %", numeric: true },
-        { key: "cuLoss", label: "Cu Loss", numeric: true },
-        { key: "coreLoss", label: "Core Loss", numeric: true },
-        { key: "totalLoss", label: "Total Loss", numeric: true },
+        { label: "Status" },
+        { label: "Core" },
+        { label: "Material" },
+        { label: "Turns", numeric: true },
+        { label: "Gap (mm)", numeric: true },
+        { label: "Calc L (µH)", numeric: true },
+        { label: "Error %", numeric: true },
+        { label: "Fill %", numeric: true },
+        { label: "Cu Loss", numeric: true },
+        { label: "Core Loss", numeric: true },
+        { label: "Total Loss", numeric: true },
     ];
 
-    const headerHtml = headers
-        .map((h) => {
-            const active = h.key === sortKey ? (sortAscending ? " ▲" : " ▼") : "";
-            return `<th data-sort-key="${h.key}"${h.numeric ? ' class="numeric"' : ""}>${h.label}${active}</th>`;
-        })
-        .join("");
+    const headerHtml = headers.map((h) => `<th${h.numeric ? ' class="numeric"' : ""}>${h.label}</th>`).join("");
 
     const bodyHtml = rows
         .map((row, index) => {
@@ -723,19 +659,6 @@ function renderCandidateTable(result) {
         .join("");
 
     table.innerHTML = `<thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody>`;
-
-    table.querySelectorAll("th[data-sort-key]").forEach((th) => {
-        th.addEventListener("click", () => {
-            const key = th.dataset.sortKey;
-            if (sortKey === key) {
-                sortAscending = !sortAscending;
-            } else {
-                sortKey = key;
-                sortAscending = true;
-            }
-            renderCandidateTable(lastResult);
-        });
-    });
 
     table.querySelectorAll(".candidate-row").forEach((tr) => {
         tr.addEventListener("click", () => {
@@ -819,8 +742,6 @@ async function generateRecommendation() {
         const result = await postRequest(ENDPOINT, payload);
         lastResult = result;
         currentFilter = "all";
-        sortKey = "status";
-        sortAscending = true;
 
         console.log("DesignRecommendation", result);
 
