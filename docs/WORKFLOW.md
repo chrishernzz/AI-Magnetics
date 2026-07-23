@@ -8,6 +8,60 @@ The tool automates inductor design using McLyman's area-product method. Stages 1
 
 ---
 
+## Stage 0 (optional): Buck Converter Requirement Derivation — ✅ Implemented
+
+**File:** `src/backend/services/BuckElectricalSolver.cpp`, `POST /topology-design/buck`
+
+**Purpose:** For engineers who know their Buck converter's operating point
+but not their inductor's requirements yet. Everything below (Stage 1
+onward) still expects a direct `InductorDesignRequest` - this stage exists
+purely to produce that same struct from converter-level inputs, so it is
+not a second pipeline. Skip this stage entirely if you already have your
+inductor's requirements.
+
+**Input:** `vinMinV`, `vinMaxV`, `voutV`, `ioutA`, `switchingFreqKHz`,
+`rippleCurrentPercent` (target ripple as % of `ioutA`), plus
+`ambientTemperatureC`/`allowableTempRiseC`/`inductanceTolerancePercent`
+(passed through unchanged).
+
+**Output:** `inductanceUH`, `peakCurrentA`, `switchingFreqKHz`,
+`averageCurrentA`, `rippleCurrentPeakToPeakA` - i.e. an
+`InductorDesignRequest`. `rmsCurrentA` is left unset deliberately.
+
+**The Formulas** (standard buck converter inductor sizing, ideal - no
+diode/switch drop modeling):
+```
+D (duty cycle) = Vout / Vin
+ripple_A = Iout × (ripple% / 100)
+L = (Vin - Vout) × D / (fsw × ripple_A)
+Ipeak = Iout + ripple_A / 2
+```
+
+**Worst-case point:** all of the above is evaluated at `Vin = vinMaxV`,
+not swept across `vinMinV..vinMaxV`. A buck converter's inductor ripple
+current increases as Vin increases (`ripple = Vout(1 - Vout/Vin) / (fsw·L)`
+grows toward `Vout/(fsw·L)` as Vin→∞), so sizing L at `Vin_max` is the
+correct worst case for ripple and keeps it at or under target across the
+whole range. Evaluating every quantity (ripple, peak current, flux,
+thermal) at whichever Vin point is actually worst *for that quantity* -
+which need not be `Vin_max` for all of them - is real, correct practice
+but out of scope for V1; this is a documented simplification, not a
+silent one.
+
+**Why RMS current is not computed here:** `averageCurrentA` (= `Iout`) and
+`rippleCurrentPeakToPeakA` are handed to the same
+`RequirementDerivationService::derive()` that Stage 1 onward already runs
+for direct entry, which derives RMS current from them using the
+triangular-ripple formula (`Irms = sqrt(Iavg^2 + ripple^2/12)`) documented
+in Stage 1's section below. There is exactly one RMS-derivation formula in
+the codebase regardless of which mode produced the request.
+
+**Example:** Vin = 36-60V, Vout = 12V, Iout = 40A, fsw = 500kHz, ripple = 20%
+→ worst case at Vin=60V: D = 0.2, ripple = 8A, L = 2.4µH, Ipeak = 44A
+(this is the hand-calculated case `tests/python/test_buck_electrical_solver.py` checks against).
+
+---
+
 ## Stage 1: Material Selection — ✅ Implemented
 
 **File:** `src/core/sizing/MaterialEvaluation.cpp` (`findSuitableMaterials()`). Originally a single-pick in `MaterialSelection.cpp`, which has since been removed - the frequency-matching logic below is unchanged, but it now returns every frequency-compatible material as its own candidate instead of just the first match.

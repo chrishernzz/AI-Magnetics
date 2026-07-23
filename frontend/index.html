@@ -21,7 +21,67 @@
     <div class="main-grid">
         <section class="card requirements-card">
             <h2>Design Requirements</h2>
+
+            <div class="mode-toggle" role="tablist" aria-label="Input mode">
+                <button type="button" id="modeDirectBtn" class="mode-toggle-btn" aria-selected="true">I know my inductor requirements</button>
+                <button type="button" id="modeBuckBtn" class="mode-toggle-btn" aria-selected="false">I know my Buck converter requirements</button>
+            </div>
+
+            <section id="buckModeSection" class="mode-section" hidden>
+                <p class="section-description">Enter your Buck converter's operating point - we derive what the inductor needs to do, sized at the worst-case input voltage (see hint on Vin Maximum).</p>
+
+                <fieldset class="field-group">
+                    <legend>Buck Converter</legend>
+
+                    <label for="buckVinMin">Vin Minimum (V)</label>
+                    <input id="buckVinMin" type="number" value="36" min="0" step="0.1">
+
+                    <label for="buckVinMax">Vin Maximum (V)
+                        <span class="hint" title="Inductance and ripple current are sized at Vin Maximum - a buck converter's inductor ripple current is worst (highest) at the top of the input range, so sizing there keeps ripple at or under target across the whole Vin range.">?</span>
+                    </label>
+                    <input id="buckVinMax" type="number" value="60" min="0" step="0.1">
+
+                    <label for="buckVout">Vout (V)</label>
+                    <input id="buckVout" type="number" value="12" min="0" step="0.1">
+
+                    <label for="buckIout">Iout (A)</label>
+                    <input id="buckIout" type="number" value="40" min="0" step="0.1">
+
+                    <label for="buckFrequency">Switching Frequency (kHz)</label>
+                    <input id="buckFrequency" type="number" value="500" min="0" step="1">
+
+                    <label for="buckRipplePercent">Inductor Ripple Current (%, of Iout)
+                        <span class="hint" title="Target peak-to-peak inductor ripple current as a percent of Iout. A common starting point is 20-40%.">?</span>
+                    </label>
+                    <input id="buckRipplePercent" type="number" value="20" min="1" step="1">
+                </fieldset>
+
+                <fieldset class="field-group">
+                    <legend>Thermal &amp; Tolerance</legend>
+
+                    <label for="buckAmbientTemp">Ambient Temperature (°C)</label>
+                    <input id="buckAmbientTemp" type="number" value="25" min="-40" step="1">
+
+                    <label for="buckTempRise">Allowable Temperature Rise (°C)</label>
+                    <input id="buckTempRise" type="number" value="40" min="0" step="1">
+
+                    <label for="buckTolerance">Inductance Tolerance (%, optional)</label>
+                    <input id="buckTolerance" type="number" placeholder="default 10" min="0" step="1">
+                </fieldset>
+
+                <div class="button-row">
+                    <button id="calculateTopologyButton" class="primary-button" type="button">
+                        Calculate Magnetic Requirements
+                    </button>
+                </div>
+
+                <div id="topologyStatus" class="status-message"></div>
+            </section>
+
+            <section id="directModeSection" class="mode-section">
             <p class="section-description">Direct inductor inputs (no topology assumed).</p>
+
+            <div id="topologyDerivedBanner" class="topology-derived-banner" hidden></div>
 
             <fieldset class="field-group">
                 <legend>Electrical</legend>
@@ -77,6 +137,7 @@
             <div id="statusMessage" class="status-message">
                 Ready to generate an inductor design recommendation.
             </div>
+            </section>
         </section>
 
         <section class="card summary-card">

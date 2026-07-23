@@ -84,6 +84,7 @@ target_include_directories(
 set(BACKEND_SERVICE_SOURCES
     src/backend/services/RequirementDerivationService.cpp
     src/backend/services/InductorDesignService.cpp
+    src/backend/services/BuckElectricalSolver.cpp
 )
 
 add_library(

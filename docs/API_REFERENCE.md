@@ -101,6 +101,82 @@ rather than inventing a number.
 
 ---
 
+## POST /topology-design/buck (Mode 1: derive requirements from a Buck converter)
+
+**Purpose:** For engineers who know their converter's operating point but
+not their inductor's requirements yet. Converts Buck converter inputs into
+the same fields `/inductor-design` accepts directly — nothing downstream
+of this call knows or cares whether a request came from here or from
+direct entry (Mode 2). This does **not** run the design pipeline itself;
+call `/inductor-design` with the response to get a `DesignRecommendation`.
+
+V1 supports Buck only (`BuckElectricalSolver.h`) — Boost/Flyback would be
+one more solver and one more route (`/topology-design/boost`, etc.), not a
+change to this one.
+
+**Request** (`BuckTopologyInput`, defined in `routes/topology_design.py`):
+
+```json
+{
+  "vinMinV": 36,
+  "vinMaxV": 60,
+  "voutV": 12,
+  "ioutA": 40,
+  "switchingFreqKHz": 500,
+  "rippleCurrentPercent": 20,
+  "ambientTemperatureC": 25,
+  "allowableTempRiseC": 40
+}
+```
+
+`rippleCurrentPercent` is the target inductor peak-to-peak ripple current
+as a percentage of `ioutA`. `inductanceTolerancePercent` is optional, same
+default behavior as `/inductor-design`. Inductance and ripple current are
+sized at `vinMaxV` — a buck converter's inductor ripple current is worst
+(highest) at the top of the input voltage range, so sizing there keeps
+ripple at or under the target across the whole `vinMinV`..`vinMaxV` range.
+This single-worst-case-point approach is a documented V1 simplification;
+it does not evaluate `vinMinV` separately.
+
+**Response** (mirrors `InductorDesignRequest`'s own field names):
+
+```json
+{
+  "inductanceUH": 2.4,
+  "peakCurrentA": 44.0,
+  "switchingFreqKHz": 500.0,
+  "ambientTemperatureC": 25.0,
+  "allowableTempRiseC": 40.0,
+  "inductanceTolerancePercent": null,
+  "averageCurrentA": 40.0,
+  "rippleCurrentPeakToPeakA": 8.0
+}
+```
+
+`rmsCurrentA` is deliberately absent (`null` if included at all) —
+`averageCurrentA` and `rippleCurrentPeakToPeakA` are the real derived
+values, and `RequirementDerivationService` derives RMS current from them
+downstream using the same triangular-ripple formula `/inductor-design`
+already uses for direct entry. There is exactly one RMS derivation in the
+codebase regardless of which endpoint produced the request. Feed this
+response directly into `/inductor-design` to run the actual pipeline:
+
+```bash
+DERIVED=$(curl -s -X POST http://127.0.0.1:8000/topology-design/buck \
+  -H "Content-Type: application/json" \
+  -d '{"vinMinV":36,"vinMaxV":60,"voutV":12,"ioutA":40,"switchingFreqKHz":500,"rippleCurrentPercent":20,"ambientTemperatureC":25,"allowableTempRiseC":40}')
+
+curl -X POST http://127.0.0.1:8000/inductor-design \
+  -H "Content-Type: application/json" \
+  -d "$DERIVED"
+```
+
+Returns HTTP 422 if the inputs aren't physically valid for a buck
+converter (e.g. `voutV >= vinMaxV`) — `BuckElectricalSolver` validates
+before computing rather than returning a negative or NaN inductance.
+
+---
+
 ## Removed: the old single-stage endpoints
 
 Earlier revisions of this API had four separate endpoints
@@ -170,6 +246,9 @@ FastAPI also auto-generates interactive docs at **http://127.0.0.1:8000/docs** �
 | `ambientTemperatureC` | number | 25 |
 | `allowableTempRiseC` | number | 40 |
 | `inductanceTolerancePercent` | number, optional | 10 |
+| `vinMinV`, `vinMaxV`, `voutV` | number (V, `/topology-design/buck` only) | 36, 60, 12 |
+| `ioutA` | number (A, `/topology-design/buck` only) | 40 |
+| `rippleCurrentPercent` | number (% of `ioutA`, `/topology-design/buck` only) | 20 |
 | `status` | string | "ok" \| "no_feasible_design" |
 | `materialFamily` | string | "3C90" |
 | `alternatives` | string (pipe-delimited) | "None" |

@@ -1,9 +1,15 @@
 const ENDPOINT = "/inductor-design";
+const TOPOLOGY_ENDPOINT = "/topology-design/buck";
 
 let lastResult = null;
 let currentFilter = "all"; // all | passing | rejected
 let sortKey = "status";
 let sortAscending = true;
+
+// Set when Mode 1 (Buck converter) has derived requirements - holds the
+// averageCurrentA/rippleCurrentPeakToPeakA pair so buildPayload() sends
+// those instead of a directly-entered rmsCurrentA. null in Mode 2.
+let topologyDerived = null;
 
 function buildPayload() {
     const toleranceRaw = document.getElementById("tolerance").value;
@@ -12,7 +18,6 @@ function buildPayload() {
     const payload = {
         inductanceUH: Number(document.getElementById("inductance").value),
         peakCurrentA: Number(document.getElementById("current").value),
-        rmsCurrentA: Number(document.getElementById("rmsCurrent").value),
         switchingFreqKHz: Number(document.getElementById("frequency").value),
         ambientTemperatureC: Number(document.getElementById("ambientTemp").value),
         allowableTempRiseC: Number(document.getElementById("tempRise").value),
@@ -25,7 +30,139 @@ function buildPayload() {
         payload.rippleCurrentPeakToPeakA = Number(rippleRaw);
     }
 
+    if (topologyDerived) {
+        // Derived from a Buck converter (Mode 1) - averageCurrentA + ripple
+        // feed the same triangular-ripple RMS derivation Mode 2 already
+        // relies on, rather than a separately-entered RMS value.
+        payload.averageCurrentA = topologyDerived.averageCurrentA;
+    } else {
+        payload.rmsCurrentA = Number(document.getElementById("rmsCurrent").value);
+    }
+
     return payload;
+}
+
+function buildTopologyPayload() {
+    const toleranceRaw = document.getElementById("buckTolerance").value;
+
+    const payload = {
+        vinMinV: Number(document.getElementById("buckVinMin").value),
+        vinMaxV: Number(document.getElementById("buckVinMax").value),
+        voutV: Number(document.getElementById("buckVout").value),
+        ioutA: Number(document.getElementById("buckIout").value),
+        switchingFreqKHz: Number(document.getElementById("buckFrequency").value),
+        rippleCurrentPercent: Number(document.getElementById("buckRipplePercent").value),
+        ambientTemperatureC: Number(document.getElementById("buckAmbientTemp").value),
+        allowableTempRiseC: Number(document.getElementById("buckTempRise").value),
+    };
+
+    if (toleranceRaw !== "") {
+        payload.inductanceTolerancePercent = Number(toleranceRaw);
+    }
+
+    return payload;
+}
+
+function switchMode(mode) {
+    const buckSection = document.getElementById("buckModeSection");
+    const directSection = document.getElementById("directModeSection");
+    const buckBtn = document.getElementById("modeBuckBtn");
+    const directBtn = document.getElementById("modeDirectBtn");
+    if (!buckSection || !directSection || !buckBtn || !directBtn) return;
+
+    const showBuck = mode === "buck";
+    buckSection.hidden = !showBuck;
+    directSection.hidden = showBuck;
+    buckBtn.classList.toggle("active", showBuck);
+    buckBtn.setAttribute("aria-selected", String(showBuck));
+    directBtn.classList.toggle("active", !showBuck);
+    directBtn.setAttribute("aria-selected", String(!showBuck));
+}
+
+function setTopologyStatus(message, isError = false) {
+    const status = document.getElementById("topologyStatus");
+    if (!status) return;
+    status.textContent = message;
+    status.className = isError ? "status-message error" : "status-message";
+}
+
+function clearTopologyDerived() {
+    topologyDerived = null;
+
+    const rmsInput = document.getElementById("rmsCurrent");
+    if (rmsInput) {
+        rmsInput.disabled = false;
+        rmsInput.placeholder = "";
+        rmsInput.value = "1.4";
+    }
+
+    const banner = document.getElementById("topologyDerivedBanner");
+    if (banner) {
+        banner.hidden = true;
+        banner.innerHTML = "";
+    }
+}
+
+function applyTopologyDerivedRequest(derived, vinUsedV) {
+    document.getElementById("inductance").value = derived.inductanceUH.toFixed(3);
+    document.getElementById("current").value = derived.peakCurrentA.toFixed(3);
+    document.getElementById("frequency").value = derived.switchingFreqKHz;
+    document.getElementById("rippleCurrent").value = derived.rippleCurrentPeakToPeakA.toFixed(3);
+    document.getElementById("ambientTemp").value = derived.ambientTemperatureC;
+    document.getElementById("tempRise").value = derived.allowableTempRiseC;
+    if (derived.inductanceTolerancePercent !== null && derived.inductanceTolerancePercent !== undefined) {
+        document.getElementById("tolerance").value = derived.inductanceTolerancePercent;
+    }
+
+    topologyDerived = {
+        averageCurrentA: derived.averageCurrentA,
+        rippleCurrentPeakToPeakA: derived.rippleCurrentPeakToPeakA,
+    };
+
+    const rmsInput = document.getElementById("rmsCurrent");
+    if (rmsInput) {
+        rmsInput.value = "";
+        rmsInput.disabled = true;
+        rmsInput.placeholder = "derived from Buck converter";
+    }
+
+    const banner = document.getElementById("topologyDerivedBanner");
+    if (banner) {
+        banner.hidden = false;
+        banner.innerHTML = `
+            <p><strong>Derived from your Buck converter requirements</strong> at the worst-case input voltage, Vin = ${vinUsedV} V.</p>
+            <p>L = ${derived.inductanceUH.toFixed(3)} µH · Ipeak = ${derived.peakCurrentA.toFixed(3)} A ·
+               Iavg = ${derived.averageCurrentA.toFixed(3)} A (= Iout) · Ripple = ${derived.rippleCurrentPeakToPeakA.toFixed(3)} A p-p ·
+               fsw = ${derived.switchingFreqKHz} kHz</p>
+            <p>RMS current is derived downstream from Iavg + ripple (triangular-ripple assumption), the same as if entered directly.</p>
+            <button type="button" id="clearTopologyDerivedButton">Clear and enter inductor requirements directly</button>
+        `;
+        const clearButton = document.getElementById("clearTopologyDerivedButton");
+        if (clearButton) clearButton.addEventListener("click", clearTopologyDerived);
+    }
+
+    switchMode("direct");
+}
+
+async function calculateTopology() {
+    setTopologyStatus("Calculating...");
+
+    const button = document.getElementById("calculateTopologyButton");
+    button.disabled = true;
+    button.textContent = "Calculating...";
+
+    try {
+        const payload = buildTopologyPayload();
+        const derived = await postRequest(TOPOLOGY_ENDPOINT, payload);
+        applyTopologyDerivedRequest(derived, payload.vinMaxV);
+        setTopologyStatus("Derived - review below and Generate Recommendation when ready.");
+    } catch (error) {
+        console.error(error);
+        setTopologyStatus(error.message, true);
+    } finally {
+        button.disabled = false;
+        button.textContent = "Calculate Magnetic Requirements";
+    }
 }
 
 function checkCurrentSanity() {
@@ -490,4 +627,9 @@ window.addEventListener("DOMContentLoaded", () => {
     ["current", "rmsCurrent"].forEach((id) => {
         document.getElementById(id).addEventListener("input", checkCurrentSanity);
     });
+
+    document.getElementById("modeDirectBtn").addEventListener("click", () => switchMode("direct"));
+    document.getElementById("modeBuckBtn").addEventListener("click", () => switchMode("buck"));
+    document.getElementById("calculateTopologyButton").addEventListener("click", calculateTopology);
+    switchMode("direct");
 });

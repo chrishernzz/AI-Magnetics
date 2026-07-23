@@ -44,8 +44,9 @@ The four old single-stage endpoints (`/material-selection`, `/calculate`, `/core
 
 | File | Purpose |
 |---|---|
-| `app.py` | Creates the FastAPI app, mounts `/static` for the frontend, serves `index.html` at `/`, includes the router |
-| `routes/inductor_design.py` | Defines `InductorDesignRequest` (the renamed, extended successor to the old shared `BuckInput`) and the `POST /inductor-design` endpoint; also owns the recursive C++-struct-to-dict serializer used to turn a `DesignRecommendation` into JSON |
+| `app.py` | Creates the FastAPI app, mounts `/static` for the frontend, serves `index.html` at `/`, includes both routers |
+| `routes/inductor_design.py` | Defines `InductorDesignRequest` (the renamed, extended successor to the old shared `BuckInput`) and the `POST /inductor-design` endpoint (Mode 2 - direct entry); also owns the recursive C++-struct-to-dict serializer used to turn a `DesignRecommendation` into JSON |
+| `routes/topology_design.py` | Defines `BuckTopologyInput` and the `POST /topology-design/buck` endpoint (Mode 1 - converter-level entry); serializes the derived `InductorDesignRequest` back to JSON, ready to feed straight into `/inductor-design` |
 
 `routes/core_selection.py` (the old deprecated single-stage endpoints) was deleted once nothing called it anymore.
 
@@ -53,6 +54,7 @@ The four old single-stage endpoints (`/material-selection`, `/calculate`, `/core
 | Route | Calls into C++ | Returns |
 |---|---|---|
 | `POST /inductor-design` | `InductorDesignService::run(...)` (via `magnetics_cpp.run_inductor_design`) — the full pipeline, once | `DesignRecommendation` (serialized to a plain dict) |
+| `POST /topology-design/buck` | `BuckElectricalSolver::solve(...)` (via `magnetics_cpp.solve_buck_topology`) — derives requirements only, does not run the pipeline | `InductorDesignRequest`-shaped dict, ready for `/inductor-design` |
 | `GET /` | — | `index.html` (via `FileResponse`) |
 | `GET /static/*` | — | frontend static files (mounted via `StaticFiles`) |
 
@@ -68,6 +70,7 @@ Builds a single pybind11 module, `magnetics_cpp`, exposing:
 - `AreaProductInput` + `calculate_ap()`/`calculate_stored_energy()` — used internally by the Phase 1 pipeline and directly by `tests/python/test_unit_conversions.py`
 - Raw data: `CoreData`, `MaterialData` (carrying `bmaxT`/`cuLossFactor`) + `set_core_database()`/`set_material_database()`
 - Phase 1 engine: `EvaluationStatus` (enum), `DesignRules` + `design_rules_phase1_default()`, `MaterialCandidate`, `CoreCandidate`, `TurnsAndGapResult`, `ValidationResult`, `WindingDesignResult`, `LossEvaluationResult`, `ThermalEvaluationResult`, `RejectionReason`, `InductorCandidate`, `DesignRecommendation`, `InductorDesignRequest`, and the entry point `run_inductor_design()`
+- Mode 1 (Buck): `TopologyInput` (its `topology` field is not exposed to Python - the struct's default constructor already sets `Topology::Buck`, the only implemented value) and the entry point `solve_buck_topology()`
 
 The old single-pick bindings (`MaterialSelectionInput`/`Result`/`Service`,
 `CoreSelectionInput`/`Result`/`Service`, `TurnsCalculationInput`/`Result` +
@@ -104,8 +107,9 @@ CMake builds this as a Python extension module and places the compiled `.pyd`/`.
 | DesignRules | `src/rules/DesignRules.h`/`.cpp` | ✅ Implemented — `DesignRules::phase1Default()` is the single source of Ku/Bmax/J/tolerance defaults, compiled via `RULES_SOURCES` |
 | RequirementDerivationService | `backend/services/RequirementDerivationService.cpp` | ✅ Implemented — unit conversion + RMS-current-from-ripple derivation (triangular ripple only) |
 | InductorDesignService | `backend/services/InductorDesignService.cpp` | ✅ Implemented — the single orchestrator behind `POST /inductor-design` |
+| BuckElectricalSolver | `backend/services/BuckElectricalSolver.cpp` | ✅ Implemented — Mode 1, derives an `InductorDesignRequest` (inductance, peak current, average current + ripple) from Buck converter requirements, sized at the worst-case Vin_max. Does not compute RMS current itself - leaves that to `RequirementDerivationService` downstream, so there is exactly one RMS derivation in the codebase regardless of which mode produced the request |
 
-The **Services** layer (`src/backend/services/`) sits directly between the pybind11 bindings and the core engine — e.g. `InductorDesignService::run()` orchestrates `MaterialEvaluation` → `AreaProduct` → `CoreEvaluation` → `TurnsAndGapDesign` → `DesignValidation` → `WindingDesign` → `LossEvaluation` → `ThermalEvaluation`. There is no separate "Controller" layer in C++; HTTP parsing happens entirely in the Python route functions.
+The **Services** layer (`src/backend/services/`) sits directly between the pybind11 bindings and the core engine — e.g. `InductorDesignService::run()` orchestrates `MaterialEvaluation` → `AreaProduct` → `CoreEvaluation` → `TurnsAndGapDesign` → `DesignValidation` → `WindingDesign` → `LossEvaluation` → `ThermalEvaluation`. There is no separate "Controller" layer in C++; HTTP parsing happens entirely in the Python route functions. `BuckElectricalSolver` sits beside `InductorDesignService`, not inside it - it produces an `InductorDesignRequest` and stops, rather than running the pipeline itself, so Mode 1 is strictly "one more way to produce Mode 2's input" and not a second, parallel pipeline.
 
 **Removed:** `MaterialSelection.cpp/h` and `CoreSelection.cpp` (the old single-pick logic, superseded by `src/core/sizing/MaterialEvaluation.cpp`/`CoreEvaluation.cpp`), `MaterialSelectionService`/`CoreSelectionService` (thin wrappers around the above, with nothing left to wrap), and `AreaProductService.h/.cpp` (never actually bound to Python in either the old or new bindings file - dead code from before this Phase 1 work even started). `src/core/sizing/CoreSelection.h` stays, header-only, because `src/core/magnetics/TurnsCalculation.h` still embeds its `CoreSelectionResult` struct.
 
@@ -113,6 +117,27 @@ The **Services** layer (`src/backend/services/`) sits directly between the pybin
 
 ## Data Flow: From User Input to Result
 
+**Mode 1 (optional, Buck converter entry):**
+```
+User enters: Vin=36-60V, Vout=12V, Iout=40A, f=500kHz, ripple=20% of Iout
+↓
+Frontend POSTs to /topology-design/buck with the BuckTopologyInput payload
+↓
+FastAPI route (routes/topology_design.py) builds a C++ TopologyInput,
+calls magnetics_cpp.solve_buck_topology(...)
+↓
+BuckElectricalSolver::solve() (C++): sizes L and ripple current at the
+worst-case Vin_max, computes Ipeak; leaves rmsCurrentA unset
+↓
+Route serializes the derived InductorDesignRequest-shaped fields to JSON
+↓
+Frontend shows a "Derived from your Buck converter requirements" banner,
+pre-fills the Mode 2 fields below with it, and the flow continues exactly
+as Mode 2's does from here - this call never touches InductorDesignService
+or runs the pipeline itself.
+```
+
+**Mode 2 (direct entry, or continuing from Mode 1's derived values):**
 ```
 User enters: L=250µH, Ipk=5A, Irms=3.5A, f=100kHz, Tambient=25°C, ΔT=40°C
 ↓
@@ -243,9 +268,14 @@ To add a new feature (e.g., temperature-corrected core loss using the coefficien
 4. **Update frontend:** add the new field(s) in `app.js` (the recommendation is walked generically from `DesignRecommendation`, so most new fields just need a render line)
 5. **Rebuild:** re-run the CMake build for `magnetics_cpp`, restart uvicorn
 
-Buck/Boost/Buck-Boost topology requirement derivation is explicitly deferred
-until the direct inductor path above is complete and validated — see the
-Phase 1 scope notes carried in this repo's planning discussion.
+Buck converter requirement derivation (Mode 1, `BuckElectricalSolver`) is
+implemented; Boost/Buck-Boost/Flyback are not. Adding one follows the same
+pattern as adding Buck did — a new `TopologyInput`-shaped struct (or an
+extra `topology` case if the fields overlap enough to share one), a new
+`*ElectricalSolver` outputting the existing `InductorDesignRequest`, one
+new binding, and one new route (`/topology-design/boost`, etc.) — none of
+it touches `InductorDesignService` or anything downstream of Mode 1/Mode 2
+convergence.
 
 ---
 

@@ -2,6 +2,8 @@
 #include <pybind11/stl.h>
 
 #include "backend/services/InductorDesignService.h"
+#include "backend/services/BuckElectricalSolver.h"
+#include "core/model/TopologyInput.h"
 #include "core/sizing/AreaProduct.h"
 #include "core/sizing/CoreEvaluation.h"
 #include "core/model/DesignRecommendation.h"
@@ -236,4 +238,25 @@ PYBIND11_MODULE(magnetics_cpp, m) {
 
     m.def("run_inductor_design", &InductorDesignService::run,
           "Run the full Phase 1 inductor design pipeline and return an explainable DesignRecommendation");
+
+    //MODE 1: Topology is not exposed here - TopologyInput's constructor
+    //already defaults it to Topology::Buck, the only implemented value, so
+    //there is nothing for Python to set. Adding Boost/Flyback later is the
+    //point where this would need its own py::enum_.
+    py::class_<TopologyInput>(m, "TopologyInput")
+        .def(py::init<>())
+        .def_readwrite("vinMinV", &TopologyInput::vinMinV)
+        .def_readwrite("vinMaxV", &TopologyInput::vinMaxV)
+        .def_readwrite("voutV", &TopologyInput::voutV)
+        .def_readwrite("ioutA", &TopologyInput::ioutA)
+        .def_readwrite("switchingFreqKHz", &TopologyInput::switchingFreqKHz)
+        .def_readwrite("rippleCurrentPercent", &TopologyInput::rippleCurrentPercent)
+        .def_readwrite("ambientTemperatureC", &TopologyInput::ambientTemperatureC)
+        .def_readwrite("allowableTempRiseC", &TopologyInput::allowableTempRiseC)
+        .def_readwrite("inductanceTolerancePercent", &TopologyInput::inductanceTolerancePercent);
+
+    m.def("solve_buck_topology", &BuckElectricalSolver::solve,
+          "MODE 1: derive an InductorDesignRequest (inductance, peak current, "
+          "average current + ripple) from Buck converter operating requirements, "
+          "sized at the worst-case Vin_max operating point");
 }
