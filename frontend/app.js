@@ -123,7 +123,7 @@ function applyTopologyDerivedRequest(derived, vinUsedV) {
     if (rmsInput) {
         rmsInput.value = "";
         rmsInput.disabled = true;
-        rmsInput.placeholder = "derived from Buck converter";
+        rmsInput.placeholder = "from Buck";
     }
 
     const banner = document.getElementById("topologyDerivedBanner");
