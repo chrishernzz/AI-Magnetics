@@ -6,7 +6,7 @@ This guide explains how to use the AIMagnetics web interface and what each input
 
 ## The Interface
 
-Open **http://127.0.0.1:8000** (see [GETTING_STARTED.md](GETTING_STARTED.md) for how to start the server). You'll see a two-column layout: input form on the left, results on the right.
+Open **http://127.0.0.1:8000** (see [GETTING_STARTED.md](GETTING_STARTED.md) for how to start the server). You'll see a three-column layout: input form on the left, live Diagnostics in the middle, and Design Summary/results on the right. The Diagnostics and Design Summary cards stay in view as you scroll the input form.
 
 ---
 
@@ -38,6 +38,23 @@ back to entering everything by hand.
 
 Both modes end at the same place: the fields below, and the same
 **Generate Recommendation** button and pipeline.
+
+## Live Diagnostics (middle column)
+
+Recalculates as you type, before you've clicked anything:
+
+- **In Buck mode**: calls `POST /topology-design/buck` on a short debounce
+  (~350ms after you stop typing) and shows Duty Cycle, Ripple Current,
+  Peak Current, Average Current, and the highlighted Required Inductance
+  result — the exact same numbers `Calculate Magnetic Requirements` would
+  commit, just visible before you commit to them. If the current values
+  aren't physically valid yet (e.g. Vout ≥ Vin Maximum while you're still
+  typing), the row values grey out and a note explains why, rather than
+  showing a hard error on every keystroke.
+- **In Direct mode**: a client-side sanity panel — Stored Energy
+  (`E = 0.5 × L × I²`, the same formula shown in the Inductance field's
+  hint), the RMS-vs-peak warning, and a live note on whether core loss
+  will be evaluated based on whether Ripple Current is filled in.
 
 ## Input Fields (Mode 2 - Direct Inductor Requirements)
 

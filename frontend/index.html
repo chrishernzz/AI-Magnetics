@@ -167,6 +167,49 @@
             </section>
         </section>
 
+        <section class="card diagnostics-card">
+            <h2>Diagnostics</h2>
+
+            <div id="buckDiagnostics" class="diagnostics-panel" hidden>
+                <p class="diagnostics-intro">Live, recalculated on every change - the same formulas <code>Calculate Magnetic Requirements</code> uses, just before you commit to them.</p>
+                <dl class="diagnostics-list" id="buckDiagnosticsList">
+                    <div class="diagnostics-row">
+                        <dt>Duty Cycle</dt>
+                        <dd id="diagDutyCycle">–</dd>
+                    </div>
+                    <div class="diagnostics-row">
+                        <dt>Ripple Current (p-p)</dt>
+                        <dd id="diagRippleA">–</dd>
+                    </div>
+                    <div class="diagnostics-row">
+                        <dt>Peak Current</dt>
+                        <dd id="diagPeakCurrent">–</dd>
+                    </div>
+                    <div class="diagnostics-row">
+                        <dt>Average Current (Iout)</dt>
+                        <dd id="diagAvgCurrent">–</dd>
+                    </div>
+                    <div class="diagnostics-row diagnostics-row-highlight">
+                        <dt>Required Inductance</dt>
+                        <dd id="diagInductance">–</dd>
+                    </div>
+                </dl>
+                <p id="diagBuckNote" class="diagnostics-note">Enter your Buck converter requirements to see live diagnostics.</p>
+            </div>
+
+            <div id="directDiagnostics" class="diagnostics-panel">
+                <p class="diagnostics-intro">A live sanity check on what you've entered - recalculated as you type.</p>
+                <dl class="diagnostics-list">
+                    <div class="diagnostics-row diagnostics-row-highlight">
+                        <dt>Stored Energy</dt>
+                        <dd id="diagStoredEnergy">–</dd>
+                    </div>
+                </dl>
+                <p id="diagCurrentNote" class="diagnostics-note"></p>
+                <p id="diagCoreLossNote" class="diagnostics-note"></p>
+            </div>
+        </section>
+
         <section class="card summary-card">
             <h2>Design Summary</h2>
             <div id="designSummary" class="summary-placeholder">
