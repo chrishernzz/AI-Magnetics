@@ -497,27 +497,34 @@ function formatTotalLossCell(candidate) {
 }
 
 // Compact by default: every check gets one line (status, name, value vs
-// limit) in a 2-column grid. The full explanation sentence is only shown
-// for NOT_EVALUATED checks here - a FAIL's explanation is already shown
-// once, prominently, in the "Why this was rejected" block above (every
-// FAIL is a rejection reason - a candidate is never labeled passing with
-// any check failed), so repeating it a second time in this grid was
-// showing the exact same sentence twice on rejected candidates.
+// limit) in a 2-column grid, with "actual" and "limit" labeled explicitly
+// rather than a bare "24.151 / 10.000" pair a reader has to decode.
+//
+// A FAIL that's already a rejection reason is never repeated here in any
+// form (neither its explanation sentence nor its calculated/limit numbers,
+// which are the exact same numbers already stated in that sentence) - the
+// "Why this was rejected" block above is the one place those checks are
+// explained. This list only adds detail the banner didn't already give:
+// the full explanation for NOT_EVALUATED checks, and the actual/limit
+// numbers for every check that isn't already covered above.
 function renderValidationList(validations, rejectedCheckNames) {
     return validations
         .map((v) => {
             const notEvaluated = v.status === "NotEvaluated";
-            const alreadyExplainedAsRejection = !notEvaluated && !v.passed && rejectedCheckNames.has(v.checkName);
-            const showExplanationHere = notEvaluated || (!v.passed && !alreadyExplainedAsRejection);
+            const alreadyExplainedAbove = !notEvaluated && !v.passed && rejectedCheckNames.has(v.checkName);
+            const showExplanationHere = notEvaluated || (!v.passed && !alreadyExplainedAbove);
             const label = notEvaluated ? "NOT EVAL" : v.passed ? "PASS" : "FAIL";
             const cssClass = notEvaluated ? "check-warn" : v.passed ? "check-pass" : "check-fail";
+            const valueLine = alreadyExplainedAbove
+                ? `<span class="validation-item-value validation-item-value-muted">see rejection reasons above</span>`
+                : `<span class="validation-item-value">actual <strong>${v.calculatedValue.toFixed(3)}</strong> · limit <strong>${v.limitValue.toFixed(3)}</strong> ${v.unit}${v.usedDefaultLimit ? " *" : ""}</span>`;
             return `
         <li class="validation-item ${cssClass}${showExplanationHere ? " validation-item-attention" : ""}">
             <div class="validation-item-head">
                 <span class="validation-item-status">${label}</span>
                 <span class="validation-item-name">${v.checkName}</span>
-                <span class="validation-item-value">${v.calculatedValue.toFixed(3)} / ${v.limitValue.toFixed(3)} ${v.unit}${v.usedDefaultLimit ? " *" : ""}</span>
             </div>
+            ${valueLine}
             ${showExplanationHere ? `<div class="check-explanation">${v.explanation}</div>` : ""}
         </li>
     `;
@@ -689,7 +696,7 @@ function renderCandidateTable(result) {
         .map((row, index) => {
             const c = row.candidate;
             const badge = row.passed
-                ? `<span class="chip chip-pass">PASS</span>${row.isRecommended ? '<span class="chip chip-recommended">★ Recommended</span>' : ""}`
+                ? `<span class="chip chip-pass">PASS</span>${row.isRecommended ? '<span class="chip chip-recommended">Recommended</span>' : ""}`
                 : '<span class="chip chip-fail">REJECT</span>';
             const rowClass = ["candidate-row", row.passed ? "row-pass" : "row-reject", row.isRecommended ? "row-recommended" : ""]
                 .filter(Boolean)

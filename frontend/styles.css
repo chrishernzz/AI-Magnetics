@@ -788,10 +788,20 @@ button:hover {
 }
 
 .validation-item-value {
+    display: block;
+    margin-top: 3px;
     color: var(--ink-soft);
     font-size: 0.85rem;
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
+}
+
+.validation-item-value strong {
+    color: var(--ink);
+    font-weight: 700;
+}
+
+.validation-item-value-muted {
+    font-style: italic;
 }
 
 .validation-footnote {
