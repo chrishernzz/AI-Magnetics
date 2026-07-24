@@ -9,6 +9,7 @@
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/winding/WindingDesign.h"
 #include "validation/Validation.h"
+#include "validation/DesignValidation.h"
 
 /*
 
@@ -32,4 +33,8 @@ struct InductorCandidate {
 
     //always "not_measured" in Phase 1 - see HardwareValidation.h. A place to record real bench data later.
     HardwareValidationRecord hardwareValidation;
+
+    //informational flux-limit breakdown for this candidate's material - see DesignValidation.h. Does not change
+    //what PeakFluxValidation/SaturationValidation pass/fail on; those two checks remain the actual gate.
+    FluxLimitTiers fluxLimits;
 };

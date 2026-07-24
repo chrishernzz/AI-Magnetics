@@ -149,3 +149,14 @@ ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, doubl
     result.explanation = "predicted temperature rise " + std::to_string(thermal.predictedTempRiseC) + " C vs allowable " + std::to_string(allowableTempRiseC) + " C";
     return result;
 }
+
+//precondition: none
+//postcondition: see header
+FluxLimitTiers calculateFluxLimitTiers(const MaterialCandidate& material, const DesignRules& rules) {
+    FluxLimitTiers tiers;
+    FluxLimit limit = applicableFluxLimit(material, rules);
+    tiers.absoluteSaturationT = limit.limitT;
+    tiers.absoluteSaturationIsDefault = limit.usedDefault;
+    tiers.recommendedOperatingT = limit.limitT * rules.recommendedFluxDerateFactor;
+    return tiers;
+}

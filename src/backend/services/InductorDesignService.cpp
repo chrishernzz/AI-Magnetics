@@ -20,6 +20,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     InductorCandidate candidate;
     candidate.material = material;
     candidate.core = core;
+    candidate.fluxLimits = calculateFluxLimitTiers(material, rules);
 
     double targetInductanceUH = units::hToUH(requirements.operatingPoint.inductanceH);
     candidate.turnsAndGap = designTurnsAndGap(core, targetInductanceUH, requirements.inductanceTolerancePercent, rules);

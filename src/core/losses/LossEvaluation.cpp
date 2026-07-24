@@ -45,6 +45,15 @@ LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const Cor
             double fluxDensitySwingT =
                 (calculatedInductanceH * (*rippleCurrentPeakToPeakA)) / (static_cast<double>(turnsAndGap.turns) * aeM2);
 
+            if (!fluxSwingWithinValidatedRange(lookup.coefficients, fluxDensitySwingT)) {
+                result.coreLossStatus = EvaluationStatus::NotEvaluated;
+                result.missingData.push_back(
+                    "core loss not evaluated: flux-density swing " + std::to_string(fluxDensitySwingT) +
+                    " T falls outside the coefficient row's validated range for material '" + material.materialFamily +
+                    "' - never extrapolated silently");
+                return result;
+            }
+
             // PyOpenMagnetics/MAS sources these coefficients from a field literally named
             // "volumetricLosses" - SI convention, so Pv comes out in W/m^3, not W/cm^3 (confirmed
             // empirically: treating it as W/cm^3 produced ~300 W/cm^3 for a 20 mT swing, which is

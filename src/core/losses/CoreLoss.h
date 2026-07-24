@@ -69,3 +69,17 @@ docs/FORMULAS.md section 9.
 
 */
 double calculateCoreLossDensity(const CoreLossCoefficientData& coefficients, double fluxDensitySwingT, double switchingFreqHz);
+
+/*
+
+Flux-swing valid-range guard, same "never extrapolate silently" rule already applied to frequency in
+findCoreLossCoefficients() above. Checked separately from the lookup because the swing value isn't known
+until turns/gap and ripple current have both been resolved (see LossEvaluation.cpp).
+
+*/
+
+//precondition: none
+//postcondition: returns true if fluxDensitySwingT falls within [minFluxSwingT, maxFluxSwingT], OR if either
+//bound is absent (nothing to check against - see CoreLossCoefficientDatabase.h, currently always the case).
+//Returns false only when a present bound is actually violated.
+bool fluxSwingWithinValidatedRange(const CoreLossCoefficientData& coefficients, double fluxDensitySwingT);

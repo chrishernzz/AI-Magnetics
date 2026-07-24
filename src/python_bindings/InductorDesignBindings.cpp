@@ -26,6 +26,7 @@
 #include "rules/DesignRules.h"
 #include "validation/EvaluationStatus.h"
 #include "validation/Validation.h"
+#include "validation/DesignValidation.h"
 
 namespace py = pybind11;
 
@@ -85,7 +86,10 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("beta", &CoreLossCoefficientData::beta)
         .def_readwrite("ct0", &CoreLossCoefficientData::ct0)
         .def_readwrite("ct1", &CoreLossCoefficientData::ct1)
-        .def_readwrite("ct2", &CoreLossCoefficientData::ct2);
+        .def_readwrite("ct2", &CoreLossCoefficientData::ct2)
+        .def_readwrite("minFluxSwingT", &CoreLossCoefficientData::minFluxSwingT)
+        .def_readwrite("maxFluxSwingT", &CoreLossCoefficientData::maxFluxSwingT)
+        .def_readwrite("testTemperatureC", &CoreLossCoefficientData::testTemperatureC);
 
     //vector contains valid core records : in-memory core database is replaced with supplied data
     m.def("set_core_database", &CoreDatabase::setData, "Replace the in-memory core database (called once at startup with real data)");
@@ -254,6 +258,17 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("usedDefaultLimit", &ValidationResult::usedDefaultLimit)
         .def_readwrite("status", &ValidationResult::status);
 
+    py::class_<FluxLimitTiers>(m, "FluxLimitTiers")
+        .def(py::init<>())
+        .def_readwrite("absoluteSaturationT", &FluxLimitTiers::absoluteSaturationT)
+        .def_readwrite("absoluteSaturationIsDefault", &FluxLimitTiers::absoluteSaturationIsDefault)
+        .def_readwrite("recommendedOperatingT", &FluxLimitTiers::recommendedOperatingT)
+        .def_readwrite("temperatureAdjustedStatus", &FluxLimitTiers::temperatureAdjustedStatus)
+        .def_readwrite("temperatureAdjustedExplanation", &FluxLimitTiers::temperatureAdjustedExplanation)
+        .def_readwrite("coreLossLimitedStatus", &FluxLimitTiers::coreLossLimitedStatus)
+        .def_readwrite("coreLossLimitedExplanation", &FluxLimitTiers::coreLossLimitedExplanation);
+    m.def("calculate_flux_limit_tiers", &calculateFluxLimitTiers, "Compute the informational flux-limit tier breakdown for a material candidate");
+
     py::class_<WindingDesignResult>(m, "WindingDesignResult")
         .def(py::init<>())
         .def_readwrite("wireDescription", &WindingDesignResult::wireDescription)
@@ -299,7 +314,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("thermal", &InductorCandidate::thermal)
         .def_readwrite("passed", &InductorCandidate::passed)
         .def_readwrite("rejectionReasons", &InductorCandidate::rejectionReasons)
-        .def_readwrite("hardwareValidation", &InductorCandidate::hardwareValidation);
+        .def_readwrite("hardwareValidation", &InductorCandidate::hardwareValidation)
+        .def_readwrite("fluxLimits", &InductorCandidate::fluxLimits);
 
     py::class_<DesignRecommendation>(m, "DesignRecommendation")
         .def(py::init<>())
