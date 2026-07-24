@@ -101,7 +101,7 @@ body {
 
 .main-grid {
     display: grid;
-    grid-template-columns: 400px 300px 1fr;
+    grid-template-columns: 400px 1fr;
     gap: 20px;
     padding: 25px 35px 10px;
     /* Default grid behavior stretches every card to match the tallest one's
@@ -308,7 +308,6 @@ body {
 /* Results and live diagnostics stay in view while scrolling a long
    requirements form, instead of disappearing off the top the moment you
    scroll past them. */
-.summary-card,
 .diagnostics-card {
     position: sticky;
     top: 82px; /* clears the sticky .topbar (~64px) plus a small gap */
@@ -359,14 +358,6 @@ body {
     font-variant-numeric: tabular-nums;
     text-align: right;
     white-space: nowrap;
-}
-
-/* The live substitution behind a diagnostics number - "how it got it,"
-   visible by default rather than tucked behind a hover tooltip. */
-.diagnostics-formula {
-    color: var(--ink-soft);
-    font-size: 0.74rem;
-    line-height: 1.4;
 }
 
 .diagnostics-row-highlight {
@@ -683,8 +674,8 @@ button:hover {
     cursor: pointer;
     padding: 12px 0;
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: flex-start;
+    gap: 8px;
     list-style: none;
 }
 
@@ -692,15 +683,23 @@ button:hover {
     display: none;
 }
 
-.formula-reference summary::before {
-    content: "▸ ";
+.formula-reference-marker::before {
+    content: "▸";
     color: var(--brand-red);
     display: inline-block;
+    line-height: 1;
+    margin-top: 3px;
     transition: transform 0.15s ease;
 }
 
-.formula-reference[open] summary::before {
+.formula-reference[open] .formula-reference-marker::before {
     transform: rotate(90deg);
+}
+
+.formula-reference-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .formula-reference-title {
@@ -714,7 +713,6 @@ button:hover {
 .formula-reference-summary {
     color: var(--ink-soft);
     font-size: 0.78rem;
-    margin-left: 12px;
 }
 
 .formula-reference-list {
@@ -751,11 +749,6 @@ button:hover {
     background: var(--paper-sunk);
     color: var(--ink-soft);
     cursor: not-allowed;
-}
-
-.summary-placeholder {
-    color: var(--ink-soft);
-    line-height: 1.8;
 }
 
 .result-panel {
@@ -922,26 +915,6 @@ summary {
     margin-bottom: 12px;
     line-height: 1.7;
     color: var(--ink);
-}
-
-.summary-metric {
-    margin-bottom: 16px;
-    padding: 16px;
-    background: var(--paper-sunk);
-    border-radius: 10px;
-    border: 1px solid var(--line);
-}
-
-.summary-label {
-    color: var(--ink-soft);
-    font-size: 0.85rem;
-}
-
-.summary-value {
-    margin-top: 8px;
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: var(--brand-black);
 }
 
 .error-block {

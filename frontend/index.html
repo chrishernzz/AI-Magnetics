@@ -197,42 +197,36 @@
             </div>
 
             <div id="buckDiagnostics" class="diagnostics-panel" hidden>
-                <p class="diagnostics-intro">Live, recalculated on every change - the same formulas <code>Calculate Magnetic Requirements</code> uses, just before you commit to them. Each line below shows the actual numbers behind it, not just the result.</p>
                 <dl class="diagnostics-list" id="buckDiagnosticsList">
                     <div class="diagnostics-row">
                         <div class="diagnostics-row-main">
                             <dt>Duty Cycle</dt>
                             <dd id="diagDutyCycle">–</dd>
                         </div>
-                        <p class="diagnostics-formula" id="diagDutyCycleFormula">D = Vout / Vin Maximum</p>
                     </div>
                     <div class="diagnostics-row">
                         <div class="diagnostics-row-main">
                             <dt>Ripple Current (p-p)</dt>
                             <dd id="diagRippleA">–</dd>
                         </div>
-                        <p class="diagnostics-formula" id="diagRippleAFormula">= Iout &times; Ripple %</p>
                     </div>
                     <div class="diagnostics-row">
                         <div class="diagnostics-row-main">
                             <dt>Peak Current</dt>
                             <dd id="diagPeakCurrent">–</dd>
                         </div>
-                        <p class="diagnostics-formula" id="diagPeakCurrentFormula">= Iout + Ripple &divide; 2</p>
                     </div>
                     <div class="diagnostics-row">
                         <div class="diagnostics-row-main">
                             <dt>Average Current (Iout)</dt>
                             <dd id="diagAvgCurrent">–</dd>
                         </div>
-                        <p class="diagnostics-formula">Iout as entered - the DC average the converter draws</p>
                     </div>
                     <div class="diagnostics-row diagnostics-row-highlight">
                         <div class="diagnostics-row-main">
                             <dt>Required Inductance</dt>
                             <dd id="diagInductance">–</dd>
                         </div>
-                        <p class="diagnostics-formula" id="diagInductanceFormula">L = (Vin Maximum &minus; Vout) &times; D / (fsw &times; Ripple)</p>
                     </div>
                 </dl>
                 <p id="diagBuckNote" class="diagnostics-note">Enter your Buck converter requirements to see live diagnostics.</p>
@@ -246,8 +240,11 @@
 
                 <details class="formula-reference">
                     <summary>
-                        <span class="formula-reference-title">How these are calculated</span>
-                        <span class="formula-reference-summary">More information - the formulas behind the diagnostics above</span>
+                        <span class="formula-reference-marker" aria-hidden="true"></span>
+                        <span class="formula-reference-text">
+                            <span class="formula-reference-title">How these are calculated</span>
+                            <span class="formula-reference-summary">More information - the formulas behind the diagnostics above</span>
+                        </span>
                     </summary>
                     <dl class="formula-reference-list">
                         <div><dt>Duty cycle</dt><dd>D = Vout / Vin Maximum</dd></div>
@@ -274,23 +271,6 @@
             </div>
         </section>
 
-        <section class="card summary-card">
-            <div class="card-head">
-                <span class="card-icon" aria-hidden="true">
-                    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="9" cy="9" r="6.5"/>
-                        <polyline points="6,9.2 8.2,11.4 12.2,6.8"/>
-                    </svg>
-                </span>
-                <div class="card-head-titles">
-                    <h2>Design Summary</h2>
-                    <span class="card-subtitle">Top-ranked passing candidate</span>
-                </div>
-            </div>
-            <div id="designSummary" class="summary-placeholder">
-                Run the recommendation to see the top passing candidate.
-            </div>
-        </section>
     </div>
 
     <details class="rules-strip">

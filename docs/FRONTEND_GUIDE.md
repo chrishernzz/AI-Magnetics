@@ -6,7 +6,7 @@ This guide explains how to use the AIMagnetics web interface and what each input
 
 ## The Interface
 
-Open **http://127.0.0.1:8000** (see [GETTING_STARTED.md](GETTING_STARTED.md) for how to start the server). A slim, sticky header (`AIMagnetics` + a one-line description) stays pinned at the top - it's a tool header, not a marketing banner, so it stays out of the way of the actual work. Below it is a three-column layout: input form on the left, live Diagnostics in the middle, and Design Summary/results on the right. The Diagnostics and Design Summary cards stay in view (sticky, below the header) as you scroll the input form.
+Open **http://127.0.0.1:8000** (see [GETTING_STARTED.md](GETTING_STARTED.md) for how to start the server). A slim, sticky header (`AIMagnetics` + a one-line description) stays pinned at the top - it's a tool header, not a marketing banner, so it stays out of the way of the actual work. Below it is a two-column layout: input form on the left, live Diagnostics on the right. There's no separate results/summary card up top - once a recommendation is generated, the top-ranked candidate is the row badged **Recommended** in the Candidates table below, so the same numbers aren't shown twice in two different places on the page. The Diagnostics card stays in view (sticky, below the header) as you scroll the input form.
 
 Every card leads with a small icon badge, title, and one-line subtitle (e.g. Diagnostics / "Recalculated live, before you commit") instead of a bare heading - each card reads at a glance without having to read its body first.
 
@@ -58,7 +58,7 @@ The sub-tabs sit below the primary Mode 1/Mode 2 toggle and are styled
 lighter (underline, not filled pills) so the two tab levels don't
 visually compete.
 
-## Live Diagnostics (middle column)
+## Live Diagnostics (right column)
 
 Recalculates as you type, before you've clicked anything:
 
@@ -66,24 +66,21 @@ Recalculates as you type, before you've clicked anything:
   (~350ms after you stop typing) and shows Duty Cycle, Ripple Current,
   Peak Current, Average Current, and the highlighted Required Inductance
   result — the exact same numbers `Calculate Magnetic Requirements` would
-  commit, just visible before you commit to them. Each row also carries a
-  small caption underneath showing the real numbers behind it (e.g.
-  `D = 12 / 60 = 20.0%`), not just the symbolic formula from the field's
-  hover hint — the point is to make "how it got it" visible by default,
-  since a "?" tooltip is easy to never hover over. The Required Inductance
-  row's caption specifically calls out that it's sized at Vin Maximum, not
-  Vin Minimum, and states both values. The waveform chart below the rows
-  has its own one-line caption explaining what it's showing. A collapsed
-  **"How these are calculated"** dropdown sits at the bottom of the
-  Diagnostics card, after the waveform - closed by default, click to
-  expand - listing all four formulas in one place for anyone who wants
-  the full picture without reading every row's caption. It lives in
-  Diagnostics rather than the input form so the Design Requirements card
-  stays inputs-only; it doesn't take up form space until opened, the same
+  commit, just visible before you commit to them. Rows show the label and
+  the bold result only; the formulas themselves live in exactly one
+  place — the collapsed **"How these are calculated"** dropdown at the
+  bottom of the Diagnostics card, after the waveform. Earlier this also
+  duplicated the same formula as a small caption under every row, which
+  just added scroll height for a formula the dropdown already had -
+  removed in favor of the dropdown as the single source. Expand it to see
+  all four formulas plus a note that everything is sized at Vin Maximum,
+  not Vin Minimum. It doesn't take up form space until opened, the same
   collapsed-by-default pattern as the Active Rules & Assumptions strip
-  below the results. If the current values aren't physically valid yet (e.g. Vout ≥ Vin
-  Maximum while you're still typing), the row values grey out and a note
-  explains why, rather than showing a hard error on every keystroke.
+  below the results. The waveform chart below the rows has its own
+  one-line caption explaining what it's showing. If the current values
+  aren't physically valid yet (e.g. Vout ≥ Vin Maximum while you're still
+  typing), the row values grey out and a note explains why, rather than
+  showing a hard error on every keystroke.
 - **In Direct mode**: a client-side sanity panel — Stored Energy
   (`E = 0.5 × L × I²`, the same formula shown in the Inductance field's
   hint), the RMS-vs-peak warning, and a live note on whether core loss
@@ -144,7 +141,7 @@ Clicking **"Generate Recommendation"** calls a single endpoint: `POST /inductor-
 
 ---
 
-## Design Summary (Results) — what's actually shown
+## Results — what's actually shown
 
 ### Active Rules & Assumptions panel
 The full `DesignRules::phase1Default()` ruleset used for this run (Ku, Bmax default, current density, saturation margin, fill factor, inductance tolerance) — never a hidden constant.
@@ -160,8 +157,7 @@ One row per evaluated candidate — passing and rejected together, filterable to
 
 **Candidate detail layout**: expanding a row leads with a 5-box KPI strip (Total Loss, Core Loss, Fill Factor, Current Density, Turns/Gap) — the numbers a candidate is actually judged by, before any narrative text. Below that is a one-line status (`Rejected — 3 of 6 checks failed`, or `Recommended`/`Passing — N of M applicable checks passed`) — just the outcome, not a restatement of any individual check. Every check is then listed once, always visible (not collapsed): a colored row (red/green/amber) with a status chip, the check name, and `actual <value> · limit <value> <unit>` labeled explicitly rather than a bare ratio. A failing or not-evaluated check also carries its one real explanation sentence directly under its own row. Nothing about any check is ever stated in two different places on the page — there's exactly one row per check, and that row is the only place its numbers and its reason live.
 
-### Design Summary panel
-Recommended material, core, turns/gap, and total loss (Cu + Core) for the top-ranked passing candidate, plus a one-line note on why it ranked #1 (lowest total loss, or smallest area product if no candidate had loss data) — or a note that nothing passed.
+There is no separate summary card repeating the top candidate's material, core, turns/gap, and total loss above the table — that was a second copy of exactly what the **Recommended** row (and its expanded detail) already shows, so it was removed rather than kept as a duplicate.
 
 ---
 
