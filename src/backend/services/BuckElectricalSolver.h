@@ -20,7 +20,8 @@ than silently assumed away.
 */
 class BuckElectricalSolver {
 public:
-    //throws std::invalid_argument if input.topology != Topology::Buck, or if the electrical inputs are not physically valid (vinMaxV <= voutV, any of vinMinV/vinMaxV/ioutA/switchingFreqKHz/rippleCurrentPercent
-    //not positive, or vinMinV > vinMaxV) - never divides by zero or returns a negative/NaN inductance silently.
+    //throws std::invalid_argument if input.topology != Topology::Buck; if any numeric field is non-finite (NaN/infinity); if the electrical inputs are not physically valid (vinMinV <= voutV - the real
+    //binding constraint is Vout vs Vin_min, since duty cycle is maximum at the low end of the input range - not vinMaxV, which is only the worst case for ripple current; any of
+    //vinMinV/vinMaxV/ioutA/switchingFreqKHz/rippleCurrentPercent not positive; or vinMinV > vinMaxV) - never divides by zero or returns a negative/NaN inductance silently.
     static InductorDesignRequest solve(const TopologyInput& input);
 };

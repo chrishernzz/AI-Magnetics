@@ -74,3 +74,34 @@ def test_buck_solver_rejects_non_positive_ripple_percent():
         assert False, "expected a ValueError for a zero ripple target"
     except ValueError:
         pass
+
+
+def test_buck_solver_rejects_vout_at_or_above_vin_min():
+    # Vout >= Vin_min is rejected even though Vout < Vin_max - the real
+    # binding constraint is the low end of the input range (duty cycle is
+    # maximum there), a case the old vinMaxV-only check would have wrongly
+    # accepted.
+    bad_input = _buck_topology_input(vinMinV=24.0, vinMaxV=60.0, voutV=30.0)
+    try:
+        magnetics_cpp.solve_buck_topology(bad_input)
+        assert False, "expected a ValueError when voutV >= vinMinV"
+    except ValueError:
+        pass
+
+
+def test_buck_solver_rejects_nan_input():
+    bad_input = _buck_topology_input(ioutA=float("nan"))
+    try:
+        magnetics_cpp.solve_buck_topology(bad_input)
+        assert False, "expected a ValueError for a NaN input"
+    except ValueError:
+        pass
+
+
+def test_buck_solver_rejects_infinite_input():
+    bad_input = _buck_topology_input(switchingFreqKHz=float("inf"))
+    try:
+        magnetics_cpp.solve_buck_topology(bad_input)
+        assert False, "expected a ValueError for an infinite input"
+    except ValueError:
+        pass

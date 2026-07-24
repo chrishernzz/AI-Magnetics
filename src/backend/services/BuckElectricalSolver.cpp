@@ -1,23 +1,50 @@
 #include "BuckElectricalSolver.h"
+#include <cmath>
 #include <stdexcept>
+#include <string>
 #include "core/units/UnitConversions.h"
 
-//precondition: input.topology == Topology::Buck; vinMinV, vinMaxV, ioutA, switchingFreqKHz, rippleCurrentPercent are all positive; vinMinV <= vinMaxV; vinMaxV > voutV > 0 (a buck converter cannot regulate Vout >= Vin)
+namespace {
+//precondition: none
+//postcondition: throws std::invalid_argument naming the field if value is NaN or +-infinity - never lets a
+//non-finite value silently propagate into a formula and produce a non-finite (and misleadingly "successful") result
+void requireFinite(double value, const char* fieldName) {
+    if (!std::isfinite(value)) {
+        throw std::invalid_argument(std::string(fieldName) + " must be a finite number (got NaN or infinity)");
+    }
+}
+}  // namespace
+
+//precondition: input.topology == Topology::Buck; every numeric field is finite; vinMinV, vinMaxV, ioutA, switchingFreqKHz, rippleCurrentPercent are all positive; vinMinV <= vinMaxV; vinMinV > voutV > 0 (a buck converter cannot regulate Vout >= Vin_min - see header)
 //postcondition: returns an InductorDesignRequest with inductanceUH, peakCurrentA, switchingFreqKHz, averageCurrentA, and rippleCurrentPeakToPeakA populated - rmsCurrentA is left unset so
 //RequirementDerivationService derives it downstream using the exact same triangular-ripple formula Mode 2 already relies on
 InductorDesignRequest BuckElectricalSolver::solve(const TopologyInput& input) {
-    //base case checking if its the right topology, making sure no negative inputs, Vin min not greater than max, and Vout to not be negative and less than Vin Max
+    //base case checking if its the right topology, making sure no negative inputs, Vin min not greater than max, and Vout to not be negative and less than Vin Min
     if (input.topology != Topology::Buck) {
         throw std::invalid_argument("BuckElectricalSolver::solve called with a non-Buck TopologyInput");
     }
+
+    requireFinite(input.vinMinV, "vinMinV");
+    requireFinite(input.vinMaxV, "vinMaxV");
+    requireFinite(input.voutV, "voutV");
+    requireFinite(input.ioutA, "ioutA");
+    requireFinite(input.switchingFreqKHz, "switchingFreqKHz");
+    requireFinite(input.rippleCurrentPercent, "rippleCurrentPercent");
+    requireFinite(input.ambientTemperatureC, "ambientTemperatureC");
+    requireFinite(input.allowableTempRiseC, "allowableTempRiseC");
+
     if (input.vinMinV <= 0.0 || input.vinMaxV <= 0.0 || input.ioutA <= 0.0 || input.switchingFreqKHz <= 0.0 || input.rippleCurrentPercent <= 0.0) {
         throw std::invalid_argument("vinMinV, vinMaxV, ioutA, switchingFreqKHz, and rippleCurrentPercent must all be positive");
     }
     if (input.vinMinV > input.vinMaxV) {
         throw std::invalid_argument("vinMinV cannot exceed vinMaxV");
     }
-    if (input.voutV <= 0.0 || input.voutV >= input.vinMaxV) {
-        throw std::invalid_argument("voutV must be positive and less than vinMaxV - a buck converter cannot regulate Vout >= Vin");
+    //the real binding constraint is Vout vs Vin_min, not Vin_max: at Vin = vinMinV the required duty cycle
+    //(D = Vout/Vin) is at its maximum, so a converter that could regulate at high line may be unable to at
+    //low line even though Vout < vinMaxV would suggest it can. vinMinV <= vinMaxV already holds here, so
+    //this check is strictly stronger than (and supersedes) a Vout-vs-vinMaxV check.
+    if (input.voutV <= 0.0 || input.voutV >= input.vinMinV) {
+        throw std::invalid_argument("voutV must be positive and less than vinMinV - a buck converter cannot regulate Vout >= Vin at the low end of the input range");
     }
 
     //worst-case point for buck ripple current is Vin_max (ripple grows as Vin - Vout grows) - see header comment
