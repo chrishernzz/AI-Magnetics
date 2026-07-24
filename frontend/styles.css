@@ -623,14 +623,39 @@ button:hover {
     transform: none;
 }
 
-/* Static formula reference - always visible, not tucked behind a hover
-   tooltip, since the "?" hints next to each field are easy to never open. */
+/* Formula reference - a collapsed "more information" dropdown, not a
+   permanent block sitting in the middle of the form. Same collapsed-strip
+   pattern as .rules-strip below, scoped to fit inside this card's column. */
 .formula-reference {
     background: var(--paper-sunk);
     border: 1px solid var(--line);
     border-radius: 10px;
-    padding: 14px 16px;
+    padding: 0 14px;
     margin: 16px 0;
+}
+
+.formula-reference summary {
+    cursor: pointer;
+    padding: 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    list-style: none;
+}
+
+.formula-reference summary::-webkit-details-marker {
+    display: none;
+}
+
+.formula-reference summary::before {
+    content: "▸ ";
+    color: var(--brand-red);
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+
+.formula-reference[open] summary::before {
+    transform: rotate(90deg);
 }
 
 .formula-reference-title {
@@ -639,13 +664,19 @@ button:hover {
     text-transform: uppercase;
     letter-spacing: 0.03em;
     color: var(--brand-black);
-    margin-bottom: 8px;
+}
+
+.formula-reference-summary {
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    margin-left: 12px;
 }
 
 .formula-reference-list {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    padding-bottom: 12px;
 }
 
 .formula-reference-list dt {
@@ -664,6 +695,7 @@ button:hover {
 .formula-reference-note {
     margin-top: 10px;
     padding-top: 10px;
+    padding-bottom: 12px;
     border-top: 1px solid var(--line);
     color: var(--ink-soft);
     font-size: 0.78rem;

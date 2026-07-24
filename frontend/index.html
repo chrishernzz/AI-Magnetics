@@ -78,8 +78,11 @@
                     </div>
                 </fieldset>
 
-                <div class="formula-reference">
-                    <p class="formula-reference-title">How these are calculated</p>
+                <details class="formula-reference">
+                    <summary>
+                        <span class="formula-reference-title">How these are calculated</span>
+                        <span class="formula-reference-summary">More information - the formulas behind the diagnostics</span>
+                    </summary>
                     <dl class="formula-reference-list">
                         <div><dt>Duty cycle</dt><dd>D = Vout / Vin Maximum</dd></div>
                         <div><dt>Ripple current</dt><dd>Iout &times; Ripple %</dd></div>
@@ -87,7 +90,7 @@
                         <div><dt>Peak current</dt><dd>Iout + Ripple &divide; 2</dd></div>
                     </dl>
                     <p class="formula-reference-note">Everything above is sized at Vin Maximum, not Vin Minimum - that's the worst case for ripple current, so it's the point that keeps ripple at or under target across your whole Vin range.</p>
-                </div>
+                </details>
 
                 <fieldset class="field-group">
                     <legend>Thermal &amp; Tolerance</legend>

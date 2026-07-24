@@ -64,11 +64,13 @@ Recalculates as you type, before you've clicked anything:
   since a "?" tooltip is easy to never hover over. The Required Inductance
   row's caption specifically calls out that it's sized at Vin Maximum, not
   Vin Minimum, and states both values. The waveform chart below the rows
-  has its own one-line caption explaining what it's showing. A static
-  "How these are calculated" reference box sits under the Buck Converter
-  fieldset in the form itself, listing all four formulas in one place for
-  anyone who wants the full picture without reading every row's caption.
-  If the current values aren't physically valid yet (e.g. Vout ≥ Vin
+  has its own one-line caption explaining what it's showing. A collapsed
+  **"How these are calculated"** dropdown sits under the Buck Converter
+  fieldset - closed by default, click to expand - listing all four
+  formulas in one place for anyone who wants the full picture without
+  reading every row's caption; it doesn't take up form space until opened,
+  the same collapsed-by-default pattern as the Active Rules & Assumptions
+  strip below the results. If the current values aren't physically valid yet (e.g. Vout ≥ Vin
   Maximum while you're still typing), the row values grey out and a note
   explains why, rather than showing a hard error on every keystroke.
 - **In Direct mode**: a client-side sanity panel — Stored Energy
