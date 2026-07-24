@@ -34,13 +34,17 @@ Clicking **Calculate Magnetic Requirements** in Mode 1 calls
 `POST /topology-design/buck`, then automatically switches to Mode 2 with
 the derived values filled in, under a banner explaining exactly what was
 derived and at which worst-case input voltage (`Vin_max` — see
-[API_REFERENCE.md](API_REFERENCE.md) for why). The RMS Current field is
-disabled in this state, since the derived request uses average current +
-ripple current instead — the same triangular-ripple RMS derivation Mode 2
-already relies on when those two fields are supplied directly. Every field
-is still editable after deriving; click **"Clear and enter inductor
-requirements directly"** in the banner to discard the derivation and go
-back to entering everything by hand.
+[API_REFERENCE.md](API_REFERENCE.md) for why). This banner lives in the
+Diagnostics column, below the live diagnostics panel, not inside the
+Design Requirements form itself — it's a summary of what got carried
+over, not another input to fill in, so it doesn't interrupt the form.
+The RMS Current field is disabled in this state, since the derived
+request uses average current + ripple current instead — the same
+triangular-ripple RMS derivation Mode 2 already relies on when those two
+fields are supplied directly. Every field is still editable after
+deriving; click **"Clear and enter inductor requirements directly"** in
+the banner to discard the derivation and go back to entering everything
+by hand.
 
 Both modes end at the same place: the fields below, and the same
 **Generate Recommendation** button and pipeline.
@@ -53,10 +57,20 @@ Recalculates as you type, before you've clicked anything:
   (~350ms after you stop typing) and shows Duty Cycle, Ripple Current,
   Peak Current, Average Current, and the highlighted Required Inductance
   result — the exact same numbers `Calculate Magnetic Requirements` would
-  commit, just visible before you commit to them. If the current values
-  aren't physically valid yet (e.g. Vout ≥ Vin Maximum while you're still
-  typing), the row values grey out and a note explains why, rather than
-  showing a hard error on every keystroke.
+  commit, just visible before you commit to them. Each row also carries a
+  small caption underneath showing the real numbers behind it (e.g.
+  `D = 12 / 60 = 20.0%`), not just the symbolic formula from the field's
+  hover hint — the point is to make "how it got it" visible by default,
+  since a "?" tooltip is easy to never hover over. The Required Inductance
+  row's caption specifically calls out that it's sized at Vin Maximum, not
+  Vin Minimum, and states both values. The waveform chart below the rows
+  has its own one-line caption explaining what it's showing. A static
+  "How these are calculated" reference box sits under the Buck Converter
+  fieldset in the form itself, listing all four formulas in one place for
+  anyone who wants the full picture without reading every row's caption.
+  If the current values aren't physically valid yet (e.g. Vout ≥ Vin
+  Maximum while you're still typing), the row values grey out and a note
+  explains why, rather than showing a hard error on every keystroke.
 - **In Direct mode**: a client-side sanity panel — Stored Energy
   (`E = 0.5 × L × I²`, the same formula shown in the Inductance field's
   hint), the RMS-vs-peak warning, and a live note on whether core loss

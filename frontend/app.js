@@ -117,6 +117,14 @@ function setDiagValue(id, text) {
     el.classList.add("value-flash");
 }
 
+// Plain text update, no flash - for the small "how it got it" captions
+// under each diagnostics row, which should read calmly rather than pulse
+// on every keystroke the way the bold result numbers do.
+function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+}
+
 // Draws the inductor current over two switching periods as a real triangle
 // wave - rises for the duty-cycle fraction of the period, falls for the
 // rest - from the exact same peak/ripple/duty-cycle numbers already shown
@@ -175,6 +183,17 @@ async function updateBuckDiagnosticsLive() {
         setDiagValue("diagPeakCurrent", `${derived.peakCurrentA.toFixed(3)} A`);
         setDiagValue("diagAvgCurrent", `${derived.averageCurrentA.toFixed(3)} A`);
         setDiagValue("diagInductance", `${derived.inductanceUH.toFixed(3)} µH`);
+
+        // "How it got it" - the actual numbers behind each result, not just
+        // the symbolic formula the field hints already show on hover.
+        setText("diagDutyCycleFormula", `D = ${payload.voutV} / ${payload.vinMaxV} = ${(derived.dutyCycle * 100).toFixed(1)}%`);
+        setText("diagRippleAFormula", `= ${payload.ioutA} A × ${payload.rippleCurrentPercent}% = ${derived.rippleCurrentPeakToPeakA.toFixed(3)} A`);
+        setText("diagPeakCurrentFormula", `= ${payload.ioutA} A + ${derived.rippleCurrentPeakToPeakA.toFixed(3)} A ÷ 2 = ${derived.peakCurrentA.toFixed(3)} A`);
+        setText(
+            "diagInductanceFormula",
+            `sized at Vin Maximum (${payload.vinMaxV} V), not Vin Minimum (${payload.vinMinV} V) - Vin Maximum is the worst case for ripple across your whole range`
+        );
+
         rowIds.forEach((id) => setDiagnosticsRowPending(id, false));
         updateRippleWaveform(derived);
         if (note) note.textContent = "";

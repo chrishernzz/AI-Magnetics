@@ -78,6 +78,17 @@
                     </div>
                 </fieldset>
 
+                <div class="formula-reference">
+                    <p class="formula-reference-title">How these are calculated</p>
+                    <dl class="formula-reference-list">
+                        <div><dt>Duty cycle</dt><dd>D = Vout / Vin Maximum</dd></div>
+                        <div><dt>Ripple current</dt><dd>Iout &times; Ripple %</dd></div>
+                        <div><dt>Required inductance</dt><dd>(Vin Maximum &minus; Vout) &times; D / (Switching Freq &times; Ripple)</dd></div>
+                        <div><dt>Peak current</dt><dd>Iout + Ripple &divide; 2</dd></div>
+                    </dl>
+                    <p class="formula-reference-note">Everything above is sized at Vin Maximum, not Vin Minimum - that's the worst case for ripple current, so it's the point that keeps ripple at or under target across your whole Vin range.</p>
+                </div>
+
                 <fieldset class="field-group">
                     <legend>Thermal &amp; Tolerance</legend>
                     <div class="field-grid">
@@ -107,8 +118,6 @@
 
             <section id="directModeSection" class="mode-section">
             <p class="section-description">Direct inductor inputs (no topology assumed).</p>
-
-            <div id="topologyDerivedBanner" class="topology-derived-banner" hidden></div>
 
             <fieldset class="field-group">
                 <legend>Electrical</legend>
@@ -193,33 +202,49 @@
             </div>
 
             <div id="buckDiagnostics" class="diagnostics-panel" hidden>
-                <p class="diagnostics-intro">Live, recalculated on every change - the same formulas <code>Calculate Magnetic Requirements</code> uses, just before you commit to them.</p>
+                <p class="diagnostics-intro">Live, recalculated on every change - the same formulas <code>Calculate Magnetic Requirements</code> uses, just before you commit to them. Each line below shows the actual numbers behind it, not just the result.</p>
                 <dl class="diagnostics-list" id="buckDiagnosticsList">
                     <div class="diagnostics-row">
-                        <dt>Duty Cycle</dt>
-                        <dd id="diagDutyCycle">–</dd>
+                        <div class="diagnostics-row-main">
+                            <dt>Duty Cycle</dt>
+                            <dd id="diagDutyCycle">–</dd>
+                        </div>
+                        <p class="diagnostics-formula" id="diagDutyCycleFormula">D = Vout / Vin Maximum</p>
                     </div>
                     <div class="diagnostics-row">
-                        <dt>Ripple Current (p-p)</dt>
-                        <dd id="diagRippleA">–</dd>
+                        <div class="diagnostics-row-main">
+                            <dt>Ripple Current (p-p)</dt>
+                            <dd id="diagRippleA">–</dd>
+                        </div>
+                        <p class="diagnostics-formula" id="diagRippleAFormula">= Iout &times; Ripple %</p>
                     </div>
                     <div class="diagnostics-row">
-                        <dt>Peak Current</dt>
-                        <dd id="diagPeakCurrent">–</dd>
+                        <div class="diagnostics-row-main">
+                            <dt>Peak Current</dt>
+                            <dd id="diagPeakCurrent">–</dd>
+                        </div>
+                        <p class="diagnostics-formula" id="diagPeakCurrentFormula">= Iout + Ripple &divide; 2</p>
                     </div>
                     <div class="diagnostics-row">
-                        <dt>Average Current (Iout)</dt>
-                        <dd id="diagAvgCurrent">–</dd>
+                        <div class="diagnostics-row-main">
+                            <dt>Average Current (Iout)</dt>
+                            <dd id="diagAvgCurrent">–</dd>
+                        </div>
+                        <p class="diagnostics-formula">Iout as entered - the DC average the converter draws</p>
                     </div>
                     <div class="diagnostics-row diagnostics-row-highlight">
-                        <dt>Required Inductance</dt>
-                        <dd id="diagInductance">–</dd>
+                        <div class="diagnostics-row-main">
+                            <dt>Required Inductance</dt>
+                            <dd id="diagInductance">–</dd>
+                        </div>
+                        <p class="diagnostics-formula" id="diagInductanceFormula">L = (Vin Maximum &minus; Vout) &times; D / (fsw &times; Ripple)</p>
                     </div>
                 </dl>
                 <p id="diagBuckNote" class="diagnostics-note">Enter your Buck converter requirements to see live diagnostics.</p>
 
                 <div class="waveform-card">
                     <div class="waveform-title">Inductor Current - One Switching Period</div>
+                    <p class="waveform-caption">Rises while the switch is on (the duty-cycle fraction of the period) and falls while it's off - drawn from the exact numbers above, at the worst-case Vin Maximum.</p>
                     <svg id="rippleWaveform" class="waveform-svg" viewBox="0 0 300 90" preserveAspectRatio="none"></svg>
                     <div class="waveform-legend"><span class="legend-dot"></span><span>I<sub>L</sub> at Vin Maximum</span></div>
                 </div>
@@ -235,6 +260,8 @@
                 </dl>
                 <p id="diagCurrentNote" class="diagnostics-note"></p>
                 <p id="diagCoreLossNote" class="diagnostics-note"></p>
+
+                <div id="topologyDerivedBanner" class="topology-derived-banner" hidden></div>
             </div>
         </section>
 

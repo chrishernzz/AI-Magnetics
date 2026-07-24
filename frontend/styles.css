@@ -290,11 +290,17 @@ body {
 
 .diagnostics-row {
     display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.diagnostics-row-main {
+    display: flex;
     justify-content: space-between;
     align-items: baseline;
     gap: 12px;
-    padding: 11px 0;
-    border-bottom: 1px solid var(--line);
 }
 
 .diagnostics-row dt {
@@ -308,6 +314,14 @@ body {
     font-variant-numeric: tabular-nums;
     text-align: right;
     white-space: nowrap;
+}
+
+/* The live substitution behind a diagnostics number - "how it got it,"
+   visible by default rather than tucked behind a hover tooltip. */
+.diagnostics-formula {
+    color: var(--ink-soft);
+    font-size: 0.74rem;
+    line-height: 1.4;
 }
 
 .diagnostics-row-highlight {
@@ -375,6 +389,13 @@ body {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    margin-bottom: 6px;
+}
+
+.waveform-caption {
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    line-height: 1.45;
     margin-bottom: 10px;
 }
 
@@ -600,6 +621,53 @@ button:hover {
     border-color: var(--brand-red);
     color: var(--brand-red);
     transform: none;
+}
+
+/* Static formula reference - always visible, not tucked behind a hover
+   tooltip, since the "?" hints next to each field are easy to never open. */
+.formula-reference {
+    background: var(--paper-sunk);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin: 16px 0;
+}
+
+.formula-reference-title {
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--brand-black);
+    margin-bottom: 8px;
+}
+
+.formula-reference-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.formula-reference-list dt {
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.formula-reference-list dd {
+    color: var(--ink);
+    font-size: 0.82rem;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    margin-top: 1px;
+}
+
+.formula-reference-note {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    line-height: 1.5;
 }
 
 .requirements-card input:disabled {
