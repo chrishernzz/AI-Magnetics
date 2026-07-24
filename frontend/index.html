@@ -42,8 +42,12 @@
             <section id="buckModeSection" class="mode-section" hidden>
                 <p class="section-description">Enter your Buck converter's operating point - we derive what the inductor needs to do, sized at the worst-case input voltage (see hint on Vin Maximum). All fields required unless marked optional.</p>
 
-                <fieldset class="field-group">
-                    <legend>Buck Converter</legend>
+                <div class="field-tabs" role="tablist" aria-label="Buck input groups">
+                    <button type="button" class="field-tab-btn active" data-tab-target="buckElectricalFields" aria-selected="true">Buck Converter</button>
+                    <button type="button" class="field-tab-btn" data-tab-target="buckThermalFields" aria-selected="false">Thermal &amp; Tolerance</button>
+                </div>
+
+                <fieldset class="field-group field-tab-panel" id="buckElectricalFields">
                     <div class="field-grid">
                         <div class="field">
                             <label for="buckVinMin">Vin Minimum (V)</label>
@@ -78,8 +82,7 @@
                     </div>
                 </fieldset>
 
-                <fieldset class="field-group">
-                    <legend>Thermal &amp; Tolerance</legend>
+                <fieldset class="field-group field-tab-panel" id="buckThermalFields" hidden>
                     <div class="field-grid">
                         <div class="field">
                             <label for="buckAmbientTemp">Ambient Temperature (°C)</label>
@@ -108,10 +111,12 @@
             <section id="directModeSection" class="mode-section">
             <p class="section-description">Direct inductor inputs (no topology assumed).</p>
 
-            <div id="topologyDerivedBanner" class="topology-derived-banner" hidden></div>
+            <div class="field-tabs" role="tablist" aria-label="Direct input groups">
+                <button type="button" class="field-tab-btn active" data-tab-target="directElectricalFields" aria-selected="true">Electrical</button>
+                <button type="button" class="field-tab-btn" data-tab-target="directThermalFields" aria-selected="false">Thermal &amp; Tolerance</button>
+            </div>
 
-            <fieldset class="field-group">
-                <legend>Electrical</legend>
+            <fieldset class="field-group field-tab-panel" id="directElectricalFields">
                 <div class="field-grid">
                     <div class="field">
                         <label for="inductance">Inductance (µH)
@@ -147,8 +152,7 @@
                 </div>
             </fieldset>
 
-            <fieldset class="field-group">
-                <legend>Thermal &amp; Tolerance</legend>
+            <fieldset class="field-group field-tab-panel" id="directThermalFields" hidden>
                 <div class="field-grid">
                     <div class="field">
                         <label for="ambientTemp">Ambient Temperature (°C)</label>
@@ -193,36 +197,90 @@
             </div>
 
             <div id="buckDiagnostics" class="diagnostics-panel" hidden>
-                <p class="diagnostics-intro">Live, recalculated on every change - the same formulas <code>Calculate Magnetic Requirements</code> uses, just before you commit to them.</p>
                 <dl class="diagnostics-list" id="buckDiagnosticsList">
                     <div class="diagnostics-row">
-                        <dt>Duty Cycle</dt>
-                        <dd id="diagDutyCycle">–</dd>
+                        <div class="diagnostics-row-main">
+                            <dt>Duty Cycle</dt>
+                            <dd id="diagDutyCycle">–</dd>
+                        </div>
                     </div>
                     <div class="diagnostics-row">
-                        <dt>Ripple Current (p-p)</dt>
-                        <dd id="diagRippleA">–</dd>
+                        <div class="diagnostics-row-main">
+                            <dt>Ripple Current (p-p)</dt>
+                            <dd id="diagRippleA">–</dd>
+                        </div>
                     </div>
                     <div class="diagnostics-row">
-                        <dt>Peak Current</dt>
-                        <dd id="diagPeakCurrent">–</dd>
+                        <div class="diagnostics-row-main">
+                            <dt>Peak Current</dt>
+                            <dd id="diagPeakCurrent">–</dd>
+                        </div>
                     </div>
                     <div class="diagnostics-row">
-                        <dt>Average Current (Iout)</dt>
-                        <dd id="diagAvgCurrent">–</dd>
+                        <div class="diagnostics-row-main">
+                            <dt>Average Current (Iout)</dt>
+                            <dd id="diagAvgCurrent">–</dd>
+                        </div>
                     </div>
                     <div class="diagnostics-row diagnostics-row-highlight">
-                        <dt>Required Inductance</dt>
-                        <dd id="diagInductance">–</dd>
+                        <div class="diagnostics-row-main">
+                            <dt>Required Inductance</dt>
+                            <dd id="diagInductance">–</dd>
+                        </div>
                     </div>
                 </dl>
                 <p id="diagBuckNote" class="diagnostics-note">Enter your Buck converter requirements to see live diagnostics.</p>
 
                 <div class="waveform-card">
                     <div class="waveform-title">Inductor Current - One Switching Period</div>
-                    <svg id="rippleWaveform" class="waveform-svg" viewBox="0 0 300 90" preserveAspectRatio="none"></svg>
+                    <p class="waveform-caption">Rises while the switch is on (the duty-cycle fraction of the period) and falls while it's off - drawn from the exact numbers above, at the worst-case Vin Maximum.</p>
+                    <svg id="rippleWaveform" class="waveform-svg" viewBox="0 0 310 104" preserveAspectRatio="none">
+                        <defs>
+                            <linearGradient id="waveformFillGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" style="stop-color: var(--brand-red); stop-opacity: 0.22"></stop>
+                                <stop offset="100%" style="stop-color: var(--brand-red); stop-opacity: 0"></stop>
+                            </linearGradient>
+                        </defs>
+
+                        <!-- Axis frame is fixed geometry - only the trace, fill, marker,
+                             and the two amplitude labels' text change per recalculation. -->
+                        <line class="waveform-gridline" x1="42" y1="14" x2="302" y2="14"></line>
+                        <line class="waveform-axis-line" x1="42" y1="14" x2="42" y2="72"></line>
+                        <line class="waveform-axis-line" x1="42" y1="72" x2="302" y2="72"></line>
+                        <line class="waveform-tick" x1="37" y1="14" x2="42" y2="14"></line>
+                        <line class="waveform-tick" x1="37" y1="72" x2="42" y2="72"></line>
+                        <line class="waveform-tick" x1="42" y1="72" x2="42" y2="77"></line>
+                        <line class="waveform-tick" x1="172" y1="72" x2="172" y2="77"></line>
+                        <line class="waveform-tick" x1="302" y1="72" x2="302" y2="77"></line>
+                        <text x="42" y="90" class="waveform-tick-label" text-anchor="middle">0</text>
+                        <text x="172" y="90" class="waveform-tick-label" text-anchor="middle">T</text>
+                        <text x="302" y="90" class="waveform-tick-label" text-anchor="end">2T</text>
+
+                        <path id="waveformFill" class="waveform-fill"></path>
+                        <path id="waveformPath" class="waveform-path"></path>
+                        <circle id="waveformMarker" class="waveform-marker" r="3"></circle>
+                        <text id="waveformLabelTop" x="34" y="14" class="waveform-axis-label" text-anchor="end" dominant-baseline="middle"></text>
+                        <text id="waveformLabelBottom" x="34" y="72" class="waveform-axis-label" text-anchor="end" dominant-baseline="middle"></text>
+                    </svg>
                     <div class="waveform-legend"><span class="legend-dot"></span><span>I<sub>L</sub> at Vin Maximum</span></div>
                 </div>
+
+                <details class="formula-reference">
+                    <summary>
+                        <span class="formula-reference-marker" aria-hidden="true"></span>
+                        <span class="formula-reference-text">
+                            <span class="formula-reference-title">How these are calculated</span>
+                            <span class="formula-reference-summary">More information - the formulas behind the diagnostics above</span>
+                        </span>
+                    </summary>
+                    <dl class="formula-reference-list">
+                        <div><dt>Duty cycle</dt><dd>D = Vout / Vin Maximum</dd></div>
+                        <div><dt>Ripple current</dt><dd>Iout &times; Ripple %</dd></div>
+                        <div><dt>Required inductance</dt><dd>(Vin Maximum &minus; Vout) &times; D / (Switching Freq &times; Ripple)</dd></div>
+                        <div><dt>Peak current</dt><dd>Iout + Ripple &divide; 2</dd></div>
+                    </dl>
+                    <p class="formula-reference-note">Everything above is sized at Vin Maximum, not Vin Minimum - that's the worst case for ripple current, so it's the point that keeps ripple at or under target across your whole Vin range.</p>
+                </details>
             </div>
 
             <div id="directDiagnostics" class="diagnostics-panel">
@@ -235,26 +293,11 @@
                 </dl>
                 <p id="diagCurrentNote" class="diagnostics-note"></p>
                 <p id="diagCoreLossNote" class="diagnostics-note"></p>
+
+                <div id="topologyDerivedBanner" class="topology-derived-banner" hidden></div>
             </div>
         </section>
 
-        <section class="card summary-card">
-            <div class="card-head">
-                <span class="card-icon" aria-hidden="true">
-                    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="9" cy="9" r="6.5"/>
-                        <polyline points="6,9.2 8.2,11.4 12.2,6.8"/>
-                    </svg>
-                </span>
-                <div class="card-head-titles">
-                    <h2>Design Summary</h2>
-                    <span class="card-subtitle">Top-ranked passing candidate</span>
-                </div>
-            </div>
-            <div id="designSummary" class="summary-placeholder">
-                Run the recommendation to see the top passing candidate.
-            </div>
-        </section>
     </div>
 
     <details class="rules-strip">

@@ -88,6 +88,29 @@ function switchMode(mode) {
     }
 }
 
+// Splits a mode's fields into sub-tabs (e.g. "Buck Converter" vs. "Thermal
+// & Tolerance") so only one group's inputs are visible at a time instead of
+// every field stacked in one long column - purely a display split, every
+// field keeps its id and still submits normally regardless of which tab is
+// showing.
+function initFieldTabs(container) {
+    const tabs = container.querySelectorAll(".field-tab-btn");
+    const panels = container.parentElement.querySelectorAll(".field-tab-panel");
+    tabs.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const targetId = btn.dataset.tabTarget;
+            tabs.forEach((other) => {
+                const isActive = other === btn;
+                other.classList.toggle("active", isActive);
+                other.setAttribute("aria-selected", String(isActive));
+            });
+            panels.forEach((panel) => {
+                panel.hidden = panel.id !== targetId;
+            });
+        });
+    });
+}
+
 // Simple debounce - live diagnostics call the real backend on every
 // keystroke, so this keeps that to one request per pause in typing
 // instead of one per character.
@@ -122,39 +145,55 @@ function setDiagValue(id, text) {
 // rest - from the exact same peak/ripple/duty-cycle numbers already shown
 // as text above it. Not decorative: change any Buck input and this redraws
 // from the live derived values, same as the text rows next to it.
+// Real chart, not an image: the axis frame (the two axis lines, all
+// ticks, and the "0 / T / 2T" time labels) is fixed geometry set once in
+// the HTML, since the plot is always auto-scaled to fill it - peak always
+// lands on the top axis line, min always on the bottom one. Only the
+// trace, its filled area, the peak marker, and the two amplitude label
+// strings are computed here from the live derived values and written
+// onto the same persistent elements (not rebuilt), so the shape morphs
+// via the CSS transition on `d` instead of snapping between two states.
 function updateRippleWaveform(derived) {
     const svg = document.getElementById("rippleWaveform");
     if (!svg) return;
 
-    const W = 300;
-    const H = 90;
-    const PAD_Y = 10;
+    const GUTTER = 42; // left margin reserved for the y-axis + its labels
+    const PLOT_RIGHT = 302;
+    const Y_TOP = 14; // peak axis line - always where ipk is plotted
+    const Y_BOTTOM = 72; // min axis line / x-axis baseline - always where iMin is plotted
     const ipk = derived.peakCurrentA;
     const ripple = Math.max(derived.rippleCurrentPeakToPeakA, 1e-9);
     const iMin = ipk - ripple;
     const duty = Math.min(Math.max(derived.dutyCycle, 0.02), 0.98);
     const periods = 2;
-    const periodW = W / periods;
+    const periodW = (PLOT_RIGHT - GUTTER) / periods;
 
-    const yOf = (i) => PAD_Y + (1 - (i - iMin) / ripple) * (H - 2 * PAD_Y);
-    const yTop = yOf(ipk);
-    const yBottom = yOf(iMin);
-
-    let points = [[0, yBottom]];
+    let points = [[GUTTER, Y_BOTTOM]];
     for (let p = 0; p < periods; p++) {
-        const x0 = p * periodW;
-        points.push([x0 + duty * periodW, yTop]);
-        points.push([x0 + periodW, yBottom]);
+        const x0 = GUTTER + p * periodW;
+        points.push([x0 + duty * periodW, Y_TOP]);
+        points.push([x0 + periodW, Y_BOTTOM]);
     }
     const pathD = "M " + points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L ");
+    // Path already starts and ends on the baseline, so closing it directly
+    // encloses the area under the trace with no extra corner points needed.
+    const fillD = `${pathD} Z`;
+    const lastPeak = points[points.length - 2];
 
-    svg.innerHTML = `
-        <line x1="0" y1="${yTop.toFixed(1)}" x2="${W}" y2="${yTop.toFixed(1)}" class="waveform-gridline"></line>
-        <line x1="0" y1="${yBottom.toFixed(1)}" x2="${W}" y2="${yBottom.toFixed(1)}" class="waveform-gridline"></line>
-        <path d="${pathD}" class="waveform-path"></path>
-        <text x="4" y="${(yTop - 3).toFixed(1)}" class="waveform-label">${ipk.toFixed(2)} A</text>
-        <text x="4" y="${(yBottom - 3).toFixed(1)}" class="waveform-label">${iMin.toFixed(2)} A</text>
-    `;
+    setWaveformAttrs("waveformFill", { d: fillD });
+    setWaveformAttrs("waveformPath", { d: pathD });
+    setWaveformAttrs("waveformMarker", { cx: lastPeak[0].toFixed(1), cy: lastPeak[1].toFixed(1) });
+
+    const topLabel = document.getElementById("waveformLabelTop");
+    if (topLabel) topLabel.textContent = `${ipk.toFixed(2)} A`;
+    const bottomLabel = document.getElementById("waveformLabelBottom");
+    if (bottomLabel) bottomLabel.textContent = `${iMin.toFixed(2)} A`;
+}
+
+function setWaveformAttrs(id, attrs) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
 }
 
 async function updateBuckDiagnosticsLive() {
@@ -175,6 +214,7 @@ async function updateBuckDiagnosticsLive() {
         setDiagValue("diagPeakCurrent", `${derived.peakCurrentA.toFixed(3)} A`);
         setDiagValue("diagAvgCurrent", `${derived.averageCurrentA.toFixed(3)} A`);
         setDiagValue("diagInductance", `${derived.inductanceUH.toFixed(3)} µH`);
+
         rowIds.forEach((id) => setDiagnosticsRowPending(id, false));
         updateRippleWaveform(derived);
         if (note) note.textContent = "";
@@ -335,7 +375,7 @@ function setStatus(message, isError = false) {
 }
 
 function clearResults() {
-    ["feasibility", "triageStrip", "designSummary", "assistant"].forEach((id) => {
+    ["feasibility", "triageStrip", "assistant"].forEach((id) => {
         const element = document.getElementById(id);
         if (element) element.innerHTML = "";
     });
@@ -496,10 +536,10 @@ function formatTotalLossCell(candidate) {
 
 // The single place a candidate's checks are shown - no separate "why
 // rejected" banner duplicating this. Every check appears exactly once:
-// status chip, name, and "actual X · limit Y" (labeled, not a bare ratio);
-// a FAIL or NOT_EVALUATED check also gets its one real explanation line,
-// right there next to its own numbers instead of restated somewhere else
-// on the page.
+// status chip, name, "actual X · limit Y" (labeled, not a bare ratio), and
+// its one real explanation line - a pass gets the same sentence a fail
+// would, since "actual 0.449 vs limit 0.501" is a claim, and the sentence
+// is what shows the claim actually checks out, not just a fail's excuse.
 function renderValidationList(validations) {
     return validations
         .map((v) => {
@@ -510,7 +550,6 @@ function renderValidationList(validations) {
                 : v.passed
                 ? '<span class="chip chip-pass">PASS</span>'
                 : '<span class="chip chip-fail">FAIL</span>';
-            const needsExplanation = notEvaluated || !v.passed;
             return `
         <li class="validation-row ${rowClass}">
             <div class="validation-row-main">
@@ -518,7 +557,7 @@ function renderValidationList(validations) {
                 <span class="validation-item-name">${v.checkName}</span>
                 <span class="validation-item-value">actual <strong>${v.calculatedValue.toFixed(3)}</strong> · limit <strong>${v.limitValue.toFixed(3)}</strong> ${v.unit}${v.usedDefaultLimit ? " *" : ""}</span>
             </div>
-            ${needsExplanation ? `<div class="validation-row-explain">${v.explanation}</div>` : ""}
+            <div class="validation-row-explain">${v.explanation}</div>
         </li>
     `;
         })
@@ -663,7 +702,15 @@ function renderCandidateTable(result) {
     table.querySelectorAll(".candidate-row").forEach((tr) => {
         tr.addEventListener("click", () => {
             const detailRow = table.querySelector(`.detail-row[data-detail-index="${tr.dataset.rowIndex}"]`);
-            if (detailRow) detailRow.hidden = !detailRow.hidden;
+            if (!detailRow) return;
+            const wasHidden = detailRow.hidden;
+            // Accordion, not a pile of open rows - opening one candidate's
+            // detail closes whatever else was open, so the table doesn't
+            // grow into an unreadable wall of expanded sections.
+            table.querySelectorAll(".detail-row").forEach((row) => {
+                row.hidden = true;
+            });
+            detailRow.hidden = !wasHidden;
         });
     });
 }
@@ -695,40 +742,6 @@ function renderFilterChips(result) {
     });
 }
 
-function renderDesignSummary(result) {
-    const element = document.getElementById("designSummary");
-    if (!element) return;
-
-    if (result.candidates.length === 0) {
-        element.innerHTML = `<p>No passing candidate - see the triage panel and candidate table for why.</p>`;
-        return;
-    }
-
-    const best = result.candidates[0];
-    const rankingBasis = hasAnyLossData(best)
-        ? "lowest real total loss among passing candidates"
-        : "smallest area product - no candidate in this run had real loss data to rank by";
-    element.innerHTML = `
-        <div class="summary-metric">
-            <div class="summary-label">Recommended Material</div>
-            <div class="summary-value">${best.material.materialFamily}</div>
-        </div>
-        <div class="summary-metric">
-            <div class="summary-label">Recommended Core</div>
-            <div class="summary-value">${best.core.partNumber}</div>
-        </div>
-        <div class="summary-metric">
-            <div class="summary-label">Turns / Gap</div>
-            <div class="summary-value">${best.turnsAndGap.turns} turns, ${best.turnsAndGap.gapMm.toFixed(2)} mm</div>
-        </div>
-        <div class="summary-metric">
-            <div class="summary-label">Total Loss (Cu + Core)</div>
-            <div class="summary-value">${formatTotalLossCell(best)}</div>
-        </div>
-        <p class="ranking-note">Ranked #1 by: ${rankingBasis}.</p>
-    `;
-}
-
 async function generateRecommendation() {
     clearResults();
     setStatus("Generating recommendation...");
@@ -750,7 +763,6 @@ async function generateRecommendation() {
         renderTriageStrip(result);
         renderFilterChips(result);
         renderCandidateTable(result);
-        renderDesignSummary(result);
 
         // The ranking policy only means anything once there's something to
         // rank - showing it before any run just reads as unexplained noise.
@@ -789,6 +801,8 @@ window.addEventListener("DOMContentLoaded", () => {
     ["inductance", "current", "rmsCurrent", "rippleCurrent"].forEach((id) => {
         document.getElementById(id).addEventListener("input", updateDirectDiagnosticsLive);
     });
+
+    document.querySelectorAll(".field-tabs").forEach(initFieldTabs);
 
     switchMode("direct");
 });
