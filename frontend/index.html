@@ -42,8 +42,12 @@
             <section id="buckModeSection" class="mode-section" hidden>
                 <p class="section-description">Enter your Buck converter's operating point - we derive what the inductor needs to do, sized at the worst-case input voltage (see hint on Vin Maximum). All fields required unless marked optional.</p>
 
-                <fieldset class="field-group">
-                    <legend>Buck Converter</legend>
+                <div class="field-tabs" role="tablist" aria-label="Buck input groups">
+                    <button type="button" class="field-tab-btn active" data-tab-target="buckElectricalFields" aria-selected="true">Buck Converter</button>
+                    <button type="button" class="field-tab-btn" data-tab-target="buckThermalFields" aria-selected="false">Thermal &amp; Tolerance</button>
+                </div>
+
+                <fieldset class="field-group field-tab-panel" id="buckElectricalFields">
                     <div class="field-grid">
                         <div class="field">
                             <label for="buckVinMin">Vin Minimum (V)</label>
@@ -78,22 +82,7 @@
                     </div>
                 </fieldset>
 
-                <details class="formula-reference">
-                    <summary>
-                        <span class="formula-reference-title">How these are calculated</span>
-                        <span class="formula-reference-summary">More information - the formulas behind the diagnostics</span>
-                    </summary>
-                    <dl class="formula-reference-list">
-                        <div><dt>Duty cycle</dt><dd>D = Vout / Vin Maximum</dd></div>
-                        <div><dt>Ripple current</dt><dd>Iout &times; Ripple %</dd></div>
-                        <div><dt>Required inductance</dt><dd>(Vin Maximum &minus; Vout) &times; D / (Switching Freq &times; Ripple)</dd></div>
-                        <div><dt>Peak current</dt><dd>Iout + Ripple &divide; 2</dd></div>
-                    </dl>
-                    <p class="formula-reference-note">Everything above is sized at Vin Maximum, not Vin Minimum - that's the worst case for ripple current, so it's the point that keeps ripple at or under target across your whole Vin range.</p>
-                </details>
-
-                <fieldset class="field-group">
-                    <legend>Thermal &amp; Tolerance</legend>
+                <fieldset class="field-group field-tab-panel" id="buckThermalFields" hidden>
                     <div class="field-grid">
                         <div class="field">
                             <label for="buckAmbientTemp">Ambient Temperature (°C)</label>
@@ -122,8 +111,12 @@
             <section id="directModeSection" class="mode-section">
             <p class="section-description">Direct inductor inputs (no topology assumed).</p>
 
-            <fieldset class="field-group">
-                <legend>Electrical</legend>
+            <div class="field-tabs" role="tablist" aria-label="Direct input groups">
+                <button type="button" class="field-tab-btn active" data-tab-target="directElectricalFields" aria-selected="true">Electrical</button>
+                <button type="button" class="field-tab-btn" data-tab-target="directThermalFields" aria-selected="false">Thermal &amp; Tolerance</button>
+            </div>
+
+            <fieldset class="field-group field-tab-panel" id="directElectricalFields">
                 <div class="field-grid">
                     <div class="field">
                         <label for="inductance">Inductance (µH)
@@ -159,8 +152,7 @@
                 </div>
             </fieldset>
 
-            <fieldset class="field-group">
-                <legend>Thermal &amp; Tolerance</legend>
+            <fieldset class="field-group field-tab-panel" id="directThermalFields" hidden>
                 <div class="field-grid">
                     <div class="field">
                         <label for="ambientTemp">Ambient Temperature (°C)</label>
@@ -251,6 +243,20 @@
                     <svg id="rippleWaveform" class="waveform-svg" viewBox="0 0 300 90" preserveAspectRatio="none"></svg>
                     <div class="waveform-legend"><span class="legend-dot"></span><span>I<sub>L</sub> at Vin Maximum</span></div>
                 </div>
+
+                <details class="formula-reference">
+                    <summary>
+                        <span class="formula-reference-title">How these are calculated</span>
+                        <span class="formula-reference-summary">More information - the formulas behind the diagnostics above</span>
+                    </summary>
+                    <dl class="formula-reference-list">
+                        <div><dt>Duty cycle</dt><dd>D = Vout / Vin Maximum</dd></div>
+                        <div><dt>Ripple current</dt><dd>Iout &times; Ripple %</dd></div>
+                        <div><dt>Required inductance</dt><dd>(Vin Maximum &minus; Vout) &times; D / (Switching Freq &times; Ripple)</dd></div>
+                        <div><dt>Peak current</dt><dd>Iout + Ripple &divide; 2</dd></div>
+                    </dl>
+                    <p class="formula-reference-note">Everything above is sized at Vin Maximum, not Vin Minimum - that's the worst case for ripple current, so it's the point that keeps ripple at or under target across your whole Vin range.</p>
+                </details>
             </div>
 
             <div id="directDiagnostics" class="diagnostics-panel">

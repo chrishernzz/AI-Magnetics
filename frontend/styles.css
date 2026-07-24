@@ -248,6 +248,51 @@ body {
     margin-top: 18px;
 }
 
+/* Sub-tabs splitting a mode's fields into groups (e.g. "Buck Converter" vs.
+   "Thermal & Tolerance") so only one group's inputs are visible - and
+   scrollable - at a time, instead of every field stacked in one column.
+   Deliberately lighter-weight than .mode-toggle's filled pills, so the two
+   tab levels (which mode vs. which field group) read as a clear hierarchy
+   rather than two competing controls. */
+.field-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--line);
+    margin-top: 18px;
+}
+
+.field-tab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 9px 4px;
+    margin-right: 18px;
+    margin-bottom: -1px;
+    box-shadow: none;
+}
+
+.field-tab-btn:hover {
+    color: var(--ink);
+    transform: none;
+}
+
+.field-tab-btn.active {
+    color: var(--brand-red);
+    border-bottom-color: var(--brand-red);
+}
+
+.field-tab-panel {
+    margin-top: 16px;
+}
+
+.field-tab-panel:not([hidden]) {
+    animation: panel-in 0.15s ease;
+}
+
 /* Two fields per row instead of one stacked under the other - roughly
    halves how far the requirements form scrolls, without hiding anything. */
 .field-grid {

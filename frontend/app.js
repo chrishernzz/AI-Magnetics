@@ -88,6 +88,29 @@ function switchMode(mode) {
     }
 }
 
+// Splits a mode's fields into sub-tabs (e.g. "Buck Converter" vs. "Thermal
+// & Tolerance") so only one group's inputs are visible at a time instead of
+// every field stacked in one long column - purely a display split, every
+// field keeps its id and still submits normally regardless of which tab is
+// showing.
+function initFieldTabs(container) {
+    const tabs = container.querySelectorAll(".field-tab-btn");
+    const panels = container.parentElement.querySelectorAll(".field-tab-panel");
+    tabs.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const targetId = btn.dataset.tabTarget;
+            tabs.forEach((other) => {
+                const isActive = other === btn;
+                other.classList.toggle("active", isActive);
+                other.setAttribute("aria-selected", String(isActive));
+            });
+            panels.forEach((panel) => {
+                panel.hidden = panel.id !== targetId;
+            });
+        });
+    });
+}
+
 // Simple debounce - live diagnostics call the real backend on every
 // keystroke, so this keeps that to one request per pause in typing
 // instead of one per character.
@@ -808,6 +831,8 @@ window.addEventListener("DOMContentLoaded", () => {
     ["inductance", "current", "rmsCurrent", "rippleCurrent"].forEach((id) => {
         document.getElementById(id).addEventListener("input", updateDirectDiagnosticsLive);
     });
+
+    document.querySelectorAll(".field-tabs").forEach(initFieldTabs);
 
     switchMode("direct");
 });

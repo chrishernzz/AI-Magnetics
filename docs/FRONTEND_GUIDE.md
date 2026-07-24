@@ -49,6 +49,15 @@ by hand.
 Both modes end at the same place: the fields below, and the same
 **Generate Recommendation** button and pipeline.
 
+Within each mode, the input fields are split into two lightweight
+sub-tabs - "Buck Converter" / "Electrical" and "Thermal & Tolerance" -
+so only one group is visible at a time instead of every field stacked
+in one long column. This is a display-only split: every field keeps its
+id and still submits normally regardless of which sub-tab is showing.
+The sub-tabs sit below the primary Mode 1/Mode 2 toggle and are styled
+lighter (underline, not filled pills) so the two tab levels don't
+visually compete.
+
 ## Live Diagnostics (middle column)
 
 Recalculates as you type, before you've clicked anything:
@@ -65,12 +74,14 @@ Recalculates as you type, before you've clicked anything:
   row's caption specifically calls out that it's sized at Vin Maximum, not
   Vin Minimum, and states both values. The waveform chart below the rows
   has its own one-line caption explaining what it's showing. A collapsed
-  **"How these are calculated"** dropdown sits under the Buck Converter
-  fieldset - closed by default, click to expand - listing all four
-  formulas in one place for anyone who wants the full picture without
-  reading every row's caption; it doesn't take up form space until opened,
-  the same collapsed-by-default pattern as the Active Rules & Assumptions
-  strip below the results. If the current values aren't physically valid yet (e.g. Vout ≥ Vin
+  **"How these are calculated"** dropdown sits at the bottom of the
+  Diagnostics card, after the waveform - closed by default, click to
+  expand - listing all four formulas in one place for anyone who wants
+  the full picture without reading every row's caption. It lives in
+  Diagnostics rather than the input form so the Design Requirements card
+  stays inputs-only; it doesn't take up form space until opened, the same
+  collapsed-by-default pattern as the Active Rules & Assumptions strip
+  below the results. If the current values aren't physically valid yet (e.g. Vout ≥ Vin
   Maximum while you're still typing), the row values grey out and a note
   explains why, rather than showing a hard error on every keystroke.
 - **In Direct mode**: a client-side sanity panel — Stored Energy
