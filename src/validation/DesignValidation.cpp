@@ -99,15 +99,20 @@ ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialC
 }
 
 //precondition: none
-//postcondition: passes if fill factor is at or below the maximum
+//postcondition: passes if the realistic physical window fill (insulated conductors, packing factor,
+//bobbin/margin/lead-exit derates - see WindingDesign.h) is at or below the maximum. Gates on
+//physicalWindowFillFactor, not the raw copper-only fillFactor - an intentional behavior change from the
+//Phase 1 stub: a candidate that passed on raw copper fill alone can now fail here.
 ValidationResult WindingFitValidation(const WindingDesignResult& winding, const DesignRules& rules) {
     ValidationResult result;
     result.checkName = "WindingFitValidation";
     result.unit = "fraction";
-    result.calculatedValue = winding.fillFactor;
+    result.calculatedValue = winding.physicalWindowFillFactor;
     result.limitValue = rules.maximumFillFactor;
-    result.passed = winding.fitsWindow;
-    result.explanation = "fill factor " + std::to_string(winding.fillFactor) + " vs maximum " + std::to_string(rules.maximumFillFactor);
+    result.passed = winding.fitsPhysicalWindow;
+    result.explanation = "physical window fill " + std::to_string(winding.physicalWindowFillFactor) + " vs maximum " +
+                          std::to_string(rules.maximumFillFactor) + " (raw copper-only fill was " +
+                          std::to_string(winding.fillFactor) + ")";
     return result;
 }
 

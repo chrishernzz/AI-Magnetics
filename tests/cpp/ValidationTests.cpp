@@ -133,20 +133,22 @@ void testSaturationValidationMarginShrinksWithHigherPeakCurrent() {
                 lowCurrent.calculatedValue, highCurrent.calculatedValue);
 }
 
-//8. WindingFitValidation currently gates on raw copper fill (winding.fitsWindow) - this is the Phase 1 behavior
-//before the physical-fill model lands; that commit will update this test alongside the gate it changes.
-void testWindingFitValidationGatesOnFitsWindow() {
+//8. WindingFitValidation gates on the realistic physical window fill (fitsPhysicalWindow), not the raw
+//copper-only fill (fitsWindow) - a candidate can pass on raw copper fill alone yet still fail here, which is
+//exactly the intentional behavior change the physical-fill model introduces.
+void testWindingFitValidationGatesOnPhysicalFillNotRawFill() {
     DesignRules rules = DesignRules::phase1Default();
     WindingDesignResult winding;
     winding.fillFactor = 0.3;
     winding.fitsWindow = true;
-    ValidationResult passResult = WindingFitValidation(winding, rules);
-    assert(passResult.passed);
+    winding.physicalWindowFillFactor = 0.9;
+    winding.fitsPhysicalWindow = false;
 
-    winding.fitsWindow = false;
-    ValidationResult failResult = WindingFitValidation(winding, rules);
-    assert(!failResult.passed);
-    std::printf("testWindingFitValidationGatesOnFitsWindow: ok\n");
+    ValidationResult result = WindingFitValidation(winding, rules);
+    assert(!result.passed);
+    assert(approxEqual(result.calculatedValue, 0.9, 1e-9));
+    std::printf("testWindingFitValidationGatesOnPhysicalFillNotRawFill: raw fill=%.2f (would pass) physical fill=%.2f (fails)\n",
+                winding.fillFactor, winding.physicalWindowFillFactor);
 }
 
 //9. CurrentDensityValidation compares against the allowable density converted to the same A/mm^2 unit winding
@@ -198,7 +200,7 @@ void runValidationTests() {
     testInductanceValidationFailsWhenNotConverged();
     testPeakFluxValidationFlagsDefaultLimit();
     testSaturationValidationMarginShrinksWithHigherPeakCurrent();
-    testWindingFitValidationGatesOnFitsWindow();
+    testWindingFitValidationGatesOnPhysicalFillNotRawFill();
     testCurrentDensityValidationConvertsAllowableToAPerMm2();
     testThermalValidationNotEvaluatedIsNeverAPass();
     testThermalValidationComparesRealNumbersWhenEvaluated();

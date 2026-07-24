@@ -197,6 +197,22 @@ def _serialize_winding(w) -> dict:
         "totalWireLengthM": w.totalWireLengthM,
         "dcrOhms": w.dcrOhms,
         "missingData": list(w.missingData),
+        "constructionType": w.constructionType.name,
+        "insulatedConductorDiameterMm": w.insulatedConductorDiameterMm,
+        "insulatedConductorAreaMm2": w.insulatedConductorAreaMm2,
+        "physicalDescription": w.physicalDescription,
+        "physicalWindowAreaMm2": w.physicalWindowAreaMm2,
+        "physicalWindowFillFactor": w.physicalWindowFillFactor,
+        "fitsPhysicalWindow": w.fitsPhysicalWindow,
+        "effectiveCurrentDensityAperMm2": w.effectiveCurrentDensityAperMm2,
+        "bundleFitStatus": w.bundleFitStatus.name,
+        "coreWindingLengthM": w.coreWindingLengthM,
+        "leadLengthM": w.leadLengthM,
+        "routingLengthM": w.routingLengthM,
+        "totalLengthM": w.totalLengthM,
+        "connectionResistanceOhms": w.connectionResistanceOhms,
+        "coldDcrOhmsAt20C": w.coldDcrOhmsAt20C,
+        "estimatedHotDcrOhms": w.estimatedHotDcrOhms,
     }
 
 #precondition: loss calculations have completed and l contains copper, core, and hf losses

@@ -15,6 +15,7 @@
 #include "core/thermal/ThermalEvaluation.h"
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/winding/WindingDesign.h"
+#include "core/winding/WindingConstructionType.h"
 #include "core/losses/CoreLoss.h"
 #include "core/magnetics/GapMethod.h"
 #include "core/model/Provenance.h"
@@ -117,6 +118,13 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .value("Spacer", GapMethod::Spacer)
         .value("Distributed", GapMethod::Distributed)
         .value("ManufacturerGapped", GapMethod::ManufacturerGapped);
+
+    py::enum_<WindingConstructionType>(m, "WindingConstructionType")
+        .value("SingleRoundWire", WindingConstructionType::SingleRoundWire)
+        .value("ParallelRoundWires", WindingConstructionType::ParallelRoundWires)
+        .value("Foil", WindingConstructionType::Foil)
+        .value("Busbar", WindingConstructionType::Busbar)
+        .value("PCB", WindingConstructionType::PCB);
 
     py::class_<DesignRules>(m, "DesignRules")
         .def(py::init<>())
@@ -280,7 +288,23 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("resistanceStatus", &WindingDesignResult::resistanceStatus)
         .def_readwrite("totalWireLengthM", &WindingDesignResult::totalWireLengthM)
         .def_readwrite("dcrOhms", &WindingDesignResult::dcrOhms)
-        .def_readwrite("missingData", &WindingDesignResult::missingData);
+        .def_readwrite("missingData", &WindingDesignResult::missingData)
+        .def_readwrite("constructionType", &WindingDesignResult::constructionType)
+        .def_readwrite("insulatedConductorDiameterMm", &WindingDesignResult::insulatedConductorDiameterMm)
+        .def_readwrite("insulatedConductorAreaMm2", &WindingDesignResult::insulatedConductorAreaMm2)
+        .def_readwrite("physicalDescription", &WindingDesignResult::physicalDescription)
+        .def_readwrite("physicalWindowAreaMm2", &WindingDesignResult::physicalWindowAreaMm2)
+        .def_readwrite("physicalWindowFillFactor", &WindingDesignResult::physicalWindowFillFactor)
+        .def_readwrite("fitsPhysicalWindow", &WindingDesignResult::fitsPhysicalWindow)
+        .def_readwrite("effectiveCurrentDensityAperMm2", &WindingDesignResult::effectiveCurrentDensityAperMm2)
+        .def_readwrite("bundleFitStatus", &WindingDesignResult::bundleFitStatus)
+        .def_readwrite("coreWindingLengthM", &WindingDesignResult::coreWindingLengthM)
+        .def_readwrite("leadLengthM", &WindingDesignResult::leadLengthM)
+        .def_readwrite("routingLengthM", &WindingDesignResult::routingLengthM)
+        .def_readwrite("totalLengthM", &WindingDesignResult::totalLengthM)
+        .def_readwrite("connectionResistanceOhms", &WindingDesignResult::connectionResistanceOhms)
+        .def_readwrite("coldDcrOhmsAt20C", &WindingDesignResult::coldDcrOhmsAt20C)
+        .def_readwrite("estimatedHotDcrOhms", &WindingDesignResult::estimatedHotDcrOhms);
 
     py::class_<LossEvaluationResult>(m, "LossEvaluationResult")
         .def(py::init<>())
