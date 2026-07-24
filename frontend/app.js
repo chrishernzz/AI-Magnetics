@@ -145,6 +145,10 @@ function setDiagValue(id, text) {
 // rest - from the exact same peak/ripple/duty-cycle numbers already shown
 // as text above it. Not decorative: change any Buck input and this redraws
 // from the live derived values, same as the text rows next to it.
+// Updates the same persistent SVG elements' attributes rather than
+// replacing the SVG's innerHTML - a fresh element every recalculation has
+// no "previous d" to transition from, so the trace only ever snapped
+// between shapes instead of visibly redrawing itself like a live scope.
 function updateRippleWaveform(derived) {
     const svg = document.getElementById("rippleWaveform");
     if (!svg) return;
@@ -170,14 +174,31 @@ function updateRippleWaveform(derived) {
         points.push([x0 + periodW, yBottom]);
     }
     const pathD = "M " + points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L ");
+    const fillD = `${pathD} L ${W.toFixed(1)},${H.toFixed(1)} L 0,${H.toFixed(1)} Z`;
+    const lastPeak = points[points.length - 2];
 
-    svg.innerHTML = `
-        <line x1="0" y1="${yTop.toFixed(1)}" x2="${W}" y2="${yTop.toFixed(1)}" class="waveform-gridline"></line>
-        <line x1="0" y1="${yBottom.toFixed(1)}" x2="${W}" y2="${yBottom.toFixed(1)}" class="waveform-gridline"></line>
-        <path d="${pathD}" class="waveform-path"></path>
-        <text x="4" y="${(yTop - 3).toFixed(1)}" class="waveform-label">${ipk.toFixed(2)} A</text>
-        <text x="4" y="${(yBottom - 3).toFixed(1)}" class="waveform-label">${iMin.toFixed(2)} A</text>
-    `;
+    setWaveformAttrs("waveformGridTop", { y1: yTop.toFixed(1), y2: yTop.toFixed(1) });
+    setWaveformAttrs("waveformGridBottom", { y1: yBottom.toFixed(1), y2: yBottom.toFixed(1) });
+    setWaveformAttrs("waveformFill", { d: fillD });
+    setWaveformAttrs("waveformPath", { d: pathD });
+    setWaveformAttrs("waveformMarker", { cx: lastPeak[0].toFixed(1), cy: lastPeak[1].toFixed(1) });
+
+    const topLabel = document.getElementById("waveformLabelTop");
+    if (topLabel) {
+        topLabel.setAttribute("y", (yTop - 3).toFixed(1));
+        topLabel.textContent = `${ipk.toFixed(2)} A`;
+    }
+    const bottomLabel = document.getElementById("waveformLabelBottom");
+    if (bottomLabel) {
+        bottomLabel.setAttribute("y", (yBottom - 3).toFixed(1));
+        bottomLabel.textContent = `${iMin.toFixed(2)} A`;
+    }
+}
+
+function setWaveformAttrs(id, attrs) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
 }
 
 async function updateBuckDiagnosticsLive() {
@@ -520,10 +541,10 @@ function formatTotalLossCell(candidate) {
 
 // The single place a candidate's checks are shown - no separate "why
 // rejected" banner duplicating this. Every check appears exactly once:
-// status chip, name, and "actual X · limit Y" (labeled, not a bare ratio);
-// a FAIL or NOT_EVALUATED check also gets its one real explanation line,
-// right there next to its own numbers instead of restated somewhere else
-// on the page.
+// status chip, name, "actual X · limit Y" (labeled, not a bare ratio), and
+// its one real explanation line - a pass gets the same sentence a fail
+// would, since "actual 0.449 vs limit 0.501" is a claim, and the sentence
+// is what shows the claim actually checks out, not just a fail's excuse.
 function renderValidationList(validations) {
     return validations
         .map((v) => {
@@ -534,7 +555,6 @@ function renderValidationList(validations) {
                 : v.passed
                 ? '<span class="chip chip-pass">PASS</span>'
                 : '<span class="chip chip-fail">FAIL</span>';
-            const needsExplanation = notEvaluated || !v.passed;
             return `
         <li class="validation-row ${rowClass}">
             <div class="validation-row-main">
@@ -542,7 +562,7 @@ function renderValidationList(validations) {
                 <span class="validation-item-name">${v.checkName}</span>
                 <span class="validation-item-value">actual <strong>${v.calculatedValue.toFixed(3)}</strong> · limit <strong>${v.limitValue.toFixed(3)}</strong> ${v.unit}${v.usedDefaultLimit ? " *" : ""}</span>
             </div>
-            ${needsExplanation ? `<div class="validation-row-explain">${v.explanation}</div>` : ""}
+            <div class="validation-row-explain">${v.explanation}</div>
         </li>
     `;
         })
@@ -687,7 +707,15 @@ function renderCandidateTable(result) {
     table.querySelectorAll(".candidate-row").forEach((tr) => {
         tr.addEventListener("click", () => {
             const detailRow = table.querySelector(`.detail-row[data-detail-index="${tr.dataset.rowIndex}"]`);
-            if (detailRow) detailRow.hidden = !detailRow.hidden;
+            if (!detailRow) return;
+            const wasHidden = detailRow.hidden;
+            // Accordion, not a pile of open rows - opening one candidate's
+            // detail closes whatever else was open, so the table doesn't
+            // grow into an unreadable wall of expanded sections.
+            table.querySelectorAll(".detail-row").forEach((row) => {
+                row.hidden = true;
+            });
+            detailRow.hidden = !wasHidden;
         });
     });
 }

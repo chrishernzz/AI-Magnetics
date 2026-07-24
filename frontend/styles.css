@@ -448,12 +448,41 @@ body {
     stroke-width: 2;
     stroke-linejoin: round;
     stroke-linecap: round;
+    transition: d 0.25s ease;
+}
+
+.waveform-fill {
+    stroke: none;
+    fill: url(#waveformFillGradient);
+    transition: d 0.25s ease;
 }
 
 .waveform-gridline {
     stroke: var(--line);
     stroke-width: 1;
     stroke-dasharray: 3 3;
+    transition: y1 0.25s ease, y2 0.25s ease;
+}
+
+.waveform-marker {
+    fill: var(--brand-red);
+    stroke: var(--paper);
+    stroke-width: 1.5;
+    transition: cx 0.25s ease, cy 0.25s ease;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: waveform-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes waveform-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.7);
+        opacity: 0.5;
+    }
 }
 
 .waveform-label {

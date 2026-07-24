@@ -234,7 +234,21 @@
                 <div class="waveform-card">
                     <div class="waveform-title">Inductor Current - One Switching Period</div>
                     <p class="waveform-caption">Rises while the switch is on (the duty-cycle fraction of the period) and falls while it's off - drawn from the exact numbers above, at the worst-case Vin Maximum.</p>
-                    <svg id="rippleWaveform" class="waveform-svg" viewBox="0 0 300 90" preserveAspectRatio="none"></svg>
+                    <svg id="rippleWaveform" class="waveform-svg" viewBox="0 0 300 90" preserveAspectRatio="none">
+                        <defs>
+                            <linearGradient id="waveformFillGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" style="stop-color: var(--brand-red); stop-opacity: 0.22"></stop>
+                                <stop offset="100%" style="stop-color: var(--brand-red); stop-opacity: 0"></stop>
+                            </linearGradient>
+                        </defs>
+                        <line id="waveformGridTop" class="waveform-gridline" x1="0" y1="10" x2="300" y2="10"></line>
+                        <line id="waveformGridBottom" class="waveform-gridline" x1="0" y1="80" x2="300" y2="80"></line>
+                        <path id="waveformFill" class="waveform-fill"></path>
+                        <path id="waveformPath" class="waveform-path"></path>
+                        <circle id="waveformMarker" class="waveform-marker" r="3"></circle>
+                        <text id="waveformLabelTop" x="4" y="7" class="waveform-label"></text>
+                        <text id="waveformLabelBottom" x="4" y="77" class="waveform-label"></text>
+                    </svg>
                     <div class="waveform-legend"><span class="legend-dot"></span><span>I<sub>L</sub> at Vin Maximum</span></div>
                 </div>
 
