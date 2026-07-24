@@ -149,6 +149,7 @@ add_executable(magnetics_engine_tests
     tests/cpp/WindingDesignTests.cpp
     tests/cpp/LossTests.cpp
     tests/cpp/GapToleranceTests.cpp
+    tests/cpp/ThermalTests.cpp
 )
 
 target_link_libraries(

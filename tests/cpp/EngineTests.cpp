@@ -9,6 +9,7 @@ void runGapToleranceTests();
 void runValidationTests();
 void runWindingDesignTests();
 void runLossTests();
+void runThermalTests();
 
 int main() {
     //run all tests in sequence (in order). If every assert in every test passes, prints the final sucess line
@@ -20,6 +21,7 @@ int main() {
     runValidationTests();
     runWindingDesignTests();
     runLossTests();
+    runThermalTests();
 
     std::printf("All EngineTests passed.\n");
     return 0;

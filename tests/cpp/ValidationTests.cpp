@@ -164,29 +164,42 @@ void testCurrentDensityValidationConvertsAllowableToAPerMm2() {
 }
 
 //10. ThermalValidation must never report passed=true when thermal.status == NotEvaluated - spec section 10's
-//"never assume missing data equals a pass," exercised directly against today's real evaluateThermal() output.
+//"never assume missing data equals a pass," exercised directly against a real evaluateThermal() call with
+//no known winding geometry (the case that still reports NotEvaluated after the Commit 10 rewrite).
 void testThermalValidationNotEvaluatedIsNeverAPass() {
-    ThermalEvaluationResult thermal = evaluateThermal();
+    DesignRules rules = DesignRules::phase1Default();
+    ThermalIterationInputs inputs;
+    inputs.copperLossGeometryKnown = false;
+    ThermalEvaluationResult thermal = evaluateThermal(inputs, rules);
     ValidationResult result = ThermalValidation(thermal, 40.0);
-    assert(thermal.status == EvaluationStatus::NotEvaluated);
+    assert(thermal.status == ThermalStatus::NotEvaluated);
     assert(!result.passed);
     assert(result.status == EvaluationStatus::NotEvaluated);
+    assert(!result.isPreliminaryEstimate);
     std::printf("testThermalValidationNotEvaluatedIsNeverAPass: ok\n");
 }
 
-//11. When a thermal result IS Evaluated (constructed directly here, since evaluateThermal() itself never
-//produces one in Phase 1), ThermalValidation must compare the real numbers rather than falling back to not_evaluated.
+//11. When a thermal result IS a converged PreliminaryThermalEstimate (a real evaluateThermal() call, not a
+//hand-constructed stand-in), ThermalValidation must compare the real numbers, mark isPreliminaryEstimate,
+//and still report EvaluationStatus::Evaluated - the check genuinely ran and passed/failed.
 void testThermalValidationComparesRealNumbersWhenEvaluated() {
-    ThermalEvaluationResult thermal;
-    thermal.status = EvaluationStatus::Evaluated;
-    thermal.predictedTempRiseC = 25.0;
+    DesignRules rules = DesignRules::phase1Default();
+    ThermalIterationInputs inputs;
+    inputs.ambientTemperatureC = 25.0;
+    inputs.rmsCurrentA = 1.0;
+    inputs.coldDcrOhmsAt20C = 0.01;
+    inputs.copperLossGeometryKnown = true;
+    ThermalEvaluationResult thermal = evaluateThermal(inputs, rules);
+    assert(thermal.status == ThermalStatus::PreliminaryThermalEstimate);
+
     ValidationResult passResult = ThermalValidation(thermal, 40.0);
     assert(passResult.passed);
     assert(passResult.status == EvaluationStatus::Evaluated);
+    assert(passResult.isPreliminaryEstimate);
 
-    thermal.predictedTempRiseC = 55.0;
-    ValidationResult failResult = ThermalValidation(thermal, 40.0);
+    ValidationResult failResult = ThermalValidation(thermal, 0.001);
     assert(!failResult.passed);
+    assert(failResult.isPreliminaryEstimate);
     std::printf("testThermalValidationComparesRealNumbersWhenEvaluated: ok\n");
 }
 

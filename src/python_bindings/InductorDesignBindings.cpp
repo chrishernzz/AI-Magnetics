@@ -265,7 +265,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("unit", &ValidationResult::unit)
         .def_readwrite("explanation", &ValidationResult::explanation)
         .def_readwrite("usedDefaultLimit", &ValidationResult::usedDefaultLimit)
-        .def_readwrite("status", &ValidationResult::status);
+        .def_readwrite("status", &ValidationResult::status)
+        .def_readwrite("isPreliminaryEstimate", &ValidationResult::isPreliminaryEstimate);
 
     py::class_<FluxLimitTiers>(m, "FluxLimitTiers")
         .def(py::init<>())
@@ -337,11 +338,33 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("acLossWattsExplanation", &SkinDepthRiskResult::acLossWattsExplanation);
     m.def("evaluate_skin_depth_risk", &evaluateSkinDepthRisk, "Evaluate the qualitative skin-depth AC-loss risk for a single strand at a given switching frequency");
 
+    py::enum_<ThermalStatus>(m, "ThermalStatus")
+        .value("NotEvaluated", ThermalStatus::NotEvaluated)
+        .value("PreliminaryThermalEstimate", ThermalStatus::PreliminaryThermalEstimate);
+
+    py::class_<ThermalIterationInputs>(m, "ThermalIterationInputs")
+        .def(py::init<>())
+        .def_readwrite("ambientTemperatureC", &ThermalIterationInputs::ambientTemperatureC)
+        .def_readwrite("rmsCurrentA", &ThermalIterationInputs::rmsCurrentA)
+        .def_readwrite("coldDcrOhmsAt20C", &ThermalIterationInputs::coldDcrOhmsAt20C)
+        .def_readwrite("copperLossGeometryKnown", &ThermalIterationInputs::copperLossGeometryKnown)
+        .def_readwrite("coreLossW", &ThermalIterationInputs::coreLossW)
+        .def_readwrite("coreLossKnown", &ThermalIterationInputs::coreLossKnown);
+
     py::class_<ThermalEvaluationResult>(m, "ThermalEvaluationResult")
         .def(py::init<>())
         .def_readwrite("status", &ThermalEvaluationResult::status)
+        .def_readwrite("convergedWindingTempC", &ThermalEvaluationResult::convergedWindingTempC)
+        .def_readwrite("hotDcrOhms", &ThermalEvaluationResult::hotDcrOhms)
+        .def_readwrite("copperLossAtConvergedTempW", &ThermalEvaluationResult::copperLossAtConvergedTempW)
+        .def_readwrite("knownLossW", &ThermalEvaluationResult::knownLossW)
         .def_readwrite("predictedTempRiseC", &ThermalEvaluationResult::predictedTempRiseC)
+        .def_readwrite("predictedHotspotTempC", &ThermalEvaluationResult::predictedHotspotTempC)
+        .def_readwrite("iterationsUsed", &ThermalEvaluationResult::iterationsUsed)
+        .def_readwrite("converged", &ThermalEvaluationResult::converged)
+        .def_readwrite("thermalResistanceCPerWUsed", &ThermalEvaluationResult::thermalResistanceCPerWUsed)
         .def_readwrite("missingDataExplanation", &ThermalEvaluationResult::missingDataExplanation);
+    m.def("evaluate_thermal", &evaluateThermal, "Run the real iterative thermal convergence loop (temp -> hot DCR -> copper loss -> temp rise -> repeat)");
 
     py::class_<RejectionReason>(m, "RejectionReason")
         .def(py::init<>())

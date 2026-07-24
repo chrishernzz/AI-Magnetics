@@ -81,6 +81,7 @@ def _serialize_validation(v) -> dict:
         "explanation": v.explanation,
         "usedDefaultLimit": v.usedDefaultLimit,
         "status": v.status.name,
+        "isPreliminaryEstimate": v.isPreliminaryEstimate,
     }
 
 #precondition: s is a valid SourceInfo object
@@ -245,12 +246,21 @@ def _serialize_skin_depth_risk(s) -> dict:
         "acLossWattsExplanation": s.acLossWattsExplanation,
     }
 
-#precondition: thermal stage has completed and t contains predicted thermal results
-#postcondition: returns a serializable thermal dictionary and status enum is converted to string
+#precondition: thermal stage has completed and t contains the iterative loop's result
+#postcondition: returns a serializable thermal dictionary; status is PreliminaryThermalEstimate at best -
+#see ThermalEvaluation.h for why Phase 1 never produces a fully-evaluated thermal result
 def _serialize_thermal(t) -> dict:
     return {
         "status": t.status.name,
+        "convergedWindingTempC": t.convergedWindingTempC,
+        "hotDcrOhms": t.hotDcrOhms,
+        "copperLossAtConvergedTempW": t.copperLossAtConvergedTempW,
+        "knownLossW": t.knownLossW,
         "predictedTempRiseC": t.predictedTempRiseC,
+        "predictedHotspotTempC": t.predictedHotspotTempC,
+        "iterationsUsed": t.iterationsUsed,
+        "converged": t.converged,
+        "thermalResistanceCPerWUsed": t.thermalResistanceCPerWUsed,
         "missingDataExplanation": t.missingDataExplanation,
     }
 

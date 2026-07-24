@@ -27,4 +27,9 @@ struct ValidationResult {
     //candidate is only blocked by checks that actually ran and failed - a NotEvaluated check is a caveat to surface, not a rejection reason
     //(see InductorDesignService's aggregation).
     EvaluationStatus status = EvaluationStatus::Evaluated;
+
+    //true when this check's numeric result rests on a Phase 1 coarse estimate rather than validated/measured
+    //data (currently: ThermalValidation when thermal.status == PreliminaryThermalEstimate) - status stays
+    //Evaluated (the check DID run and DID pass/fail), this flag is the caveat that it's not a final answer.
+    bool isPreliminaryEstimate = false;
 };

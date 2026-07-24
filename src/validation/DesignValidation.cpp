@@ -134,14 +134,17 @@ ValidationResult CurrentDensityValidation(const WindingDesignResult& winding, co
 }
 
 //precondition: none
-//postcondition: passes only when thermal.status == Evaluated and the predicted rise is within allowableTempRiseC; otherwise not_evaluated (passed=false, never an assumed pass - spec section 10)
+//postcondition: passes only when thermal.status == PreliminaryThermalEstimate and the predicted rise is within allowableTempRiseC;
+//otherwise not_evaluated (passed=false, never an assumed pass - spec section 10). ThermalStatus has no "fully evaluated" value
+//(see ThermalEvaluation.h), so a passing result here always carries isPreliminaryEstimate=true - the numeric check genuinely
+//ran and passed/failed, but rests on a Phase 1 coarse thermal-resistance constant, never per-core measured/simulated data.
 ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, double allowableTempRiseC) {
     ValidationResult result;
     result.checkName = "ThermalValidation";
     result.unit = "C";
     result.limitValue = allowableTempRiseC;
 
-    if (thermal.status != EvaluationStatus::Evaluated) {
+    if (thermal.status != ThermalStatus::PreliminaryThermalEstimate) {
         result.calculatedValue = 0.0;
         result.passed = false;
         result.status = EvaluationStatus::NotEvaluated;
@@ -151,7 +154,10 @@ ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, doubl
 
     result.calculatedValue = thermal.predictedTempRiseC;
     result.passed = thermal.predictedTempRiseC <= allowableTempRiseC;
-    result.explanation = "predicted temperature rise " + std::to_string(thermal.predictedTempRiseC) + " C vs allowable " + std::to_string(allowableTempRiseC) + " C";
+    result.isPreliminaryEstimate = true;
+    result.explanation = "predicted temperature rise " + std::to_string(thermal.predictedTempRiseC) + " C vs allowable " +
+                          std::to_string(allowableTempRiseC) + " C (preliminary estimate: Rth=" +
+                          std::to_string(thermal.thermalResistanceCPerWUsed) + " C/W is a Phase 1 default, not per-core measured data)";
     return result;
 }
 
