@@ -51,7 +51,7 @@ set(CORE_SOURCES
     src/core/winding/WindingDesign.cpp
     src/core/losses/CopperLoss.cpp
     src/core/losses/CoreLoss.cpp
-    src/core/losses/HighFrequencyLosses.cpp
+    src/core/losses/SkinDepthRisk.cpp
     src/core/losses/LossEvaluation.cpp
     src/core/thermal/ThermalEvaluation.cpp
 )

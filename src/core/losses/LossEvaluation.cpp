@@ -64,13 +64,15 @@ LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const Cor
 
             result.coreLossStatus = EvaluationStatus::Evaluated;
             result.coreLossW = coreLossDensityWPerM3 * coreVolumeM3;
+
+            result.coreLossMaterialUsed = material.materialFamily;
+            result.coreLossCoefficientMinFreqHz = lookup.coefficients.minFreqHz;
+            result.coreLossCoefficientMaxFreqHz = lookup.coefficients.maxFreqHz;
+            result.coreLossFluxDensitySwingT = fluxDensitySwingT;
+            result.coreLossVolumeM3 = coreVolumeM3;
+            result.coreLossDensityWPerM3 = coreLossDensityWPerM3;
         }
     }
-
-    // Skin/proximity (high-frequency) loss: not implemented in Phase 1.
-    result.highFrequencyLossStatus = EvaluationStatus::NotEvaluated;
-    result.missingData.push_back(
-        "high-frequency (skin/proximity) loss model is not implemented in Phase 1");
 
     return result;
 }

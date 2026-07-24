@@ -11,24 +11,30 @@
 /*
 
 STAGE 8: Loss evaluation
-Orchestrates CopperLoss (Stage A), CoreLoss (Stage B), and
-HighFrequencyLosses - each stays a focused module, called from here
-rather than merged together (spec section 12). Every loss the required
-data doesn't support is reported not_evaluated, never silently as 0 W.
+Orchestrates CopperLoss (Stage A) and CoreLoss (Stage B) - each stays a focused module, called from here
+rather than merged together (spec section 12). Every loss the required data doesn't support is reported
+not_evaluated, never silently as 0 W. Skin-depth AC-loss risk is a separate, qualitative-only concern -
+see core/losses/SkinDepthRisk.h - not a watts figure alongside these two, so it is not a field here.
 
 */
 struct LossEvaluationResult {
     EvaluationStatus copperLossStatus = EvaluationStatus::NotEvaluated;
     //valid only when copperLossStatus == Evaluated
-    double copperLossW = 0.0;  
+    double copperLossW = 0.0;
 
     EvaluationStatus coreLossStatus = EvaluationStatus::NotEvaluated;
     //valid only when coreLossStatus == Evaluated
-    double coreLossW = 0.0;  
+    double coreLossW = 0.0;
 
-    EvaluationStatus highFrequencyLossStatus = EvaluationStatus::NotEvaluated;
-    //valid only when coreLossStatus == Evaluated
-    double highFrequencyLossW = 0.0;
+    //--- Core-loss detail (spec section 7) - surfaces what was already computed internally but never exposed.
+    //All valid only when coreLossStatus == Evaluated.
+    std::string coreLossMaterialUsed;
+    //the matched coefficient row's own declared valid frequency range - not the requested switching frequency.
+    double coreLossCoefficientMinFreqHz = 0.0;
+    double coreLossCoefficientMaxFreqHz = 0.0;
+    double coreLossFluxDensitySwingT = 0.0;
+    double coreLossVolumeM3 = 0.0;
+    double coreLossDensityWPerM3 = 0.0;
 
     std::vector<std::string> missingData;
 };
@@ -37,9 +43,9 @@ struct LossEvaluationResult {
 //postcondition: computes DC copper loss only when winding.resistanceStatus == Evaluated (uses rmsCurrentA, never peak current). Computes core
 //loss only when rippleCurrentPeakToPeakA is supplied AND findCoreLossCoefficients() finds a real coefficient row for this material/frequency -
 //flux-density swing is computed as Bswing = calculatedInductanceH * ripplePkPkA / (turns * Ae_m2), the same peak-flux relationship
-//PeakFluxValidation uses, but driven by the ripple current rather than peak current. High-frequency (skin/proximity) loss is always
-//not_evaluated in Phase 1 - no model implemented. See docs/FORMULAS.md section 9 for the full explanation, including why no ripple data means
-//no core-loss number (Option 1: never approximate Bswing from peak flux).
+//PeakFluxValidation uses, but driven by the ripple current rather than peak current. See docs/FORMULAS.md section 9 for the full explanation,
+//including why no ripple data means no core-loss number (Option 1: never approximate Bswing from peak flux). Skin-depth AC-loss risk is
+//evaluated separately by the caller - see core/losses/SkinDepthRisk.h - not part of this function.
 LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const CoreCandidate& core, const TurnsAndGapResult& turnsAndGap,
                                      const WindingDesignResult& winding, double rmsCurrentA, double switchingFreqHz,
                                      const std::optional<double>& rippleCurrentPeakToPeakA);

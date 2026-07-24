@@ -8,6 +8,7 @@
 #include "core/thermal/ThermalEvaluation.h"
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/winding/WindingDesign.h"
+#include "core/losses/SkinDepthRisk.h"
 #include "validation/Validation.h"
 #include "validation/DesignValidation.h"
 
@@ -37,4 +38,8 @@ struct InductorCandidate {
     //informational flux-limit breakdown for this candidate's material - see DesignValidation.h. Does not change
     //what PeakFluxValidation/SaturationValidation pass/fail on; those two checks remain the actual gate.
     FluxLimitTiers fluxLimits;
+
+    //qualitative skin-depth AC-loss risk for the selected winding - see SkinDepthRisk.h. Not itself a gate in
+    //Phase 1, though a High risk level factors into the 3-tier recommendation classification.
+    SkinDepthRiskResult acLossRisk;
 };

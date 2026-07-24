@@ -8,6 +8,7 @@
 #include "core/thermal/ThermalEvaluation.h"
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/winding/WindingDesign.h"
+#include "core/losses/SkinDepthRisk.h"
 #include "rules/DesignRules.h"
 #include "validation/DesignValidation.h"
 #include "RequirementDerivationService.h"
@@ -37,6 +38,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     candidate.thermal = evaluateThermal();
     candidate.losses = evaluateLosses(material, core, candidate.turnsAndGap, candidate.winding, requirements.operatingPoint.rmsCurrentA,
                                        requirements.operatingPoint.switchingFreqHz, requirements.operatingPoint.rippleCurrentPeakToPeakA);
+    candidate.acLossRisk = evaluateSkinDepthRisk(requirements.operatingPoint.switchingFreqHz, candidate.winding.conductorAreaMm2, rules);
 
     candidate.validations = {
         InductanceValidation(candidate.turnsAndGap, requirements.inductanceTolerancePercent),

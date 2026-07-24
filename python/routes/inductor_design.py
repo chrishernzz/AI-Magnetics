@@ -215,7 +215,7 @@ def _serialize_winding(w) -> dict:
         "estimatedHotDcrOhms": w.estimatedHotDcrOhms,
     }
 
-#precondition: loss calculations have completed and l contains copper, core, and hf losses
+#precondition: loss calculations have completed and l contains copper and core losses
 #postcondition: returns a serializable loss dictionary and status enums are converted to strings
 def _serialize_losses(l) -> dict:
     return {
@@ -223,9 +223,26 @@ def _serialize_losses(l) -> dict:
         "copperLossW": l.copperLossW,
         "coreLossStatus": l.coreLossStatus.name,
         "coreLossW": l.coreLossW,
-        "highFrequencyLossStatus": l.highFrequencyLossStatus.name,
-        "highFrequencyLossW": l.highFrequencyLossW,
+        "coreLossMaterialUsed": l.coreLossMaterialUsed,
+        "coreLossCoefficientMinFreqHz": l.coreLossCoefficientMinFreqHz,
+        "coreLossCoefficientMaxFreqHz": l.coreLossCoefficientMaxFreqHz,
+        "coreLossFluxDensitySwingT": l.coreLossFluxDensitySwingT,
+        "coreLossVolumeM3": l.coreLossVolumeM3,
+        "coreLossDensityWPerM3": l.coreLossDensityWPerM3,
         "missingData": list(l.missingData),
+    }
+
+#precondition: s is a valid SkinDepthRiskResult object
+#postcondition: returns a serializable skin-depth-risk dictionary; acLossWattsStatus is always NotEvaluated in Phase 1 - see SkinDepthRisk.h
+def _serialize_skin_depth_risk(s) -> dict:
+    return {
+        "skinDepthMm": s.skinDepthMm,
+        "strandRadiusMm": s.strandRadiusMm,
+        "radiusToSkinDepthRatio": s.radiusToSkinDepthRatio,
+        "riskLevel": s.riskLevel.name,
+        "reason": s.reason,
+        "acLossWattsStatus": s.acLossWattsStatus.name,
+        "acLossWattsExplanation": s.acLossWattsExplanation,
     }
 
 #precondition: thermal stage has completed and t contains predicted thermal results
@@ -270,6 +287,7 @@ def _serialize_candidate(c) -> dict:
         "rejectionReasons": [_serialize_rejection(r) for r in c.rejectionReasons],
         "hardwareValidation": _serialize_hardware_validation(c.hardwareValidation),
         "fluxLimits": _serialize_flux_limit_tiers(c.fluxLimits),
+        "acLossRisk": _serialize_skin_depth_risk(c.acLossRisk),
     }
 
 #precondition: r contains valid design rule values and rule configuration has been loaded

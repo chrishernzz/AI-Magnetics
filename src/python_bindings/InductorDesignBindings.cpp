@@ -17,6 +17,7 @@
 #include "core/winding/WindingDesign.h"
 #include "core/winding/WindingConstructionType.h"
 #include "core/losses/CoreLoss.h"
+#include "core/losses/SkinDepthRisk.h"
 #include "core/magnetics/GapMethod.h"
 #include "core/model/Provenance.h"
 #include "core/model/HardwareValidation.h"
@@ -312,9 +313,29 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("copperLossW", &LossEvaluationResult::copperLossW)
         .def_readwrite("coreLossStatus", &LossEvaluationResult::coreLossStatus)
         .def_readwrite("coreLossW", &LossEvaluationResult::coreLossW)
-        .def_readwrite("highFrequencyLossStatus", &LossEvaluationResult::highFrequencyLossStatus)
-        .def_readwrite("highFrequencyLossW", &LossEvaluationResult::highFrequencyLossW)
+        .def_readwrite("coreLossMaterialUsed", &LossEvaluationResult::coreLossMaterialUsed)
+        .def_readwrite("coreLossCoefficientMinFreqHz", &LossEvaluationResult::coreLossCoefficientMinFreqHz)
+        .def_readwrite("coreLossCoefficientMaxFreqHz", &LossEvaluationResult::coreLossCoefficientMaxFreqHz)
+        .def_readwrite("coreLossFluxDensitySwingT", &LossEvaluationResult::coreLossFluxDensitySwingT)
+        .def_readwrite("coreLossVolumeM3", &LossEvaluationResult::coreLossVolumeM3)
+        .def_readwrite("coreLossDensityWPerM3", &LossEvaluationResult::coreLossDensityWPerM3)
         .def_readwrite("missingData", &LossEvaluationResult::missingData);
+
+    py::enum_<AcLossRiskLevel>(m, "AcLossRiskLevel")
+        .value("Low", AcLossRiskLevel::Low)
+        .value("Moderate", AcLossRiskLevel::Moderate)
+        .value("High", AcLossRiskLevel::High);
+
+    py::class_<SkinDepthRiskResult>(m, "SkinDepthRiskResult")
+        .def(py::init<>())
+        .def_readwrite("skinDepthMm", &SkinDepthRiskResult::skinDepthMm)
+        .def_readwrite("strandRadiusMm", &SkinDepthRiskResult::strandRadiusMm)
+        .def_readwrite("radiusToSkinDepthRatio", &SkinDepthRiskResult::radiusToSkinDepthRatio)
+        .def_readwrite("riskLevel", &SkinDepthRiskResult::riskLevel)
+        .def_readwrite("reason", &SkinDepthRiskResult::reason)
+        .def_readwrite("acLossWattsStatus", &SkinDepthRiskResult::acLossWattsStatus)
+        .def_readwrite("acLossWattsExplanation", &SkinDepthRiskResult::acLossWattsExplanation);
+    m.def("evaluate_skin_depth_risk", &evaluateSkinDepthRisk, "Evaluate the qualitative skin-depth AC-loss risk for a single strand at a given switching frequency");
 
     py::class_<ThermalEvaluationResult>(m, "ThermalEvaluationResult")
         .def(py::init<>())
@@ -339,7 +360,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("passed", &InductorCandidate::passed)
         .def_readwrite("rejectionReasons", &InductorCandidate::rejectionReasons)
         .def_readwrite("hardwareValidation", &InductorCandidate::hardwareValidation)
-        .def_readwrite("fluxLimits", &InductorCandidate::fluxLimits);
+        .def_readwrite("fluxLimits", &InductorCandidate::fluxLimits)
+        .def_readwrite("acLossRisk", &InductorCandidate::acLossRisk);
 
     py::class_<DesignRecommendation>(m, "DesignRecommendation")
         .def(py::init<>())
