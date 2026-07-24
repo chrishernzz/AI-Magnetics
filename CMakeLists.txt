@@ -58,6 +58,7 @@ set(CORE_SOURCES
 
 set(VALIDATION_SOURCES
     src/validation/DesignValidation.cpp
+    src/validation/RecommendationStatus.cpp
 )
 
 set(RULES_SOURCES
@@ -85,6 +86,7 @@ set(BACKEND_SERVICE_SOURCES
     src/backend/services/RequirementDerivationService.cpp
     src/backend/services/InductorDesignService.cpp
     src/backend/services/BuckElectricalSolver.cpp
+    src/backend/services/RankingExplanationService.cpp
 )
 
 add_library(

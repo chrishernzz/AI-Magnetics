@@ -1,5 +1,7 @@
 #include "InductorDesignService.h"
 #include <algorithm>
+#include <limits>
+#include <string>
 #include <unordered_map>
 #include "core/sizing/AreaProduct.h"
 #include "core/sizing/CoreEvaluation.h"
@@ -11,11 +13,34 @@
 #include "core/losses/SkinDepthRisk.h"
 #include "rules/DesignRules.h"
 #include "validation/DesignValidation.h"
+#include "validation/RecommendationStatus.h"
 #include "RequirementDerivationService.h"
 #include "core/units/UnitConversions.h"
+#include "backend/services/RankingExplanationService.h"
 
 //lets us reuse the function throughout the file without having to prefix it with the namespace
 namespace {
+
+//precondition: none
+//postcondition: sum of copper + core loss for whichever of the two are Evaluated - never presented as a
+//complete total (spec section 11) since AC-loss watts is never Evaluated in Phase 1 - see LossSummary.h.
+LossSummary buildLossSummary(const LossEvaluationResult& losses) {
+    LossSummary summary;
+    std::string components;
+    if (losses.copperLossStatus == EvaluationStatus::Evaluated) {
+        summary.knownEvaluatedLossW += losses.copperLossW;
+        components += "copper";
+    }
+    if (losses.coreLossStatus == EvaluationStatus::Evaluated) {
+        summary.knownEvaluatedLossW += losses.coreLossW;
+        components += components.empty() ? "core" : "+core";
+    }
+    summary.isCompleteTotal = false;
+    summary.label = components.empty()
+        ? "Known Evaluated Loss: no loss components evaluated"
+        : "Known Evaluated Loss (" + components + " - partial coverage, AC/skin-effect loss not modeled)";
+    return summary;
+}
 
 InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCandidate& material, const InductorRequirements& requirements, const DesignRules& rules) {
     InductorCandidate candidate;
@@ -28,6 +53,8 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
 
     if (!candidate.turnsAndGap.converged) {
         candidate.passed = false;
+        candidate.recommendation.tier = RecommendationTier::Rejected;
+        candidate.recommendation.explanation = "rejected: turns/gap design did not converge - no further evaluation performed";
         for (const auto& reason : candidate.turnsAndGap.rejectionReasons) {
             candidate.rejectionReasons.push_back({"TurnsAndGapDesign", reason});
         }
@@ -84,27 +111,93 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
         }
     }
 
+    candidate.recommendation = classifyRecommendation(candidate.passed, candidate.validations, candidate.acLossRisk);
+    candidate.lossSummary = buildLossSummary(candidate.losses);
+
+    // Manufacturability margin (spec section 11): a documented simple composite of the two concrete
+    // manufacturability signals this pipeline actually produces - physical-fill headroom against
+    // rules.maximumFillFactor, and a fixed penalty when the calculated gap triggered the
+    // small-gap manufacturability warning (TurnsAndGapDesign.h). Not a validated single-number metric.
+    double fillHeadroomPercent = rules.maximumFillFactor > 0.0
+        ? 100.0 * (rules.maximumFillFactor - candidate.winding.physicalWindowFillFactor) / rules.maximumFillFactor
+        : 0.0;
+    double smallGapPenaltyPercent = candidate.turnsAndGap.smallGapWarning ? 25.0 : 0.0;
+    candidate.manufacturabilityMarginPercent = fillHeadroomPercent - smallGapPenaltyPercent;
+
+    candidate.rankingExplanation = explainRanking(candidate);
+
     return candidate;
 }
 
-//precondition: none
-//postcondition: sum of copper + core loss for whichever of the two are Evaluated - candidates missing both loss numbers get 0.0 here, but callers must check hasAnyLossData() first rather than treating that 0.0 as "zero loss"
-double totalKnownLossW(const InductorCandidate& candidate) {
-    double loss = 0.0;
-    if (candidate.losses.copperLossStatus == EvaluationStatus::Evaluated) {
-        loss += candidate.losses.copperLossW;
+//precondition: candidate.validations was built with InductanceValidation/PeakFluxValidation/SaturationValidation/
+//WindingFitValidation/CurrentDensityValidation/ThermalValidation, in that order (see evaluateCandidate())
+//postcondition: returns a pointer to the named check, or nullptr if not found (defensive - never crashes on a mismatch)
+const ValidationResult* findValidation(const InductorCandidate& candidate, const char* checkName) {
+    for (const auto& v : candidate.validations) {
+        if (v.checkName == checkName) {
+            return &v;
+        }
     }
-    if (candidate.losses.coreLossStatus == EvaluationStatus::Evaluated) {
-        loss += candidate.losses.coreLossW;
-    }
-    return loss;
+    return nullptr;
 }
 
 //precondition: none
-//postcondition: true if at least one of copper/core loss is a real, Evaluated number for this candidate
-bool hasAnyLossData(const InductorCandidate& candidate) {
-    return candidate.losses.copperLossStatus == EvaluationStatus::Evaluated ||
-           candidate.losses.coreLossStatus == EvaluationStatus::Evaluated;
+//postcondition: lower-is-better ranking value for predicted temperature rise; a not_evaluated thermal result
+//ranks as the worst possible (never as if it were a benign 0C rise).
+double thermalRiseForRanking(const InductorCandidate& candidate) {
+    const ValidationResult* v = findValidation(candidate, "ThermalValidation");
+    if (v == nullptr || v->status != EvaluationStatus::Evaluated) {
+        return std::numeric_limits<double>::max();
+    }
+    return v->calculatedValue;
+}
+
+//precondition: none
+//postcondition: higher-is-better ranking value (limit - actual) for the named check; a not_evaluated check
+//ranks as the worst possible (never as if it had unlimited margin).
+double marginForRanking(const InductorCandidate& candidate, const char* checkName, bool actualIsTheMargin) {
+    const ValidationResult* v = findValidation(candidate, checkName);
+    if (v == nullptr || v->status != EvaluationStatus::Evaluated) {
+        return -std::numeric_limits<double>::max();
+    }
+    return actualIsTheMargin ? v->calculatedValue : (v->limitValue - v->calculatedValue);
+}
+
+//precondition: recommendation.candidates only ever contains passed==true candidates (see run()'s split below),
+//so tier here is always Phase1Recommended or PreliminaryCandidate, never Rejected - the tier comparison is
+//still real and future-proofed, it simply currently has nothing to differentiate (Phase1Recommended is
+//unreachable today - see RecommendationStatus.h) and falls straight through to the finer-grained tiebreakers,
+//which is where real differentiation actually happens in the current dataset.
+//postcondition: true if a should rank strictly ahead of b
+bool candidateRanksAhead(const InductorCandidate& a, const InductorCandidate& b) {
+    if (a.recommendation.tier != b.recommendation.tier) {
+        return static_cast<int>(a.recommendation.tier) < static_cast<int>(b.recommendation.tier);
+    }
+    if (a.lossSummary.knownEvaluatedLossW != b.lossSummary.knownEvaluatedLossW) {
+        return a.lossSummary.knownEvaluatedLossW < b.lossSummary.knownEvaluatedLossW;
+    }
+    double riseA = thermalRiseForRanking(a);
+    double riseB = thermalRiseForRanking(b);
+    if (riseA != riseB) {
+        return riseA < riseB;
+    }
+    if (a.manufacturabilityMarginPercent != b.manufacturabilityMarginPercent) {
+        return a.manufacturabilityMarginPercent > b.manufacturabilityMarginPercent;
+    }
+    double satA = marginForRanking(a, "SaturationValidation", true);
+    double satB = marginForRanking(b, "SaturationValidation", true);
+    if (satA != satB) {
+        return satA > satB;
+    }
+    double cdA = marginForRanking(a, "CurrentDensityValidation", false);
+    double cdB = marginForRanking(b, "CurrentDensityValidation", false);
+    if (cdA != cdB) {
+        return cdA > cdB;
+    }
+    if (a.core.areaProductCm4 != b.core.areaProductCm4) {
+        return a.core.areaProductCm4 < b.core.areaProductCm4;
+    }
+    return a.core.partNumber < b.core.partNumber;  // deterministic final tiebreak
 }
 
 }  // namespace
@@ -184,29 +277,11 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
         }
     }
 
-    //v1 optimization layer: rank by real total loss (copper + core, whichever are Evaluated) first - this is the actual
-    //"Optimization" half of "Physics-Based Calculation and Optimization" (the roadmap's Option 2), not just a size sort.
-    //Core-loss coverage is real but partial (only materials with validated Steinmetz coefficients, and only when the
-    //request supplied ripple current), so mixing "loss including core loss" against "loss without it" into one number
-    //would silently bias against candidates that simply have more real data than others. Instead: candidates with any
-    //real loss data are ranked ahead of candidates with none, sorted by known loss among themselves; candidates with no
-    //loss data at all fall back to the old area-product-only comparison, and area product is always the tiebreaker.
-    std::stable_sort(recommendation.candidates.begin(), recommendation.candidates.end(),
-                      [](const InductorCandidate& a, const InductorCandidate& b) {
-                          bool aHasLoss = hasAnyLossData(a);
-                          bool bHasLoss = hasAnyLossData(b);
-                          if (aHasLoss != bHasLoss) {
-                              return aHasLoss;  // real loss data ranks ahead of none
-                          }
-                          if (aHasLoss && bHasLoss) {
-                              double lossA = totalKnownLossW(a);
-                              double lossB = totalKnownLossW(b);
-                              if (lossA != lossB) {
-                                  return lossA < lossB;
-                              }
-                          }
-                          return a.core.areaProductCm4 < b.core.areaProductCm4;
-                      });
+    //Optimization layer (spec sections 10-11): rank by 3-tier recommendation classification first (see
+    //RecommendationStatus.h), then within a tier by known evaluated loss, predicted temperature rise,
+    //manufacturability margin, saturation margin, current-density margin, area product, and finally part
+    //number as a deterministic final tiebreak - see candidateRanksAhead() above for the full comparator.
+    std::stable_sort(recommendation.candidates.begin(), recommendation.candidates.end(), candidateRanksAhead);
 
     if (recommendation.candidates.empty()) {
         recommendation.status = "no_feasible_design";

@@ -246,6 +246,28 @@ def _serialize_skin_depth_risk(s) -> dict:
         "acLossWattsExplanation": s.acLossWattsExplanation,
     }
 
+#precondition: r is a valid RecommendationClassification object
+#postcondition: returns a serializable recommendation dictionary; tier enum is converted to string
+def _serialize_recommendation(r) -> dict:
+    return {
+        "tier": r.tier.name,
+        "checksEvaluatedCount": r.checksEvaluatedCount,
+        "checksPassedCount": r.checksPassedCount,
+        "checksFailedCount": r.checksFailedCount,
+        "checksNotEvaluatedCount": r.checksNotEvaluatedCount,
+        "missingInfo": list(r.missingInfo),
+        "explanation": r.explanation,
+    }
+
+#precondition: l is a valid LossSummary object
+#postcondition: returns a serializable loss-summary dictionary; isCompleteTotal is always False in Phase 1 - see LossSummary.h
+def _serialize_loss_summary(l) -> dict:
+    return {
+        "knownEvaluatedLossW": l.knownEvaluatedLossW,
+        "isCompleteTotal": l.isCompleteTotal,
+        "label": l.label,
+    }
+
 #precondition: thermal stage has completed and t contains the iterative loop's result
 #postcondition: returns a serializable thermal dictionary; status is PreliminaryThermalEstimate at best -
 #see ThermalEvaluation.h for why Phase 1 never produces a fully-evaluated thermal result
@@ -298,6 +320,10 @@ def _serialize_candidate(c) -> dict:
         "hardwareValidation": _serialize_hardware_validation(c.hardwareValidation),
         "fluxLimits": _serialize_flux_limit_tiers(c.fluxLimits),
         "acLossRisk": _serialize_skin_depth_risk(c.acLossRisk),
+        "recommendation": _serialize_recommendation(c.recommendation),
+        "lossSummary": _serialize_loss_summary(c.lossSummary),
+        "manufacturabilityMarginPercent": c.manufacturabilityMarginPercent,
+        "rankingExplanation": c.rankingExplanation,
     }
 
 #precondition: r contains valid design rule values and rule configuration has been loaded

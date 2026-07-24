@@ -1,9 +1,25 @@
 #include <cassert>
 #include <cstdio>
+#include <vector>
 #include "TestHelpers.h"
 #include "validation/DesignValidation.h"
+#include "validation/RecommendationStatus.h"
 
 namespace {
+
+ValidationResult passingCheck(const char* name) {
+    ValidationResult v;
+    v.checkName = name;
+    v.passed = true;
+    v.status = EvaluationStatus::Evaluated;
+    return v;
+}
+
+SkinDepthRiskResult lowRisk() {
+    SkinDepthRiskResult r;
+    r.riskLevel = AcLossRiskLevel::Low;
+    return r;
+}
 
 MaterialCandidate materialWithBmax(double bmaxT) {
     MaterialCandidate material;
@@ -203,6 +219,79 @@ void testThermalValidationComparesRealNumbersWhenEvaluated() {
     std::printf("testThermalValidationComparesRealNumbersWhenEvaluated: ok\n");
 }
 
+//12. classifyRecommendation's tier must always mirror passed==false as Rejected, regardless of what the
+//validations themselves say - it never overrides the existing pass/fail decision.
+void testClassifyRecommendationRejectedMirrorsPassedFalse() {
+    std::vector<ValidationResult> validations = {passingCheck("A"), passingCheck("B")};
+    RecommendationClassification result = classifyRecommendation(false, validations, lowRisk());
+    assert(result.tier == RecommendationTier::Rejected);
+    std::printf("testClassifyRecommendationRejectedMirrorsPassedFalse: ok\n");
+}
+
+//13. A passed candidate with any not_evaluated check must cap at PreliminaryCandidate, and that check must
+//be named in missingInfo.
+void testClassifyRecommendationPreliminaryWhenAnyCheckNotEvaluated() {
+    ValidationResult notEvaluated;
+    notEvaluated.checkName = "ThermalValidation";
+    notEvaluated.status = EvaluationStatus::NotEvaluated;
+    notEvaluated.explanation = "no thermal data";
+    std::vector<ValidationResult> validations = {passingCheck("A"), notEvaluated};
+
+    RecommendationClassification result = classifyRecommendation(true, validations, lowRisk());
+    assert(result.tier == RecommendationTier::PreliminaryCandidate);
+    assert(result.checksNotEvaluatedCount == 1);
+    assert(result.checksEvaluatedCount == 1);
+    assert(result.missingInfo.size() == 1);
+    std::printf("testClassifyRecommendationPreliminaryWhenAnyCheckNotEvaluated: %s\n", result.explanation.c_str());
+}
+
+//14. A passed candidate where every check evaluated and passed, but one is flagged isPreliminaryEstimate
+//(the real ThermalValidation case), must still cap at PreliminaryCandidate - a real pass/fail on a coarse
+//estimate is not the same as a real pass/fail on validated data.
+void testClassifyRecommendationPreliminaryWhenAnyPreliminaryEstimate() {
+    ValidationResult preliminary = passingCheck("ThermalValidation");
+    preliminary.isPreliminaryEstimate = true;
+    std::vector<ValidationResult> validations = {passingCheck("A"), preliminary};
+
+    RecommendationClassification result = classifyRecommendation(true, validations, lowRisk());
+    assert(result.tier == RecommendationTier::PreliminaryCandidate);
+    assert(result.checksNotEvaluatedCount == 0);
+    std::printf("testClassifyRecommendationPreliminaryWhenAnyPreliminaryEstimate: %s\n", result.explanation.c_str());
+}
+
+//15. A passed candidate with an otherwise-clean check list must still cap at PreliminaryCandidate when
+//AC-loss risk is Moderate or High - never silently ignored just because every OTHER check passed cleanly.
+void testClassifyRecommendationPreliminaryWhenAcRiskModerateOrHigh() {
+    std::vector<ValidationResult> validations = {passingCheck("A"), passingCheck("B")};
+
+    SkinDepthRiskResult moderate;
+    moderate.riskLevel = AcLossRiskLevel::Moderate;
+    RecommendationClassification moderateResult = classifyRecommendation(true, validations, moderate);
+    assert(moderateResult.tier == RecommendationTier::PreliminaryCandidate);
+
+    SkinDepthRiskResult high;
+    high.riskLevel = AcLossRiskLevel::High;
+    RecommendationClassification highResult = classifyRecommendation(true, validations, high);
+    assert(highResult.tier == RecommendationTier::PreliminaryCandidate);
+    std::printf("testClassifyRecommendationPreliminaryWhenAcRiskModerateOrHigh: ok\n");
+}
+
+//16. Only when passed, every check Evaluated+passed+non-preliminary, AND AC-loss risk is Low does
+//classifyRecommendation itself produce Phase1Recommended - this is a pure unit test of the classifier
+//function in isolation. In the actual pipeline this tier is currently unreachable because ThermalValidation
+//always sets isPreliminaryEstimate=true (see RecommendationStatus.h) - that is an integration-level fact
+//about today's data, not a bug in this function, which correctly reaches the top tier when given
+//consistent, ideal inputs.
+void testClassifyRecommendationPhase1RecommendedWhenEverythingClean() {
+    std::vector<ValidationResult> validations = {passingCheck("A"), passingCheck("B"), passingCheck("C")};
+    RecommendationClassification result = classifyRecommendation(true, validations, lowRisk());
+    assert(result.tier == RecommendationTier::Phase1Recommended);
+    assert(result.checksEvaluatedCount == 3);
+    assert(result.checksPassedCount == 3);
+    assert(result.checksFailedCount == 0);
+    std::printf("testClassifyRecommendationPhase1RecommendedWhenEverythingClean: %s\n", result.explanation.c_str());
+}
+
 }  // namespace
 
 void runValidationTests() {
@@ -217,5 +306,10 @@ void runValidationTests() {
     testCurrentDensityValidationConvertsAllowableToAPerMm2();
     testThermalValidationNotEvaluatedIsNeverAPass();
     testThermalValidationComparesRealNumbersWhenEvaluated();
+    testClassifyRecommendationRejectedMirrorsPassedFalse();
+    testClassifyRecommendationPreliminaryWhenAnyCheckNotEvaluated();
+    testClassifyRecommendationPreliminaryWhenAnyPreliminaryEstimate();
+    testClassifyRecommendationPreliminaryWhenAcRiskModerateOrHigh();
+    testClassifyRecommendationPhase1RecommendedWhenEverythingClean();
     std::printf("All ValidationTests passed.\n");
 }

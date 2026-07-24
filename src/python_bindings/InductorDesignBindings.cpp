@@ -29,6 +29,8 @@
 #include "validation/EvaluationStatus.h"
 #include "validation/Validation.h"
 #include "validation/DesignValidation.h"
+#include "validation/RecommendationStatus.h"
+#include "core/model/LossSummary.h"
 
 namespace py = pybind11;
 
@@ -371,6 +373,28 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("checkName", &RejectionReason::checkName)
         .def_readwrite("explanation", &RejectionReason::explanation);
 
+    py::enum_<RecommendationTier>(m, "RecommendationTier")
+        .value("Phase1Recommended", RecommendationTier::Phase1Recommended)
+        .value("PreliminaryCandidate", RecommendationTier::PreliminaryCandidate)
+        .value("Rejected", RecommendationTier::Rejected);
+
+    py::class_<RecommendationClassification>(m, "RecommendationClassification")
+        .def(py::init<>())
+        .def_readwrite("tier", &RecommendationClassification::tier)
+        .def_readwrite("checksEvaluatedCount", &RecommendationClassification::checksEvaluatedCount)
+        .def_readwrite("checksPassedCount", &RecommendationClassification::checksPassedCount)
+        .def_readwrite("checksFailedCount", &RecommendationClassification::checksFailedCount)
+        .def_readwrite("checksNotEvaluatedCount", &RecommendationClassification::checksNotEvaluatedCount)
+        .def_readwrite("missingInfo", &RecommendationClassification::missingInfo)
+        .def_readwrite("explanation", &RecommendationClassification::explanation);
+    m.def("classify_recommendation", &classifyRecommendation, "Classify a candidate into the 3-tier Phase1Recommended/PreliminaryCandidate/Rejected recommendation status");
+
+    py::class_<LossSummary>(m, "LossSummary")
+        .def(py::init<>())
+        .def_readwrite("knownEvaluatedLossW", &LossSummary::knownEvaluatedLossW)
+        .def_readwrite("isCompleteTotal", &LossSummary::isCompleteTotal)
+        .def_readwrite("label", &LossSummary::label);
+
     py::class_<InductorCandidate>(m, "InductorCandidate")
         .def(py::init<>())
         .def_readwrite("material", &InductorCandidate::material)
@@ -384,7 +408,11 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("rejectionReasons", &InductorCandidate::rejectionReasons)
         .def_readwrite("hardwareValidation", &InductorCandidate::hardwareValidation)
         .def_readwrite("fluxLimits", &InductorCandidate::fluxLimits)
-        .def_readwrite("acLossRisk", &InductorCandidate::acLossRisk);
+        .def_readwrite("acLossRisk", &InductorCandidate::acLossRisk)
+        .def_readwrite("recommendation", &InductorCandidate::recommendation)
+        .def_readwrite("lossSummary", &InductorCandidate::lossSummary)
+        .def_readwrite("manufacturabilityMarginPercent", &InductorCandidate::manufacturabilityMarginPercent)
+        .def_readwrite("rankingExplanation", &InductorCandidate::rankingExplanation);
 
     py::class_<DesignRecommendation>(m, "DesignRecommendation")
         .def(py::init<>())
