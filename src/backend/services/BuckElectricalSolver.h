@@ -20,10 +20,7 @@ than silently assumed away.
 */
 class BuckElectricalSolver {
 public:
-    //throws std::invalid_argument if input.topology != Topology::Buck, or
-    //if the electrical inputs are not physically valid (vinMaxV <= voutV,
-    //any of vinMinV/vinMaxV/ioutA/switchingFreqKHz/rippleCurrentPercent
-    //not positive, or vinMinV > vinMaxV) - never divides by zero or
-    //returns a negative/NaN inductance silently.
+    //throws std::invalid_argument if input.topology != Topology::Buck, or if the electrical inputs are not physically valid (vinMaxV <= voutV, any of vinMinV/vinMaxV/ioutA/switchingFreqKHz/rippleCurrentPercent
+    //not positive, or vinMinV > vinMaxV) - never divides by zero or returns a negative/NaN inductance silently.
     static InductorDesignRequest solve(const TopologyInput& input);
 };
