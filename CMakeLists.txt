@@ -163,6 +163,14 @@ target_include_directories(
     src
 )
 
+# The default build type is Release (see the comment above), which defines
+# NDEBUG and makes every assert() in tests/cpp/*.cpp a silent no-op - the
+# test binary would still build, run, and print "All ... passed" even if
+# every single assertion in it was false. -UNDEBUG here re-enables assert()
+# for this target specifically, without giving up Release optimization for
+# the engine libraries the comment above explains the default is for.
+target_compile_options(magnetics_engine_tests PRIVATE -UNDEBUG)
+
 add_test(NAME EngineTests COMMAND magnetics_engine_tests)
 
 # ============================================================
