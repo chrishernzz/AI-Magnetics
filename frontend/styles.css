@@ -440,9 +440,17 @@ body {
     margin-bottom: 10px;
 }
 
+/* Fixed height + fluid width meant the chart's actual on-screen aspect
+   ratio changed with the card's width - stretched flat and distorted in
+   a wide layout, only looking right by coincidence in a narrower one.
+   aspect-ratio locks it to the viewBox's real proportions at any width;
+   max-width keeps it a compact diagnostic chart instead of stretching to
+   fill an entire wide desktop column. */
 .waveform-svg {
     width: 100%;
-    height: 104px;
+    max-width: 560px;
+    aspect-ratio: 310 / 104;
+    height: auto;
     display: block;
     overflow: visible;
 }
