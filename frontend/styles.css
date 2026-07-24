@@ -1251,6 +1251,48 @@ summary {
     margin-left: 6px;
 }
 
+/* 3-tier recommendation status (spec section 10) - PreliminaryCandidate reads as
+   "real, but not the final word" (an informational blue), distinct from both the
+   green pass chip and the red recommended/fail chips. */
+.chip-preliminary {
+    background: #dbeafe;
+    color: #1d4ed8;
+    margin-left: 6px;
+}
+
+.detail-ranking-explanation {
+    margin-top: 8px;
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.versions-footer {
+    max-width: 1100px;
+    margin: 24px auto 40px;
+    padding: 0 4px;
+    color: var(--ink-soft);
+    font-size: 0.76rem;
+    text-align: center;
+}
+
+.diagnostics-assumptions {
+    margin-top: 10px;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+}
+
+.diagnostics-assumptions summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.diagnostics-assumptions ul {
+    margin: 8px 0 0;
+    padding-left: 18px;
+    line-height: 1.6;
+}
+
 @media (prefers-reduced-motion: reduce) {
     * {
         animation-duration: 0.001ms !important;

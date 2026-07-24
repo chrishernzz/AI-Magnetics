@@ -202,20 +202,32 @@
                 <dl class="diagnostics-list" id="buckDiagnosticsList">
                     <div class="diagnostics-row">
                         <div class="diagnostics-row-main">
-                            <dt>Duty Cycle</dt>
+                            <dt>Duty Cycle (Vin Max — worst case)</dt>
                             <dd id="diagDutyCycle">–</dd>
                         </div>
                     </div>
                     <div class="diagnostics-row">
                         <div class="diagnostics-row-main">
-                            <dt>Ripple Current (p-p)</dt>
+                            <dt>Duty Cycle (Vin Min)</dt>
+                            <dd id="diagDutyCycleVinMin">–</dd>
+                        </div>
+                    </div>
+                    <div class="diagnostics-row">
+                        <div class="diagnostics-row-main">
+                            <dt>Ripple Current (p-p, Vin Max)</dt>
                             <dd id="diagRippleA">–</dd>
                         </div>
                     </div>
                     <div class="diagnostics-row">
                         <div class="diagnostics-row-main">
-                            <dt>Peak Current</dt>
+                            <dt>Peak Current (Vin Max — worst case)</dt>
                             <dd id="diagPeakCurrent">–</dd>
+                        </div>
+                    </div>
+                    <div class="diagnostics-row">
+                        <div class="diagnostics-row-main">
+                            <dt>Peak Current (Vin Min)</dt>
+                            <dd id="diagPeakCurrentVinMin">–</dd>
                         </div>
                     </div>
                     <div class="diagnostics-row">
@@ -232,6 +244,10 @@
                     </div>
                 </dl>
                 <p id="diagBuckNote" class="diagnostics-note">Enter your Buck converter requirements to see live diagnostics.</p>
+                <details id="diagAssumptionsDetails" class="diagnostics-assumptions" hidden>
+                    <summary>Assumptions this solve makes</summary>
+                    <ul id="diagAssumptionsList"></ul>
+                </details>
 
                 <div class="waveform-card">
                     <div class="waveform-title">Inductor Current - One Switching Period</div>
@@ -331,13 +347,16 @@
         </div>
         <div id="triageStrip" class="triage-strip"></div>
         <p id="rankingNote" class="ranking-note" hidden>
-            Passing candidates are ranked by <strong>total loss</strong> (Cu Loss + Core Loss, whichever are evaluated) — lowest first, not by core size.
-            A candidate with no loss data at all falls back to smallest-core-first instead, so a missing number never wins or loses a ranking on its own.
+            Passing candidates are ranked by <strong>recommendation tier</strong> first (Recommended, then Preliminary), then by <strong>known evaluated loss</strong>
+            (DC copper + core loss, whichever are evaluated), predicted temperature rise, manufacturability margin, saturation margin, and current-density margin, in that order.
+            A missing number is treated as the worst case for that tiebreaker, never the best, so it can't accidentally win a ranking.
         </p>
         <div class="table-scroll">
             <table id="candidateTable" class="candidate-table"></table>
         </div>
     </div>
+
+    <p id="versionsFooter" class="versions-footer" hidden></p>
 
     <script src="/static/app.js"></script>
 </body>

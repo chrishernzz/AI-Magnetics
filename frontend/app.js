@@ -198,7 +198,15 @@ function setWaveformAttrs(id, attrs) {
 
 async function updateBuckDiagnosticsLive() {
     const note = document.getElementById("diagBuckNote");
-    const rowIds = ["diagDutyCycle", "diagRippleA", "diagPeakCurrent", "diagAvgCurrent", "diagInductance"];
+    const rowIds = [
+        "diagDutyCycle",
+        "diagDutyCycleVinMin",
+        "diagRippleA",
+        "diagPeakCurrent",
+        "diagPeakCurrentVinMin",
+        "diagAvgCurrent",
+        "diagInductance",
+    ];
 
     let payload;
     try {
@@ -209,24 +217,42 @@ async function updateBuckDiagnosticsLive() {
 
     try {
         const derived = await postRequest(TOPOLOGY_ENDPOINT, payload);
-        // Diagnostics show the worst-case (Vin Maximum) operating point,
-        // same as before - derived.atVinMax carries the real numbers at
-        // that point now that the API also returns Vin Minimum alongside it.
+        // Both corners are shown side by side, not just the worst case - a
+        // converter that regulates fine at Vin Max can still be marginal (or
+        // even infeasible, see BuckElectricalSolver.cpp's Vout-vs-VinMin
+        // check) at Vin Min, since duty cycle is highest there.
         setDiagValue("diagDutyCycle", `${(derived.atVinMax.dutyCycle * 100).toFixed(1)}%`);
+        setDiagValue("diagDutyCycleVinMin", `${(derived.atVinMin.dutyCycle * 100).toFixed(1)}%`);
         setDiagValue("diagRippleA", `${derived.atVinMax.rippleCurrentPeakToPeakA.toFixed(3)} A`);
         setDiagValue("diagPeakCurrent", `${derived.atVinMax.peakCurrentA.toFixed(3)} A`);
+        setDiagValue("diagPeakCurrentVinMin", `${derived.atVinMin.peakCurrentA.toFixed(3)} A`);
         setDiagValue("diagAvgCurrent", `${derived.request.averageCurrentA.toFixed(3)} A`);
         setDiagValue("diagInductance", `${derived.request.inductanceUH.toFixed(3)} µH`);
 
         rowIds.forEach((id) => setDiagnosticsRowPending(id, false));
         updateRippleWaveform(derived.atVinMax);
-        if (note) note.textContent = "";
+
+        const assumptionsDetails = document.getElementById("diagAssumptionsDetails");
+        const assumptionsList = document.getElementById("diagAssumptionsList");
+        if (assumptionsDetails && assumptionsList) {
+            const items = derived.assumptions || [];
+            assumptionsList.innerHTML = items.map((a) => `<li>${a}</li>`).join("");
+            assumptionsDetails.hidden = items.length === 0;
+        }
+
+        if (note) {
+            note.textContent = derived.warnings && derived.warnings.length ? derived.warnings.join(" ") : "";
+            note.className = derived.warnings && derived.warnings.length ? "diagnostics-note diagnostics-note-warn" : "diagnostics-note";
+        }
     } catch (error) {
         // Expected constantly while typing (e.g. Vout momentarily blank, or
         // temporarily >= Vin Max) - a quiet pending state, not a red error,
         // since this fires on every keystroke rather than an explicit submit.
         rowIds.forEach((id) => setDiagnosticsRowPending(id, true));
-        if (note) note.textContent = "Waiting for valid values - " + error.message;
+        if (note) {
+            note.textContent = "Waiting for valid values - " + error.message;
+            note.className = "diagnostics-note";
+        }
     }
 }
 
@@ -414,6 +440,17 @@ async function postRequest(endpoint, payload) {
     return await response.json();
 }
 
+// Reproducibility footer - real content hashes of the loaded CSV data plus literal
+// engine/rules version strings (EngineVersions.h), never an invented upstream semver.
+function renderVersions(versions) {
+    const element = document.getElementById("versionsFooter");
+    if (!element || !versions) return;
+    element.hidden = false;
+    element.textContent =
+        `Engine ${versions.calculationEngineVersion} · Rules ${versions.designRulesVersion} · ` +
+        `Core DB ${versions.coreDatabaseVersion} · Material DB ${versions.materialDatabaseVersion}`;
+}
+
 function renderRules(rules) {
     const element = document.getElementById("assistant");
     if (!element) return;
@@ -522,24 +559,24 @@ function formatLossCell(status, watts) {
     return `${watts.toFixed(3)} W`;
 }
 
-// Mirrors InductorDesignService.cpp's totalKnownLossW()/hasAnyLossData() exactly -
-// this is the same number the backend actually ranks passing candidates by, so the
-// table's "Total Loss" column has to compute it the same way or the numbers and the
-// row order would silently disagree.
-function hasAnyLossData(candidate) {
-    return candidate.losses.copperLossStatus === "Evaluated" || candidate.losses.coreLossStatus === "Evaluated";
-}
-
-function totalKnownLossW(candidate) {
-    let loss = 0;
-    if (candidate.losses.copperLossStatus === "Evaluated") loss += candidate.losses.copperLossW;
-    if (candidate.losses.coreLossStatus === "Evaluated") loss += candidate.losses.coreLossW;
-    return loss;
-}
-
+// candidate.lossSummary.knownEvaluatedLossW is the exact number the backend ranks
+// passing candidates by (InductorDesignService.cpp's candidateRanksAhead()) - read
+// directly from the API response rather than re-deriving it here, so the table's
+// "Known Evaluated Loss" column can never silently drift from the real ranking.
 function formatTotalLossCell(candidate) {
-    if (!hasAnyLossData(candidate)) return '<span class="cell-muted">not evaluated</span>';
-    return `${totalKnownLossW(candidate).toFixed(3)} W`;
+    const summary = candidate.lossSummary;
+    if (!summary || (candidate.losses.copperLossStatus !== "Evaluated" && candidate.losses.coreLossStatus !== "Evaluated")) {
+        return '<span class="cell-muted">not evaluated</span>';
+    }
+    return `${summary.knownEvaluatedLossW.toFixed(3)} W`;
+}
+
+// 3-tier recommendation chip (spec section 10) - real backend classification, not
+// the old "first row in a loss-sorted list" UI sugar.
+function recommendationTierChip(tier) {
+    if (tier === "Phase1Recommended") return '<span class="chip chip-recommended">Recommended</span>';
+    if (tier === "PreliminaryCandidate") return '<span class="chip chip-preliminary">Preliminary</span>';
+    return "";
 }
 
 // The single place a candidate's checks are shown - no separate "why
@@ -573,16 +610,42 @@ function renderValidationList(validations) {
 }
 
 function candidateRows(result) {
-    // result.candidates is already ranked (lowest total loss first, see
-    // InductorDesignService.cpp) - index 0 is the one Design Summary calls
-    // out as the top pick, so it's tagged here to carry that same fact
-    // into the table regardless of how the table itself is sorted.
-    const passing = result.candidates.map((c, i) => ({ candidate: c, passed: true, isRecommended: i === 0 }));
-    const rejected = result.rejectedCandidates.map((c) => ({ candidate: c, passed: false, isRecommended: false }));
+    // result.candidates is already ranked (see InductorDesignService.cpp's
+    // candidateRanksAhead()) - the passed flag drives which bucket a row sorts
+    // into; the 3-tier chip itself comes from the real backend classification
+    // (candidate.recommendation.tier), not from table position.
+    const passing = result.candidates.map((c) => ({ candidate: c, passed: true }));
+    const rejected = result.rejectedCandidates.map((c) => ({ candidate: c, passed: false }));
     return passing.concat(rejected);
 }
 
-function renderCandidateDetail(candidate, isRecommended) {
+// Sources row: manufacturer/confidence/note for the material and core, collapsed
+// by default - real provenance where it exists (core Vendor column), honestly
+// blank where it doesn't (see Provenance.h - datasheet revision/URL/date-accessed
+// are never fabricated).
+function renderSourcesDetail(candidate) {
+    const rows = [candidate.material.source, candidate.core.source]
+        .map((s, i) => {
+            const label = i === 0 ? "Material" : "Core";
+            const manufacturer = s.manufacturer || "not sourced";
+            const confidence = s.confidence || "Estimated";
+            const note = s.note ? ` — ${s.note}` : "";
+            return `<li><strong>${label}:</strong> ${manufacturer} (${confidence})${note}</li>`;
+        })
+        .join("");
+    return `<details><summary>Sources</summary><ul>${rows}</ul></details>`;
+}
+
+// AC-loss risk chip (spec section 8) - qualitative skin-depth heuristic, never a
+// watts figure (SkinDepthRisk.h). The full reason (what was/wasn't evaluated) is
+// the tooltip rather than inline text, to keep the KPI strip scannable.
+function acLossRiskChip(acLossRisk) {
+    const level = acLossRisk.riskLevel;
+    const chipClass = level === "Low" ? "chip-pass" : level === "Moderate" ? "chip-warn" : "chip-fail";
+    return `<span class="chip ${chipClass}" title="${acLossRisk.reason}">AC risk: ${level}</span>`;
+}
+
+function renderCandidateDetail(candidate) {
     const warnings = candidate.material.missingDataWarnings
         .concat(candidate.winding.missingData || [])
         .concat(candidate.losses.missingData || []);
@@ -591,13 +654,14 @@ function renderCandidateDetail(candidate, isRecommended) {
     const notEvalCount = candidate.validations.filter((v) => v.status === "NotEvaluated").length;
     const passCount = candidate.validations.length - failCount - notEvalCount;
     const usedDefaultLimit = candidate.validations.some((v) => v.usedDefaultLimit);
+    const preliminaryChecks = candidate.validations.filter((v) => v.isPreliminaryEstimate);
 
     // KPIs first, always - the numbers an engineer actually judges a
     // candidate by, in one scannable strip, before any narrative text.
     const kpis = `
         <div class="detail-kpis">
             <div class="detail-kpi">
-                <span class="detail-kpi-label">Total Loss</span>
+                <span class="detail-kpi-label">${candidate.lossSummary.label.startsWith("Known") ? "Known Evaluated Loss" : "Loss"}</span>
                 <span class="detail-kpi-value">${formatTotalLossCell(candidate)}</span>
             </div>
             <div class="detail-kpi">
@@ -617,21 +681,31 @@ function renderCandidateDetail(candidate, isRecommended) {
                 <span class="detail-kpi-value">${candidate.turnsAndGap.turns}t, ${candidate.turnsAndGap.gapMm.toFixed(2)}mm</span>
             </div>
         </div>
-        <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong></p>
+        <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong> &nbsp; ${acLossRiskChip(candidate.acLossRisk)}</p>
     `;
 
     // One-line status, not a restatement of any check - the list below is
     // the single place every check (and, for a failure, its real reason)
-    // is actually explained.
+    // is actually explained. Tier comes from the real backend classification.
     const statusLine = candidate.rejectionReasons.length
         ? `<div class="detail-status detail-status-fail">Rejected — ${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>`
-        : `<div class="detail-status detail-status-pass">${isRecommended ? "Recommended" : "Passing"} — ${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated` : ""}</div>`;
+        : `<div class="detail-status detail-status-pass">${recommendationTierChip(candidate.recommendation.tier)} — ${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated` : ""}${preliminaryChecks.length ? `, ${preliminaryChecks.length} preliminary estimate${preliminaryChecks.length > 1 ? "s" : ""}` : ""}</div>`;
+
+    const rankingLine = candidate.rankingExplanation
+        ? `<p class="detail-ranking-explanation">${candidate.recommendation.explanation}</p>`
+        : "";
+
+    const hardware = candidate.hardwareValidation;
+    const hardwareSection = `<details><summary>Hardware validation</summary><p>${hardware && hardware.status === "not_measured" ? "Not measured yet - this candidate has not been bench-tested. Fields exist to record real measurements once hardware validation happens." : hardware.status}</p></details>`;
 
     return `
         ${kpis}
         ${statusLine}
+        ${rankingLine}
         <ul class="validation-list">${renderValidationList(candidate.validations)}</ul>
         ${usedDefaultLimit ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
+        ${renderSourcesDetail(candidate)}
+        ${hardwareSection}
         ${
             warnings.length
                 ? `<details><summary>Missing-data warnings</summary><ul>${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
@@ -668,9 +742,9 @@ function renderCandidateTable(result) {
         { label: "Calc L (µH)", numeric: true },
         { label: "Error %", numeric: true },
         { label: "Fill %", numeric: true },
-        { label: "Cu Loss", numeric: true },
+        { label: "DC Copper Loss", numeric: true },
         { label: "Core Loss", numeric: true },
-        { label: "Total Loss", numeric: true },
+        { label: "Known Evaluated Loss", numeric: true },
     ];
 
     const headerHtml = headers.map((h) => `<th${h.numeric ? ' class="numeric"' : ""}>${h.label}</th>`).join("");
@@ -678,10 +752,9 @@ function renderCandidateTable(result) {
     const bodyHtml = rows
         .map((row, index) => {
             const c = row.candidate;
-            const badge = row.passed
-                ? `<span class="chip chip-pass">PASS</span>${row.isRecommended ? '<span class="chip chip-recommended">Recommended</span>' : ""}`
-                : '<span class="chip chip-fail">REJECT</span>';
-            const rowClass = ["candidate-row", row.passed ? "row-pass" : "row-reject", row.isRecommended ? "row-recommended" : ""]
+            const tier = c.recommendation.tier;
+            const badge = row.passed ? `<span class="chip chip-pass">PASS</span>${recommendationTierChip(tier)}` : '<span class="chip chip-fail">REJECT</span>';
+            const rowClass = ["candidate-row", row.passed ? "row-pass" : "row-reject", tier === "Phase1Recommended" ? "row-recommended" : ""]
                 .filter(Boolean)
                 .join(" ");
             return `
@@ -699,7 +772,7 @@ function renderCandidateTable(result) {
                     <td class="numeric">${formatTotalLossCell(c)}</td>
                 </tr>
                 <tr class="detail-row" data-detail-index="${index}" hidden>
-                    <td colspan="11">${renderCandidateDetail(c, row.isRecommended)}</td>
+                    <td colspan="11">${renderCandidateDetail(c)}</td>
                 </tr>
             `;
         })
@@ -767,6 +840,7 @@ async function generateRecommendation() {
         console.log("DesignRecommendation", result);
 
         renderRules(result.activeRules);
+        renderVersions(result.versions);
         renderFeasibility(result);
         renderTriageStrip(result);
         renderFilterChips(result);
