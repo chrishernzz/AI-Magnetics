@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include "core/model/InductorRequirements.h"
+#include "core/model/Provenance.h"
 
 /*STAGE 1: Material candidate evaluation
 
@@ -34,6 +35,10 @@ struct MaterialCandidate {
     std::string reason;
     std::string alternatives;
     std::vector<std::string> missingDataWarnings;
+
+    //provenance for this material's data - see Provenance.h. datasheetRevision/Url/dateAccessed are always
+    //unset in Phase 1 (no real per-material datasheet metadata exists in this snapshot).
+    SourceInfo source;
 };
 
 //precondition: Materials::load() has been populated (set_material_database called at FastAPI startup)

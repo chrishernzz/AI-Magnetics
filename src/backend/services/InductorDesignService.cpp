@@ -91,6 +91,7 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
     DesignRecommendation recommendation;
     DesignRules rules = DesignRules::phase1Default();
     recommendation.activeRules = rules;
+    recommendation.versions = EngineVersionsStore::current();
 
     InductorRequirements requirements = RequirementDerivationService::derive(request, rules);
 

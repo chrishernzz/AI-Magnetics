@@ -17,6 +17,9 @@
 #include "core/winding/WindingDesign.h"
 #include "core/losses/CoreLoss.h"
 #include "core/magnetics/GapMethod.h"
+#include "core/model/Provenance.h"
+#include "core/model/HardwareValidation.h"
+#include "core/model/EngineVersions.h"
 #include "data/CoreDatabase.h"
 #include "data/CoreLossCoefficientDatabase.h"
 #include "data/MaterialDatabase.h"
@@ -60,7 +63,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("ae", &CoreData::ae)
         .def_readwrite("wa", &CoreData::wa)
         .def_readwrite("le", &CoreData::le)
-        .def_readwrite("mlt", &CoreData::mlt);
+        .def_readwrite("mlt", &CoreData::mlt)
+        .def_readwrite("vendor", &CoreData::vendor);
     py::class_<MaterialData>(m, "MaterialData")
         .def(py::init<>())
         .def_readwrite("name", &MaterialData::name)
@@ -147,6 +151,50 @@ PYBIND11_MODULE(magnetics_cpp, m) {
           "Return the named Phase 1 default engineering ruleset (spec section 7) - "
           "the only place Ku/Bmax/J-style constants are defined.");
 
+    py::enum_<DataConfidence>(m, "DataConfidence")
+        .value("Manufacturer", DataConfidence::Manufacturer)
+        .value("Measured", DataConfidence::Measured)
+        .value("Derived", DataConfidence::Derived)
+        .value("Estimated", DataConfidence::Estimated)
+        .value("Phase1Default", DataConfidence::Phase1Default);
+
+    py::class_<SourceInfo>(m, "SourceInfo")
+        .def(py::init<>())
+        .def_readwrite("manufacturer", &SourceInfo::manufacturer)
+        .def_readwrite("partNumber", &SourceInfo::partNumber)
+        .def_readwrite("materialGrade", &SourceInfo::materialGrade)
+        .def_readwrite("datasheetName", &SourceInfo::datasheetName)
+        .def_readwrite("datasheetRevision", &SourceInfo::datasheetRevision)
+        .def_readwrite("datasheetUrl", &SourceInfo::datasheetUrl)
+        .def_readwrite("dateAccessed", &SourceInfo::dateAccessed)
+        .def_readwrite("confidence", &SourceInfo::confidence)
+        .def_readwrite("confidenceNote", &SourceInfo::confidenceNote);
+
+    py::class_<HardwareValidationRecord>(m, "HardwareValidationRecord")
+        .def(py::init<>())
+        .def_readwrite("measuredInductanceUH", &HardwareValidationRecord::measuredInductanceUH)
+        .def_readwrite("measuredDcrMilliOhm", &HardwareValidationRecord::measuredDcrMilliOhm)
+        .def_readwrite("measuredRippleCurrentA", &HardwareValidationRecord::measuredRippleCurrentA)
+        .def_readwrite("measuredPeakCurrentA", &HardwareValidationRecord::measuredPeakCurrentA)
+        .def_readwrite("measuredCoreTempC", &HardwareValidationRecord::measuredCoreTempC)
+        .def_readwrite("measuredWindingTempC", &HardwareValidationRecord::measuredWindingTempC)
+        .def_readwrite("predictedVsMeasuredInductanceErrorPercent", &HardwareValidationRecord::predictedVsMeasuredInductanceErrorPercent)
+        .def_readwrite("predictedVsMeasuredDcrErrorPercent", &HardwareValidationRecord::predictedVsMeasuredDcrErrorPercent)
+        .def_readwrite("testNotes", &HardwareValidationRecord::testNotes)
+        .def_readwrite("testDate", &HardwareValidationRecord::testDate)
+        .def_readwrite("status", &HardwareValidationRecord::status);
+
+    py::class_<EngineVersions>(m, "EngineVersions")
+        .def(py::init<>())
+        .def_readwrite("calculationEngineVersion", &EngineVersions::calculationEngineVersion)
+        .def_readwrite("designRulesVersion", &EngineVersions::designRulesVersion)
+        .def_readwrite("coreDatabaseVersion", &EngineVersions::coreDatabaseVersion)
+        .def_readwrite("materialDatabaseVersion", &EngineVersions::materialDatabaseVersion);
+
+    m.def("set_engine_versions", &EngineVersionsStore::setDatabaseVersions,
+          "Set the core/material database version strings (real content hashes of the loaded CSVs) - "
+          "called once at FastAPI startup, read by every run's DesignRecommendation.versions afterward.");
+
     py::class_<MaterialCandidate>(m, "MaterialCandidate")
         .def(py::init<>())
         .def_readwrite("materialFamily", &MaterialCandidate::materialFamily)
@@ -158,7 +206,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("cuLossFactor", &MaterialCandidate::cuLossFactor)
         .def_readwrite("reason", &MaterialCandidate::reason)
         .def_readwrite("alternatives", &MaterialCandidate::alternatives)
-        .def_readwrite("missingDataWarnings", &MaterialCandidate::missingDataWarnings);
+        .def_readwrite("missingDataWarnings", &MaterialCandidate::missingDataWarnings)
+        .def_readwrite("source", &MaterialCandidate::source);
 
     py::class_<CoreCandidate>(m, "CoreCandidate")
         .def(py::init<>())
@@ -171,7 +220,9 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("leMm", &CoreCandidate::leMm)
         .def_readwrite("mltMm", &CoreCandidate::mltMm)
         .def_readwrite("areaProductCm4", &CoreCandidate::areaProductCm4)
-        .def_readwrite("meetsAreaProduct", &CoreCandidate::meetsAreaProduct);
+        .def_readwrite("meetsAreaProduct", &CoreCandidate::meetsAreaProduct)
+        .def_readwrite("vendor", &CoreCandidate::vendor)
+        .def_readwrite("source", &CoreCandidate::source);
 
     py::class_<TurnsAndGapResult>(m, "TurnsAndGapResult")
         .def(py::init<>())
@@ -239,7 +290,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("losses", &InductorCandidate::losses)
         .def_readwrite("thermal", &InductorCandidate::thermal)
         .def_readwrite("passed", &InductorCandidate::passed)
-        .def_readwrite("rejectionReasons", &InductorCandidate::rejectionReasons);
+        .def_readwrite("rejectionReasons", &InductorCandidate::rejectionReasons)
+        .def_readwrite("hardwareValidation", &InductorCandidate::hardwareValidation);
 
     py::class_<DesignRecommendation>(m, "DesignRecommendation")
         .def(py::init<>())
@@ -249,7 +301,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("rejectedCandidates", &DesignRecommendation::rejectedCandidates)
         .def_readwrite("activeRules", &DesignRecommendation::activeRules)
         .def_readwrite("requiredAreaProductCm4", &DesignRecommendation::requiredAreaProductCm4)
-        .def_readwrite("largestAvailableAreaProductCm4", &DesignRecommendation::largestAvailableAreaProductCm4);
+        .def_readwrite("largestAvailableAreaProductCm4", &DesignRecommendation::largestAvailableAreaProductCm4)
+        .def_readwrite("versions", &DesignRecommendation::versions);
 
     py::class_<InductorDesignRequest>(m, "InductorDesignRequest")
         .def(py::init<>())

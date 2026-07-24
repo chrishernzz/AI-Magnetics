@@ -83,6 +83,49 @@ def _serialize_validation(v) -> dict:
         "status": v.status.name,
     }
 
+#precondition: s is a valid SourceInfo object
+#postcondition: returns a serializable source/provenance dictionary - datasheetRevision/Url/dateAccessed are
+#always None in Phase 1 (no such data exists in the current snapshot), never fabricated here.
+def _serialize_source_info(s) -> dict:
+    return {
+        "manufacturer": s.manufacturer,
+        "partNumber": s.partNumber,
+        "materialGrade": s.materialGrade,
+        "datasheetName": s.datasheetName,
+        "datasheetRevision": s.datasheetRevision,
+        "datasheetUrl": s.datasheetUrl,
+        "dateAccessed": s.dateAccessed,
+        "confidence": s.confidence.name,
+        "confidenceNote": s.confidenceNote,
+    }
+
+#precondition: h is a valid HardwareValidationRecord object
+#postcondition: returns a serializable dictionary - every field is None and status is "not_measured" in Phase 1
+def _serialize_hardware_validation(h) -> dict:
+    return {
+        "measuredInductanceUH": h.measuredInductanceUH,
+        "measuredDcrMilliOhm": h.measuredDcrMilliOhm,
+        "measuredRippleCurrentA": h.measuredRippleCurrentA,
+        "measuredPeakCurrentA": h.measuredPeakCurrentA,
+        "measuredCoreTempC": h.measuredCoreTempC,
+        "measuredWindingTempC": h.measuredWindingTempC,
+        "predictedVsMeasuredInductanceErrorPercent": h.predictedVsMeasuredInductanceErrorPercent,
+        "predictedVsMeasuredDcrErrorPercent": h.predictedVsMeasuredDcrErrorPercent,
+        "testNotes": h.testNotes,
+        "testDate": h.testDate,
+        "status": h.status,
+    }
+
+#precondition: v is a valid EngineVersions object
+#postcondition: returns a serializable versions dictionary
+def _serialize_versions(v) -> dict:
+    return {
+        "calculationEngineVersion": v.calculationEngineVersion,
+        "designRulesVersion": v.designRulesVersion,
+        "coreDatabaseVersion": v.coreDatabaseVersion,
+        "materialDatabaseVersion": v.materialDatabaseVersion,
+    }
+
 #precondition: m is a valid material result object and material selection stage has completed
 #postcondition: returns a serializable material dictionary and missing data warnings are converted to python lists
 def _serialize_material(m) -> dict:
@@ -97,6 +140,7 @@ def _serialize_material(m) -> dict:
         "reason": m.reason,
         "alternatives": m.alternatives,
         "missingDataWarnings": list(m.missingDataWarnings),
+        "source": _serialize_source_info(m.source),
     }
 
 #precondition: c is a valid core-selection object and core search stage has completed
@@ -113,6 +157,8 @@ def _serialize_core(c) -> dict:
         "mltMm": c.mltMm,
         "areaProductCm4": c.areaProductCm4,
         "meetsAreaProduct": c.meetsAreaProduct,
+        "vendor": c.vendor,
+        "source": _serialize_source_info(c.source),
     }
 
 #precondition: turns and gap calculations have completed and t contains calculated winding parameters
@@ -185,6 +231,7 @@ def _serialize_candidate(c) -> dict:
         "thermal": _serialize_thermal(c.thermal),
         "passed": c.passed,
         "rejectionReasons": [_serialize_rejection(r) for r in c.rejectionReasons],
+        "hardwareValidation": _serialize_hardware_validation(c.hardwareValidation),
     }
 
 #precondition: r contains valid design rule values and rule configuration has been loaded
@@ -234,6 +281,7 @@ def serialize_recommendation(rec) -> dict:
         "activeRules": _serialize_rules(rec.activeRules),
         "requiredAreaProductCm4": rec.requiredAreaProductCm4,
         "largestAvailableAreaProductCm4": rec.largestAvailableAreaProductCm4,
+        "versions": _serialize_versions(rec.versions),
     }
 
 #precondition: request body matches InductorDesignRequest scheme, required electrical parameters are provided, and c++ design engine is available and initialized

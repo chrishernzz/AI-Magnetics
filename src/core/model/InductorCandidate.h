@@ -4,6 +4,7 @@
 #include "core/losses/LossEvaluation.h"
 #include "core/sizing/MaterialEvaluation.h"
 #include "core/model/RejectionReason.h"
+#include "core/model/HardwareValidation.h"
 #include "core/thermal/ThermalEvaluation.h"
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/winding/WindingDesign.h"
@@ -28,4 +29,7 @@ struct InductorCandidate {
 
     bool passed = false;
     std::vector<RejectionReason> rejectionReasons;
+
+    //always "not_measured" in Phase 1 - see HardwareValidation.h. A place to record real bench data later.
+    HardwareValidationRecord hardwareValidation;
 };

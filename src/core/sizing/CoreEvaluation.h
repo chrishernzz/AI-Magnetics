@@ -27,6 +27,13 @@ struct CoreCandidate {
     double mltMm = 0.0;
     double areaProductCm4;
     bool meetsAreaProduct;
+
+    //real vendor/manufacturer name from real_cores.csv's Vendor column - empty string means no vendor recorded for this core.
+    std::string vendor;
+
+    //provenance for this core's data - see Provenance.h. datasheetRevision/Url/dateAccessed are always unset
+    //in Phase 1 (no real per-core datasheet revision/URL/access-date exists in this snapshot).
+    SourceInfo source;
 };
 
 //precondition: CoreDatabase::load() has been populated

@@ -14,6 +14,9 @@ struct CoreData {
 
     //Mean-length-per-turn (mm), estimated from real core column geometry (see scripts/export_real_data.py) - 0.0 means "no data", callers must treat that as missing, not as a real zero-length core.
     double mlt = 0.0;
+
+    //Real vendor/manufacturer name from real_cores.csv's Vendor column - already fetched by magnetics_data.py but previously never threaded through to the C++ layer. Empty string means no vendor recorded.
+    std::string vendor;
 };
 
 class CoreDatabase{
