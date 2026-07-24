@@ -34,23 +34,31 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
         return candidate;
     }
 
+    // Call order: winding (geometry + cold-reference DCR) -> losses (core loss, cold-reference copper loss)
+    // -> thermal (the iterative loop, fed by both) -> overwrite the cold-reference hot-DCR/copper-loss
+    // estimates with the converged result, but ONLY if the loop actually converged - otherwise the honest
+    // cold-reference/sanity-check values computed above remain untouched -> skin-depth risk -> validations.
     candidate.winding = designWinding(core, candidate.turnsAndGap.turns, requirements.operatingPoint.rmsCurrentA, rules);
 
-    // Minimal call-site update to compile against ThermalEvaluation's new iterative-loop signature (see
-    // ThermalEvaluation.h) - runs on copper loss alone since candidate.losses hasn't been computed yet at
-    // this point in the call order. The real reorder (losses before thermal, so a known core loss feeds the
-    // loop too, plus overwriting hot-DCR/copper-loss from the converged result) is a deliberately separate,
-    // isolated commit - see InductorDesignService.cpp's own commit history.
+    candidate.losses = evaluateLosses(material, core, candidate.turnsAndGap, candidate.winding, requirements.operatingPoint.rmsCurrentA,
+                                       requirements.operatingPoint.switchingFreqHz, requirements.operatingPoint.rippleCurrentPeakToPeakA);
+
     ThermalIterationInputs thermalInputs;
     thermalInputs.ambientTemperatureC = requirements.ambientTemperatureC;
     thermalInputs.rmsCurrentA = requirements.operatingPoint.rmsCurrentA;
     thermalInputs.coldDcrOhmsAt20C = candidate.winding.coldDcrOhmsAt20C;
     thermalInputs.copperLossGeometryKnown = candidate.winding.resistanceStatus == EvaluationStatus::Evaluated;
-    thermalInputs.coreLossKnown = false;
+    thermalInputs.coreLossW = candidate.losses.coreLossW;
+    thermalInputs.coreLossKnown = candidate.losses.coreLossStatus == EvaluationStatus::Evaluated;
     candidate.thermal = evaluateThermal(thermalInputs, rules);
 
-    candidate.losses = evaluateLosses(material, core, candidate.turnsAndGap, candidate.winding, requirements.operatingPoint.rmsCurrentA,
-                                       requirements.operatingPoint.switchingFreqHz, requirements.operatingPoint.rippleCurrentPeakToPeakA);
+    if (candidate.thermal.status == ThermalStatus::PreliminaryThermalEstimate) {
+        candidate.winding.estimatedHotDcrOhms = candidate.thermal.hotDcrOhms;
+        if (candidate.losses.copperLossStatus == EvaluationStatus::Evaluated) {
+            candidate.losses.copperLossW = candidate.thermal.copperLossAtConvergedTempW;
+        }
+    }
+
     candidate.acLossRisk = evaluateSkinDepthRisk(requirements.operatingPoint.switchingFreqHz, candidate.winding.conductorAreaMm2, rules);
 
     candidate.validations = {
