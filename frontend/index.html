@@ -234,20 +234,33 @@
                 <div class="waveform-card">
                     <div class="waveform-title">Inductor Current - One Switching Period</div>
                     <p class="waveform-caption">Rises while the switch is on (the duty-cycle fraction of the period) and falls while it's off - drawn from the exact numbers above, at the worst-case Vin Maximum.</p>
-                    <svg id="rippleWaveform" class="waveform-svg" viewBox="0 0 300 90" preserveAspectRatio="none">
+                    <svg id="rippleWaveform" class="waveform-svg" viewBox="0 0 310 104" preserveAspectRatio="none">
                         <defs>
                             <linearGradient id="waveformFillGradient" x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="0%" style="stop-color: var(--brand-red); stop-opacity: 0.22"></stop>
                                 <stop offset="100%" style="stop-color: var(--brand-red); stop-opacity: 0"></stop>
                             </linearGradient>
                         </defs>
-                        <line id="waveformGridTop" class="waveform-gridline" x1="0" y1="10" x2="300" y2="10"></line>
-                        <line id="waveformGridBottom" class="waveform-gridline" x1="0" y1="80" x2="300" y2="80"></line>
+
+                        <!-- Axis frame is fixed geometry - only the trace, fill, marker,
+                             and the two amplitude labels' text change per recalculation. -->
+                        <line class="waveform-gridline" x1="42" y1="14" x2="302" y2="14"></line>
+                        <line class="waveform-axis-line" x1="42" y1="14" x2="42" y2="72"></line>
+                        <line class="waveform-axis-line" x1="42" y1="72" x2="302" y2="72"></line>
+                        <line class="waveform-tick" x1="37" y1="14" x2="42" y2="14"></line>
+                        <line class="waveform-tick" x1="37" y1="72" x2="42" y2="72"></line>
+                        <line class="waveform-tick" x1="42" y1="72" x2="42" y2="77"></line>
+                        <line class="waveform-tick" x1="172" y1="72" x2="172" y2="77"></line>
+                        <line class="waveform-tick" x1="302" y1="72" x2="302" y2="77"></line>
+                        <text x="42" y="90" class="waveform-tick-label" text-anchor="middle">0</text>
+                        <text x="172" y="90" class="waveform-tick-label" text-anchor="middle">T</text>
+                        <text x="302" y="90" class="waveform-tick-label" text-anchor="end">2T</text>
+
                         <path id="waveformFill" class="waveform-fill"></path>
                         <path id="waveformPath" class="waveform-path"></path>
                         <circle id="waveformMarker" class="waveform-marker" r="3"></circle>
-                        <text id="waveformLabelTop" x="4" y="7" class="waveform-label"></text>
-                        <text id="waveformLabelBottom" x="4" y="77" class="waveform-label"></text>
+                        <text id="waveformLabelTop" x="34" y="14" class="waveform-axis-label" text-anchor="end" dominant-baseline="middle"></text>
+                        <text id="waveformLabelBottom" x="34" y="72" class="waveform-axis-label" text-anchor="end" dominant-baseline="middle"></text>
                     </svg>
                     <div class="waveform-legend"><span class="legend-dot"></span><span>I<sub>L</sub> at Vin Maximum</span></div>
                 </div>

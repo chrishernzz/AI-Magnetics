@@ -145,54 +145,49 @@ function setDiagValue(id, text) {
 // rest - from the exact same peak/ripple/duty-cycle numbers already shown
 // as text above it. Not decorative: change any Buck input and this redraws
 // from the live derived values, same as the text rows next to it.
-// Updates the same persistent SVG elements' attributes rather than
-// replacing the SVG's innerHTML - a fresh element every recalculation has
-// no "previous d" to transition from, so the trace only ever snapped
-// between shapes instead of visibly redrawing itself like a live scope.
+// Real chart, not an image: the axis frame (the two axis lines, all
+// ticks, and the "0 / T / 2T" time labels) is fixed geometry set once in
+// the HTML, since the plot is always auto-scaled to fill it - peak always
+// lands on the top axis line, min always on the bottom one. Only the
+// trace, its filled area, the peak marker, and the two amplitude label
+// strings are computed here from the live derived values and written
+// onto the same persistent elements (not rebuilt), so the shape morphs
+// via the CSS transition on `d` instead of snapping between two states.
 function updateRippleWaveform(derived) {
     const svg = document.getElementById("rippleWaveform");
     if (!svg) return;
 
-    const W = 300;
-    const H = 90;
-    const PAD_Y = 10;
+    const GUTTER = 42; // left margin reserved for the y-axis + its labels
+    const PLOT_RIGHT = 302;
+    const Y_TOP = 14; // peak axis line - always where ipk is plotted
+    const Y_BOTTOM = 72; // min axis line / x-axis baseline - always where iMin is plotted
     const ipk = derived.peakCurrentA;
     const ripple = Math.max(derived.rippleCurrentPeakToPeakA, 1e-9);
     const iMin = ipk - ripple;
     const duty = Math.min(Math.max(derived.dutyCycle, 0.02), 0.98);
     const periods = 2;
-    const periodW = W / periods;
+    const periodW = (PLOT_RIGHT - GUTTER) / periods;
 
-    const yOf = (i) => PAD_Y + (1 - (i - iMin) / ripple) * (H - 2 * PAD_Y);
-    const yTop = yOf(ipk);
-    const yBottom = yOf(iMin);
-
-    let points = [[0, yBottom]];
+    let points = [[GUTTER, Y_BOTTOM]];
     for (let p = 0; p < periods; p++) {
-        const x0 = p * periodW;
-        points.push([x0 + duty * periodW, yTop]);
-        points.push([x0 + periodW, yBottom]);
+        const x0 = GUTTER + p * periodW;
+        points.push([x0 + duty * periodW, Y_TOP]);
+        points.push([x0 + periodW, Y_BOTTOM]);
     }
     const pathD = "M " + points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" L ");
-    const fillD = `${pathD} L ${W.toFixed(1)},${H.toFixed(1)} L 0,${H.toFixed(1)} Z`;
+    // Path already starts and ends on the baseline, so closing it directly
+    // encloses the area under the trace with no extra corner points needed.
+    const fillD = `${pathD} Z`;
     const lastPeak = points[points.length - 2];
 
-    setWaveformAttrs("waveformGridTop", { y1: yTop.toFixed(1), y2: yTop.toFixed(1) });
-    setWaveformAttrs("waveformGridBottom", { y1: yBottom.toFixed(1), y2: yBottom.toFixed(1) });
     setWaveformAttrs("waveformFill", { d: fillD });
     setWaveformAttrs("waveformPath", { d: pathD });
     setWaveformAttrs("waveformMarker", { cx: lastPeak[0].toFixed(1), cy: lastPeak[1].toFixed(1) });
 
     const topLabel = document.getElementById("waveformLabelTop");
-    if (topLabel) {
-        topLabel.setAttribute("y", (yTop - 3).toFixed(1));
-        topLabel.textContent = `${ipk.toFixed(2)} A`;
-    }
+    if (topLabel) topLabel.textContent = `${ipk.toFixed(2)} A`;
     const bottomLabel = document.getElementById("waveformLabelBottom");
-    if (bottomLabel) {
-        bottomLabel.setAttribute("y", (yBottom - 3).toFixed(1));
-        bottomLabel.textContent = `${iMin.toFixed(2)} A`;
-    }
+    if (bottomLabel) bottomLabel.textContent = `${iMin.toFixed(2)} A`;
 }
 
 function setWaveformAttrs(id, attrs) {

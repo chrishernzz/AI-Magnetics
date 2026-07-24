@@ -437,7 +437,7 @@ body {
 
 .waveform-svg {
     width: 100%;
-    height: 90px;
+    height: 104px;
     display: block;
     overflow: visible;
 }
@@ -457,11 +457,28 @@ body {
     transition: d 0.25s ease;
 }
 
+/* Reference line at the peak level - dashed, distinct from the solid
+   axis lines below. Fixed geometry, never touched after first paint. */
 .waveform-gridline {
     stroke: var(--line);
     stroke-width: 1;
     stroke-dasharray: 3 3;
-    transition: y1 0.25s ease, y2 0.25s ease;
+}
+
+.waveform-axis-line {
+    stroke: var(--ink-soft);
+    stroke-width: 1;
+}
+
+.waveform-tick {
+    stroke: var(--ink-soft);
+    stroke-width: 1;
+}
+
+.waveform-tick-label {
+    font-size: 7.5px;
+    fill: var(--ink-soft);
+    font-family: inherit;
 }
 
 .waveform-marker {
@@ -485,9 +502,10 @@ body {
     }
 }
 
-.waveform-label {
+.waveform-axis-label {
     font-size: 8px;
-    fill: var(--ink-soft);
+    fill: var(--ink);
+    font-weight: 600;
     font-family: inherit;
 }
 
