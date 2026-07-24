@@ -1,6 +1,7 @@
 #include "core/losses/LossEvaluation.h"
 #include "core/losses/CopperLoss.h"
 #include "core/losses/CoreLoss.h"
+#include "core/units/UnitConversions.h"
 
 //precondition: see header
 //postcondition: see header
@@ -39,8 +40,8 @@ LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const Cor
             result.missingData.push_back("core loss not evaluated: no validated Steinmetz coefficients for material '" +
                                           material.materialFamily + "' at this frequency");
         } else {
-            double calculatedInductanceH = turnsAndGap.calculatedInductanceUH * 1e-6;
-            double aeM2 = core.aeMm2 * 1e-6;
+            double calculatedInductanceH = units::uHToH(turnsAndGap.calculatedInductanceUH);
+            double aeM2 = units::mm2ToM2(core.aeMm2);
             double fluxDensitySwingT =
                 (calculatedInductanceH * (*rippleCurrentPeakToPeakA)) / (static_cast<double>(turnsAndGap.turns) * aeM2);
 
@@ -49,8 +50,8 @@ LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const Cor
             // empirically: treating it as W/cm^3 produced ~300 W/cm^3 for a 20 mT swing, which is
             // physically absurd - W/m^3 gives a normal few-tens-of-milliwatt result instead).
             double coreLossDensityWPerM3 = calculateCoreLossDensity(lookup.coefficients, fluxDensitySwingT, switchingFreqHz);
-            // Effective core volume: Ae (mm^2) * Le (mm) = mm^3, converted to m^3 (mm^3 * 1e-9).
-            double coreVolumeM3 = (core.aeMm2 * core.leMm) * 1e-9;
+            // Effective core volume: Ae (mm^2) * Le (mm) = mm^3, converted to m^3.
+            double coreVolumeM3 = units::mm3ToM3(core.aeMm2 * core.leMm);
 
             result.coreLossStatus = EvaluationStatus::Evaluated;
             result.coreLossW = coreLossDensityWPerM3 * coreVolumeM3;

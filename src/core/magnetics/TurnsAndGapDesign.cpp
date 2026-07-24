@@ -1,6 +1,7 @@
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/magnetics/GapDesign.h"
 #include "core/magnetics/TurnsCalculation.h"
+#include "core/units/UnitConversions.h"
 #include <algorithm>
 #include <cmath>
 
@@ -36,11 +37,11 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetIndu
     TurnsAndGapResult result;
 
     //effective core area is converted from square millimeters to square centimeters (1cm2 = 100m2)
-    double aeCm2 = core.aeMm2 / 100.0;
+    double aeCm2 = units::mm2ToCm2(core.aeMm2);
     //magnetic path length is converted from millimeters to centimeters (1cm = 10mm)
-    double leCm = core.leMm / 10.0;
+    double leCm = units::mmToCm(core.leMm);
     //target inductance is converted from microhenries to nanohenries (1uH = 1000nH)
-    double targetNh = targetInductanceUH * 1000.0;
+    double targetNh = units::uHToNh(targetInductanceUH);
     //this calculates the 40% practical gap limit 
     double maxGapMm = kMaxGapFraction * core.leMm;
 
@@ -59,7 +60,7 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetIndu
         //given the core, number of turns, and target inductance, what air gap is required?
         double gapCm = calculateRequiredGapCm(turns, aeCm2, leCm, core.mu, targetNh);
         //convert centimeters to millimeters to prevent a negative gap
-        double gapMm = std::max(0.0, gapCm * 10.0);
+        double gapMm = std::max(0.0, units::cmToMm(gapCm));
         gapMm = std::round(gapMm / kGapStepMm) * kGapStepMm;
 
         //check whether the required gap exceeds the practical limit of 40% of the core's magnetic path length. If it does, return a rejection reason and set converged=false.
@@ -69,7 +70,7 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetIndu
             return result;
         }
 
-        double alEff = calculateEffectiveAlNhPerTurnSq(aeCm2, leCm, core.mu, gapMm / 10.0);
+        double alEff = calculateEffectiveAlNhPerTurnSq(aeCm2, leCm, core.mu, units::mmToCm(gapMm));
         //if zero or negative effective AL is calculated, return a rejection reason and set converged=false.
         if (alEff <= 0.0) {
             result.converged = false;
@@ -90,7 +91,7 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetIndu
             result.turns = newTurns;
             result.gapMm = gapMm;
             result.effectiveAlNHPerTurnSquared = alEff;
-            result.calculatedInductanceUH = actualNh / 1000.0;
+            result.calculatedInductanceUH = units::nHToUh(actualNh);
             result.inductanceErrorPercent = errorPercent;
             result.withinTolerance = std::abs(errorPercent) <= tolerancePercent;
             result.converged = true;

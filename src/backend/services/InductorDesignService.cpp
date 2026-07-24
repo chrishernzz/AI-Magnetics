@@ -11,6 +11,7 @@
 #include "rules/DesignRules.h"
 #include "validation/DesignValidation.h"
 #include "RequirementDerivationService.h"
+#include "core/units/UnitConversions.h"
 
 //lets us reuse the function throughout the file without having to prefix it with the namespace
 namespace {
@@ -20,7 +21,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     candidate.material = material;
     candidate.core = core;
 
-    double targetInductanceUH = requirements.operatingPoint.inductanceH * 1e6;
+    double targetInductanceUH = units::hToUH(requirements.operatingPoint.inductanceH);
     candidate.turnsAndGap = designTurnsAndGap(core, targetInductanceUH, requirements.inductanceTolerancePercent);
 
     if (!candidate.turnsAndGap.converged) {

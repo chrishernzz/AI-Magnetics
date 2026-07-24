@@ -1,6 +1,7 @@
 #include "RequirementDerivationService.h"
 #include <cmath>
 #include <stdexcept>
+#include "core/units/UnitConversions.h"
 
 //precondition: request carries either rmsCurrentA, or both averageCurrentA and rippleCurrentPeakToPeakA
 //postcondition: returns normalized InductorRequirements with converted units and, if applicable, a derived RMS current plus a stated assumption
@@ -8,11 +9,11 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
     InductorRequirements out;
 
     //the request supplies inductance in microhenries (uH) but the internal calculations use henries (H) - convert here so downstream stages never have to re-convert
-    out.operatingPoint.inductanceH = request.inductanceUH * 1e-6;
+    out.operatingPoint.inductanceH = units::uHToH(request.inductanceUH);
     //no conversion needed here because the request supplies peak current in amps and the internal calculations use amps (will be used later for check such as peak flux density, core saturation, and energy storage)
     out.operatingPoint.peakCurrentA = request.peakCurrentA;
     //the request supplies switching frequency in kilohertz (kHz) but the internal calculations use hertz (Hz) - convert here so downstream stages never have to re-convert
-    out.operatingPoint.switchingFreqHz = request.switchingFreqKHz * 1000.0;
+    out.operatingPoint.switchingFreqHz = units::kHzToHz(request.switchingFreqKHz);
 
     //if true meaning provided the RMS value then go in here (not nil)
     if (request.rmsCurrentA.has_value()) {

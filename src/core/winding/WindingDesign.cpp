@@ -1,5 +1,6 @@
 #include "core/winding/WindingDesign.h"
 #include "data/AwgTable.h"
+#include "core/units/UnitConversions.h"
 #include <algorithm>
 #include <cmath>
 
@@ -40,8 +41,8 @@ const AwgEntry* finestAwgMeetingArea(double requiredAreaMm2) {
 WindingDesignResult designWinding(const CoreCandidate& core, int turns, double rmsCurrentA, const DesignRules& rules) {
     WindingDesignResult result;
 
-    //A/cm^2 -> mm^2 required area: requiredAreaMm2 = I / J_Acm2 * 100
-    double requiredAreaMm2 = rmsCurrentA / rules.allowableCurrentDensityAperCm2 * 100.0;
+    //A/cm^2 -> mm^2 required area: requiredAreaMm2 = I / J_Acm2, converted cm^2 -> mm^2
+    double requiredAreaMm2 = units::cm2ToMm2(rmsCurrentA / rules.allowableCurrentDensityAperCm2);
 
     const AwgEntry* singleStrand = finestAwgMeetingArea(requiredAreaMm2);
 
@@ -75,8 +76,8 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
     if (core.mltMm > 0.0) {
         // Length of one strand's path all the way around the core, turns
         // times over - not yet divided by parallel strands.
-        double singleStrandLengthM = (static_cast<double>(turns) * core.mltMm) / 1000.0;
-        double conductorAreaM2 = result.conductorAreaMm2 * 1e-6;
+        double singleStrandLengthM = units::mmToM(static_cast<double>(turns) * core.mltMm);
+        double conductorAreaM2 = units::mm2ToM2(result.conductorAreaMm2);
         double singleStrandResistanceOhms =
             kCopperResistivityOhmMAt20C * singleStrandLengthM / conductorAreaM2;
 

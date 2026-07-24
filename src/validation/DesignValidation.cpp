@@ -1,4 +1,5 @@
 #include "DesignValidation.h"
+#include "core/units/UnitConversions.h"
 #include <cmath>
 
 namespace {
@@ -9,8 +10,8 @@ double calculatePeakFluxDensityT(const CoreCandidate& core, const TurnsAndGapRes
     if (turnsAndGap.turns <= 0) {
         return 0.0;
     }
-    double inductanceH = turnsAndGap.calculatedInductanceUH * 1e-6;
-    double aeM2 = core.aeMm2 * 1e-6;
+    double inductanceH = units::uHToH(turnsAndGap.calculatedInductanceUH);
+    double aeM2 = units::mm2ToM2(core.aeMm2);
     return (inductanceH * peakCurrentA) / (static_cast<double>(turnsAndGap.turns) * aeM2);
 }
 
@@ -118,7 +119,7 @@ ValidationResult CurrentDensityValidation(const WindingDesignResult& winding, co
     result.unit = "A/mm^2";
 
     //A/cm^2 -> A/mm^2
-    double allowableAPerMm2 = rules.allowableCurrentDensityAperCm2 / 100.0;  
+    double allowableAPerMm2 = units::aPerCm2ToAPerMm2(rules.allowableCurrentDensityAperCm2);
 
     result.calculatedValue = winding.currentDensityAperMm2;
     result.limitValue = allowableAPerMm2;

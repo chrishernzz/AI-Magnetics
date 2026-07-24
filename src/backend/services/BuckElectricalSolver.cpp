@@ -1,5 +1,6 @@
 #include "BuckElectricalSolver.h"
 #include <stdexcept>
+#include "core/units/UnitConversions.h"
 
 //precondition: input.topology == Topology::Buck; vinMinV, vinMaxV, ioutA, switchingFreqKHz, rippleCurrentPercent are all positive; vinMinV <= vinMaxV; vinMaxV > voutV > 0 (a buck converter cannot regulate Vout >= Vin)
 //postcondition: returns an InductorDesignRequest with inductanceUH, peakCurrentA, switchingFreqKHz, averageCurrentA, and rippleCurrentPeakToPeakA populated - rmsCurrentA is left unset so
@@ -22,7 +23,7 @@ InductorDesignRequest BuckElectricalSolver::solve(const TopologyInput& input) {
     //worst-case point for buck ripple current is Vin_max (ripple grows as Vin - Vout grows) - see header comment
     double vin = input.vinMaxV;
     double vout = input.voutV;
-    double fswHz = input.switchingFreqKHz * 1000.0;
+    double fswHz = units::kHzToHz(input.switchingFreqKHz);
 
     //ideal duty cycle, no diode/switch drop modeling in V1 : Formula: D = Vout / Vin
     double dutyCycle = vout / vin;
@@ -35,7 +36,7 @@ InductorDesignRequest BuckElectricalSolver::solve(const TopologyInput& input) {
 
     //setting the inductor design request to what the BuckElectricalSolver derived from the converter-level requirements, so that the rest of the pipeline can run unchanged regardless of which mode produced the request
     InductorDesignRequest out;
-    out.inductanceUH = inductanceH * 1e6;
+    out.inductanceUH = units::hToUH(inductanceH);
     out.peakCurrentA = peakCurrent;
     out.switchingFreqKHz = input.switchingFreqKHz;
     out.ambientTemperatureC = input.ambientTemperatureC;
