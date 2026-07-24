@@ -233,7 +233,15 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("inductanceErrorPercent", &TurnsAndGapResult::inductanceErrorPercent)
         .def_readwrite("withinTolerance", &TurnsAndGapResult::withinTolerance)
         .def_readwrite("converged", &TurnsAndGapResult::converged)
-        .def_readwrite("rejectionReasons", &TurnsAndGapResult::rejectionReasons);
+        .def_readwrite("rejectionReasons", &TurnsAndGapResult::rejectionReasons)
+        .def_readwrite("gapMethod", &TurnsAndGapResult::gapMethod)
+        .def_readwrite("gapMinMm", &TurnsAndGapResult::gapMinMm)
+        .def_readwrite("gapMaxMm", &TurnsAndGapResult::gapMaxMm)
+        .def_readwrite("inductanceAtMinGapUH", &TurnsAndGapResult::inductanceAtMinGapUH)
+        .def_readwrite("inductanceAtMaxGapUH", &TurnsAndGapResult::inductanceAtMaxGapUH)
+        .def_readwrite("inductanceWithinToleranceAcrossGapRange", &TurnsAndGapResult::inductanceWithinToleranceAcrossGapRange)
+        .def_readwrite("smallGapWarning", &TurnsAndGapResult::smallGapWarning)
+        .def_readwrite("smallGapWarningReason", &TurnsAndGapResult::smallGapWarningReason);
 
     py::class_<ValidationResult>(m, "ValidationResult")
         .def(py::init<>())

@@ -173,6 +173,14 @@ def _serialize_turns_and_gap(t) -> dict:
         "withinTolerance": t.withinTolerance,
         "converged": t.converged,
         "rejectionReasons": list(t.rejectionReasons),
+        "gapMethod": t.gapMethod.name,
+        "gapMinMm": t.gapMinMm,
+        "gapMaxMm": t.gapMaxMm,
+        "inductanceAtMinGapUH": t.inductanceAtMinGapUH,
+        "inductanceAtMaxGapUH": t.inductanceAtMaxGapUH,
+        "inductanceWithinToleranceAcrossGapRange": t.inductanceWithinToleranceAcrossGapRange,
+        "smallGapWarning": t.smallGapWarning,
+        "smallGapWarningReason": t.smallGapWarningReason,
     }
 
 #precondition: winding design stage has completed and w contains winding analysis data

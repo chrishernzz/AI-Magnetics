@@ -22,7 +22,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     candidate.core = core;
 
     double targetInductanceUH = units::hToUH(requirements.operatingPoint.inductanceH);
-    candidate.turnsAndGap = designTurnsAndGap(core, targetInductanceUH, requirements.inductanceTolerancePercent);
+    candidate.turnsAndGap = designTurnsAndGap(core, targetInductanceUH, requirements.inductanceTolerancePercent, rules);
 
     if (!candidate.turnsAndGap.converged) {
         candidate.passed = false;
