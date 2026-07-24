@@ -4,6 +4,7 @@
 #include "backend/services/InductorDesignService.h"
 #include "backend/services/BuckElectricalSolver.h"
 #include "core/model/TopologyInput.h"
+#include "core/model/ConductionMode.h"
 #include "core/sizing/AreaProduct.h"
 #include "core/sizing/CoreEvaluation.h"
 #include "core/model/DesignRecommendation.h"
@@ -289,8 +290,33 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("allowableTempRiseC", &TopologyInput::allowableTempRiseC)
         .def_readwrite("inductanceTolerancePercent", &TopologyInput::inductanceTolerancePercent);
 
+    py::enum_<ConductionMode>(m, "ConductionMode")
+        .value("CCM", ConductionMode::CCM)
+        .value("CCMBoundary", ConductionMode::CCMBoundary)
+        .value("DCMUnsupported", ConductionMode::DCMUnsupported);
+
+    py::class_<BuckOperatingPointResult>(m, "BuckOperatingPointResult")
+        .def(py::init<>())
+        .def_readwrite("vinV", &BuckOperatingPointResult::vinV)
+        .def_readwrite("dutyCycle", &BuckOperatingPointResult::dutyCycle)
+        .def_readwrite("rippleCurrentPeakToPeakA", &BuckOperatingPointResult::rippleCurrentPeakToPeakA)
+        .def_readwrite("peakCurrentA", &BuckOperatingPointResult::peakCurrentA)
+        .def_readwrite("minInductorCurrentA", &BuckOperatingPointResult::minInductorCurrentA);
+
+    py::class_<BuckSolveResult>(m, "BuckSolveResult")
+        .def(py::init<>())
+        .def_readwrite("request", &BuckSolveResult::request)
+        .def_readwrite("atVinMin", &BuckSolveResult::atVinMin)
+        .def_readwrite("atVinMax", &BuckSolveResult::atVinMax)
+        .def_readwrite("worstCaseDutyCycleAt", &BuckSolveResult::worstCaseDutyCycleAt)
+        .def_readwrite("worstCaseRippleAt", &BuckSolveResult::worstCaseRippleAt)
+        .def_readwrite("worstCasePeakAt", &BuckSolveResult::worstCasePeakAt)
+        .def_readwrite("conductionMode", &BuckSolveResult::conductionMode)
+        .def_readwrite("assumptions", &BuckSolveResult::assumptions)
+        .def_readwrite("warnings", &BuckSolveResult::warnings);
+
     m.def("solve_buck_topology", &BuckElectricalSolver::solve,
-          "MODE 1: derive an InductorDesignRequest (inductance, peak current, "
-          "average current + ripple) from Buck converter operating requirements, "
-          "sized at the worst-case Vin_max operating point");
+          "MODE 1: derive a BuckSolveResult (sized InductorDesignRequest, real "
+          "electrical quantities at both Vin_min and Vin_max, CCM/DCM classification, "
+          "and stated Phase 1 assumptions) from Buck converter operating requirements");
 }

@@ -209,14 +209,17 @@ async function updateBuckDiagnosticsLive() {
 
     try {
         const derived = await postRequest(TOPOLOGY_ENDPOINT, payload);
-        setDiagValue("diagDutyCycle", `${(derived.dutyCycle * 100).toFixed(1)}%`);
-        setDiagValue("diagRippleA", `${derived.rippleCurrentPeakToPeakA.toFixed(3)} A`);
-        setDiagValue("diagPeakCurrent", `${derived.peakCurrentA.toFixed(3)} A`);
-        setDiagValue("diagAvgCurrent", `${derived.averageCurrentA.toFixed(3)} A`);
-        setDiagValue("diagInductance", `${derived.inductanceUH.toFixed(3)} µH`);
+        // Diagnostics show the worst-case (Vin Maximum) operating point,
+        // same as before - derived.atVinMax carries the real numbers at
+        // that point now that the API also returns Vin Minimum alongside it.
+        setDiagValue("diagDutyCycle", `${(derived.atVinMax.dutyCycle * 100).toFixed(1)}%`);
+        setDiagValue("diagRippleA", `${derived.atVinMax.rippleCurrentPeakToPeakA.toFixed(3)} A`);
+        setDiagValue("diagPeakCurrent", `${derived.atVinMax.peakCurrentA.toFixed(3)} A`);
+        setDiagValue("diagAvgCurrent", `${derived.request.averageCurrentA.toFixed(3)} A`);
+        setDiagValue("diagInductance", `${derived.request.inductanceUH.toFixed(3)} µH`);
 
         rowIds.forEach((id) => setDiagnosticsRowPending(id, false));
-        updateRippleWaveform(derived);
+        updateRippleWaveform(derived.atVinMax);
         if (note) note.textContent = "";
     } catch (error) {
         // Expected constantly while typing (e.g. Vout momentarily blank, or
@@ -291,7 +294,8 @@ function clearTopologyDerived() {
     }
 }
 
-function applyTopologyDerivedRequest(derived, vinUsedV) {
+function applyTopologyDerivedRequest(result, vinUsedV) {
+    const derived = result.request;
     document.getElementById("inductance").value = derived.inductanceUH.toFixed(3);
     document.getElementById("current").value = derived.peakCurrentA.toFixed(3);
     document.getElementById("frequency").value = derived.switchingFreqKHz;
@@ -316,6 +320,9 @@ function applyTopologyDerivedRequest(derived, vinUsedV) {
 
     const banner = document.getElementById("topologyDerivedBanner");
     if (banner) {
+        const warningsHtml = result.warnings.length
+            ? `<p class="topology-derived-warning">${result.warnings.join(" ")}</p>`
+            : "";
         banner.hidden = false;
         banner.innerHTML = `
             <p><strong>Derived from your Buck converter requirements</strong> at the worst-case input voltage, Vin = ${vinUsedV} V.</p>
@@ -323,6 +330,7 @@ function applyTopologyDerivedRequest(derived, vinUsedV) {
                Iavg = ${derived.averageCurrentA.toFixed(3)} A (= Iout) · Ripple = ${derived.rippleCurrentPeakToPeakA.toFixed(3)} A p-p ·
                fsw = ${derived.switchingFreqKHz} kHz</p>
             <p>RMS current is derived downstream from Iavg + ripple (triangular-ripple assumption), the same as if entered directly.</p>
+            ${warningsHtml}
             <button type="button" id="clearTopologyDerivedButton">Clear and enter inductor requirements directly</button>
         `;
         const clearButton = document.getElementById("clearTopologyDerivedButton");

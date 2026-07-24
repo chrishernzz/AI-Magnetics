@@ -56,9 +56,9 @@ def build_cpp_input(request: BuckTopologyInput) -> "magnetics_cpp.TopologyInput"
     cpp_input.inductanceTolerancePercent = request.inductanceTolerancePercent
     return cpp_input
 
-#precondition: r is a valid derived requirement object returned from solve_buck_topology and buck topology calculations completed successfully
+#precondition: r is a valid InductorDesignRequest embedded in a BuckSolveResult
 #postcondition: returns a json-serializable dictionary and returned fields match InductorDesignRequest naming
-def _serialize_derived_request(r, duty_cycle: float) -> dict:
+def _serialize_derived_request(r) -> dict:
     return {
         "inductanceUH": r.inductanceUH,
         "peakCurrentA": r.peakCurrentA,
@@ -70,20 +70,45 @@ def _serialize_derived_request(r, duty_cycle: float) -> dict:
         #downstream using the one triangular-ripple formula in the codebase (see BuckElectricalSolver.h for why).
         "averageCurrentA": r.averageCurrentA,
         "rippleCurrentPeakToPeakA": r.rippleCurrentPeakToPeakA,
-        #display-only diagnostic, not a design decision - computed here with the exact same one-line ratio (Vout / Vin_max) that BuckElectricalSolver uses internally to size L and the ripple
-        #target. Not added to InductorDesignRequest itself since that struct is intentionally topology-agnostic (shared with Mode 2, which has no concept of duty cycle).
-        "dutyCycle": duty_cycle,
+    }
+
+#precondition: p is a valid BuckOperatingPointResult
+#postcondition: returns a json-serializable dictionary of the real electrical quantities at this specific Vin
+def _serialize_operating_point(p) -> dict:
+    return {
+        "vinV": p.vinV,
+        "dutyCycle": p.dutyCycle,
+        "rippleCurrentPeakToPeakA": p.rippleCurrentPeakToPeakA,
+        "peakCurrentA": p.peakCurrentA,
+        "minInductorCurrentA": p.minInductorCurrentA,
+    }
+
+#precondition: r is a valid BuckSolveResult returned from solve_buck_topology
+#postcondition: returns a json-serializable dictionary - the derived request, both operating points, which point is
+#worst per quantity, CCM/DCM classification, and the stated Phase 1 assumptions/warnings
+def _serialize_buck_solve_result(r) -> dict:
+    return {
+        "request": _serialize_derived_request(r.request),
+        "atVinMin": _serialize_operating_point(r.atVinMin),
+        "atVinMax": _serialize_operating_point(r.atVinMax),
+        "worstCaseDutyCycleAt": r.worstCaseDutyCycleAt,
+        "worstCaseRippleAt": r.worstCaseRippleAt,
+        "worstCasePeakAt": r.worstCasePeakAt,
+        "conductionMode": r.conductionMode.name,
+        "assumptions": list(r.assumptions),
+        "warnings": list(r.warnings),
     }
 
 #precondition: request body matches BuckTopologyInput schema: vinMinV, vinMaxV, voutV, ioutA, switchingFreqKHz, and rippleCurrentPercent are provided input values represent a physically valid buck converter and magnetics_cpp topology solver is available
-#postcondition: derived magnetic requirements are returned, response fields match InductorDesignRequest fields, and invalid physical inputs return http 422
+#postcondition: derived magnetic requirements (at both Vin_min and Vin_max) are returned, and invalid physical inputs return http 422
 @router.post("/topology-design/buck")
 def topology_design_buck(request: BuckTopologyInput) -> dict:
     cpp_input = build_cpp_input(request)
+    rules = magnetics_cpp.design_rules_phase1_default()
     try:
-        derived = magnetics_cpp.solve_buck_topology(cpp_input)
+        derived = magnetics_cpp.solve_buck_topology(cpp_input, rules)
     except ValueError as exc:
-        #BuckElectricalSolver raises std::invalid_argument for physically invalid inputs (e.g. Vout >= Vin_max) - pybind11 surfaces this as a Python ValueError.
+        #BuckElectricalSolver raises std::invalid_argument for physically invalid inputs (e.g. Vout >= Vin_min, or DCM at Vin_max) - pybind11 surfaces this as a Python ValueError.
         raise HTTPException(status_code=422, detail=str(exc))
 
-    return _serialize_derived_request(derived, request.voutV / request.vinMaxV)
+    return _serialize_buck_solve_result(derived)

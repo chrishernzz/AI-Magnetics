@@ -703,6 +703,11 @@ button:hover {
     color: var(--brand-black);
 }
 
+.topology-derived-warning {
+    color: #9a5b00;
+    font-weight: 600;
+}
+
 .topology-derived-banner button {
     background: transparent;
     border: 1px solid var(--line);
