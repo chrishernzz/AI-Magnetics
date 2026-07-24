@@ -1,4 +1,5 @@
 #pragma once
+#include "core/magnetics/GapMethod.h"
 
 // Explicit engineering-rules layer (spec section 7): every default magnetic
 // design constant used by the pipeline lives here, in C++, with units and a
@@ -10,6 +11,12 @@
 // material-specific limit exists in the data (e.g. BmaxT from
 // real_materials.csv), callers should prefer it over defaultFluxDensityLimitT
 // and flag that the default was NOT used (see ValidationResult.usedDefaultLimit).
+//
+// Every field added after minimumSingleStrandAwg is a "Phase 1 completion"
+// addition - each is a documented engineering estimate or a real physical
+// constant, never a fabricated per-part fact. See docs/DATA_FILES.md and
+// the project's honesty-ledger notes for which fields are estimates vs.
+// real constants.
 
 struct DesignRules {
     // Ku - window utilization factor (fraction of window area assumed
@@ -48,6 +55,139 @@ struct DesignRules {
     // documented separately from the AWG reference table it's compared
     // against (src/data/AwgTable.h).
     int minimumSingleStrandAwg;
+
+    // --- Buck-converter input validation ---
+
+    // Upper input-sanity bound on requested ripple current, as a percent
+    // of Iout. Above ~100% the triangular-ripple CCM model this engine
+    // assumes becomes unreliable and the operating point is likely already
+    // in DCM (see BuckElectricalSolver's own CCM/DCM check) - this is a
+    // Phase 1 input-sanity default, not a manufacturer limit.
+    double maximumRippleCurrentPercent;
+
+    // --- Flux limit tiers (informational, see calculateFluxLimitTiers) ---
+
+    // Generic engineering derate applied to the absolute saturation flux
+    // limit to produce a "recommended operating" flux limit. Not
+    // material-specific data - a Phase 1 default margin.
+    double recommendedFluxDerateFactor;
+
+    // --- Gap tolerance / manufacturability ---
+
+    // Below this gap length, a machined/lapped center-leg gap is not
+    // reliably reproducible by hand - a Phase 1 estimate, not a
+    // machine-shop spec. Triggers a warning, not a rejection.
+    double minManufacturableGapMm;
+
+    // Machining resolution increment the calculated gap is rounded to.
+    // Moved here from a local constant in TurnsAndGapDesign.cpp so it is
+    // configurable and documented in one place.
+    double gapStepMm;
+
+    // Practical upper bound on gap length, as a fraction of the core's
+    // magnetic path length. Moved here from a local constant in
+    // TurnsAndGapDesign.cpp for the same reason as gapStepMm.
+    double maxGapFraction;
+
+    // Typical mechanical tolerance on a machined/lapped gap, expressed as
+    // a percent of the nominal gap length - a Phase 1 generic estimate
+    // used to sweep inductance at the gap's min/max extremes.
+    double gapTolerancePercent;
+
+    // Which gapping technique the pipeline assumes. Only MachinedCenterLeg
+    // has a validated formula in Phase 1 - see GapMethod.h.
+    GapMethod gapMethod;
+
+    // --- Winding realism ---
+
+    // Typical single-build magnet-wire enamel thickness added to a bare
+    // conductor's diameter to get its insulated diameter. A generic
+    // order-of-magnitude estimate, not tied to a specific NEMA MW1000
+    // insulation class.
+    double singleBuildInsulationBuildUpMm;
+
+    // Achievable winding packing density beyond a simple area-sum of
+    // insulated conductors - a McLyman-style estimate.
+    double packingFactor;
+
+    // Fraction of a core's raw window area (Wa) usable after bobbin wall
+    // thickness is accounted for. No per-core bobbin geometry exists in
+    // the data, so this is a Phase 1 generic estimate.
+    double bobbinWindowDerateFactor;
+
+    // Creepage/clearance margin, expressed as a fraction of the raw window
+    // area (the core data has no width/height split, only a raw area - see
+    // docs/DATA_FILES.md for why this is an area fraction rather than a
+    // literal millimeter dimension).
+    double marginAllowanceAreaFraction;
+
+    // Window area reserved for lead dress/exit, same area-fraction
+    // reasoning as marginAllowanceAreaFraction.
+    double leadExitAllowanceAreaFraction;
+
+    // Derates a parallel-strand bundle's effective ampacity for imperfect
+    // current sharing between strands - a Phase 1 generic estimate.
+    double currentSharingDerateFactor;
+
+    // --- DCR / copper loss realism ---
+
+    // Combined estimated lead length (both terminations), winding exit to
+    // termination point - a Phase 1 generic estimate, not per-core
+    // measured data.
+    double totalLeadLengthAllowanceMm;
+
+    // Additional estimated routing length beyond direct leads (PCB trace,
+    // busbar run, etc.) - a Phase 1 generic estimate.
+    double routingLengthAllowanceMm;
+
+    // Estimated termination/connection resistance (crimp, solder joint,
+    // pad) - a Phase 1 generic estimate, not measured.
+    double connectionResistanceMilliOhm;
+
+    // Copper resistivity temperature coefficient, 1/degC at 20degC
+    // reference. This is a real IACS physical constant (not a Phase 1
+    // guess) - centralized here alongside the other constants it is used
+    // with, so DCR temperature correction has exactly one source for it.
+    double copperTempCoefficientPerC;
+
+    // Conservative fallback winding temperature (degC) used to estimate a
+    // "hot" DCR ONLY when the real thermal iterative loop cannot run
+    // (e.g. DCR geometry unknown) - not a converged answer, just a
+    // sanity-check upper bound.
+    double assumedWindingTempCWhenThermalNotEvaluated;
+
+    // --- Thermal (Phase 1 default Rth) ---
+
+    // Generic natural-convection thermal-resistance order-of-magnitude
+    // (degC/W) for a small/medium ferrite power inductor. This is the
+    // single Phase 1 default constant that makes the iterative thermal
+    // loop runnable - it is NEVER per-core measured or simulated data, so
+    // ThermalEvaluation can only ever report a PreliminaryThermalEstimate,
+    // never a full pass, regardless of how complete upstream loss coverage
+    // is. Typical real-world Rth for inductors this size ranges roughly
+    // 5-40 degC/W depending on actual size/surface area/airflow.
+    double defaultThermalResistanceCPerW;
+
+    // Winding-temperature change (degC) below which the thermal iterative
+    // loop is considered converged.
+    double thermalConvergenceThresholdC;
+
+    // Iteration cap for the thermal loop, mirroring
+    // TurnsAndGapDesign.cpp's existing turns/gap convergence-loop pattern
+    // (kMaxIterations).
+    int maxThermalIterations;
+
+    // --- Skin-depth AC-loss risk heuristic ---
+
+    // strandRadius/skinDepth ratio at or below which AC-loss risk is
+    // classified Low. A Phase 1 heuristic threshold, not a validated
+    // AC-loss boundary from a Dowell/FEA model.
+    double skinDepthRiskModerateThreshold;
+
+    // strandRadius/skinDepth ratio above which AC-loss risk is classified
+    // High. Same heuristic-not-validated caveat as
+    // skinDepthRiskModerateThreshold.
+    double skinDepthRiskHighThreshold;
 
     // Named Phase 1 ruleset. Values above are applied here so the numbers
     // and their sourcing comments live in exactly one place.

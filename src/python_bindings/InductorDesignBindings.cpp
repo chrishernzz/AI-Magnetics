@@ -15,6 +15,7 @@
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/winding/WindingDesign.h"
 #include "core/losses/CoreLoss.h"
+#include "core/magnetics/GapMethod.h"
 #include "data/CoreDatabase.h"
 #include "data/CoreLossCoefficientDatabase.h"
 #include "data/MaterialDatabase.h"
@@ -102,6 +103,12 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .value("NotEvaluated", EvaluationStatus::NotEvaluated)
         .value("Rejected", EvaluationStatus::Rejected);
 
+    py::enum_<GapMethod>(m, "GapMethod")
+        .value("MachinedCenterLeg", GapMethod::MachinedCenterLeg)
+        .value("Spacer", GapMethod::Spacer)
+        .value("Distributed", GapMethod::Distributed)
+        .value("ManufacturerGapped", GapMethod::ManufacturerGapped);
+
     py::class_<DesignRules>(m, "DesignRules")
         .def(py::init<>())
         .def_readwrite("windowUtilization", &DesignRules::windowUtilization)
@@ -110,7 +117,30 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("minimumSaturationMarginPercent", &DesignRules::minimumSaturationMarginPercent)
         .def_readwrite("maximumFillFactor", &DesignRules::maximumFillFactor)
         .def_readwrite("defaultInductanceTolerancePercent", &DesignRules::defaultInductanceTolerancePercent)
-        .def_readwrite("minimumSingleStrandAwg", &DesignRules::minimumSingleStrandAwg);
+        .def_readwrite("minimumSingleStrandAwg", &DesignRules::minimumSingleStrandAwg)
+        .def_readwrite("maximumRippleCurrentPercent", &DesignRules::maximumRippleCurrentPercent)
+        .def_readwrite("recommendedFluxDerateFactor", &DesignRules::recommendedFluxDerateFactor)
+        .def_readwrite("minManufacturableGapMm", &DesignRules::minManufacturableGapMm)
+        .def_readwrite("gapStepMm", &DesignRules::gapStepMm)
+        .def_readwrite("maxGapFraction", &DesignRules::maxGapFraction)
+        .def_readwrite("gapTolerancePercent", &DesignRules::gapTolerancePercent)
+        .def_readwrite("gapMethod", &DesignRules::gapMethod)
+        .def_readwrite("singleBuildInsulationBuildUpMm", &DesignRules::singleBuildInsulationBuildUpMm)
+        .def_readwrite("packingFactor", &DesignRules::packingFactor)
+        .def_readwrite("bobbinWindowDerateFactor", &DesignRules::bobbinWindowDerateFactor)
+        .def_readwrite("marginAllowanceAreaFraction", &DesignRules::marginAllowanceAreaFraction)
+        .def_readwrite("leadExitAllowanceAreaFraction", &DesignRules::leadExitAllowanceAreaFraction)
+        .def_readwrite("currentSharingDerateFactor", &DesignRules::currentSharingDerateFactor)
+        .def_readwrite("totalLeadLengthAllowanceMm", &DesignRules::totalLeadLengthAllowanceMm)
+        .def_readwrite("routingLengthAllowanceMm", &DesignRules::routingLengthAllowanceMm)
+        .def_readwrite("connectionResistanceMilliOhm", &DesignRules::connectionResistanceMilliOhm)
+        .def_readwrite("copperTempCoefficientPerC", &DesignRules::copperTempCoefficientPerC)
+        .def_readwrite("assumedWindingTempCWhenThermalNotEvaluated", &DesignRules::assumedWindingTempCWhenThermalNotEvaluated)
+        .def_readwrite("defaultThermalResistanceCPerW", &DesignRules::defaultThermalResistanceCPerW)
+        .def_readwrite("thermalConvergenceThresholdC", &DesignRules::thermalConvergenceThresholdC)
+        .def_readwrite("maxThermalIterations", &DesignRules::maxThermalIterations)
+        .def_readwrite("skinDepthRiskModerateThreshold", &DesignRules::skinDepthRiskModerateThreshold)
+        .def_readwrite("skinDepthRiskHighThreshold", &DesignRules::skinDepthRiskHighThreshold);
 
     m.def("design_rules_phase1_default", &DesignRules::phase1Default,
           "Return the named Phase 1 default engineering ruleset (spec section 7) - "
