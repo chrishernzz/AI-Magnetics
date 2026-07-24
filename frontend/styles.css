@@ -86,11 +86,35 @@ body {
     letter-spacing: 0.06em;
 }
 
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
 .topbar-note {
     color: #d4d4d7;
     font-size: 0.82rem;
     max-width: 480px;
     text-align: right;
+}
+
+/* The AMETEK mark is a solid white asset (no transparency) - a white chip
+   keeps it a deliberate badge on the dark header instead of a stray white
+   rectangle floating on var(--brand-black). */
+.topbar-partner {
+    display: inline-flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 6px;
+    padding: 5px 10px;
+    flex-shrink: 0;
+}
+
+.topbar-partner-logo {
+    display: block;
+    height: 18px;
+    width: auto;
 }
 
 @media (max-width: 720px) {
