@@ -151,7 +151,7 @@ carried forward.
 
 ## Stage 4+: Turns/Gap, Magnetic Validation, Winding, Losses, Thermal — ✅ Implemented (data-gapped in places)
 
-**Files:** `src/core/magnetics/GapDesign.cpp`, `src/core/magnetics/TurnsAndGapDesign.cpp`, `src/validation/DesignValidation.cpp`, `src/core/winding/WindingDesign.cpp`, `src/core/losses/LossEvaluation.cpp` (calling `src/core/losses/CopperLoss.cpp`/`src/core/losses/CoreLoss.cpp`/`src/core/losses/HighFrequencyLosses.cpp`), `src/core/thermal/ThermalEvaluation.cpp`, orchestrated by `src/backend/services/InductorDesignService.cpp` behind `POST /inductor-design`.
+**Files:** `src/core/magnetics/GapDesign.cpp`, `src/core/magnetics/TurnsAndGapDesign.cpp`, `src/validation/DesignValidation.cpp`, `src/core/winding/WindingDesign.cpp`, `src/core/losses/LossEvaluation.cpp` (calling `src/core/losses/CopperLoss.cpp`/`src/core/losses/CoreLoss.cpp`), `src/core/losses/SkinDepthRisk.cpp`, `src/core/thermal/ThermalEvaluation.cpp`, `src/validation/RecommendationStatus.cpp`, orchestrated by `src/backend/services/InductorDesignService.cpp` behind `POST /inductor-design`.
 
 **Turns and gap (implemented, iterated together):**
 ```
@@ -163,7 +163,7 @@ AL_eff(nH/turn^2) = 0.4*pi * Ae_cm2 * 10 / (Le_cm/muR + gapCm)             (gapp
 
 **Magnetic validation (six named checks, `DesignValidation.cpp`):** InductanceValidation, PeakFluxValidation (`Bpk = L*Ipk/(N*Ae)` vs. the applicable flux limit), SaturationValidation (margin vs. `DesignRules.minimumSaturationMarginPercent`), WindingFitValidation, CurrentDensityValidation, ThermalValidation. Every failed check is reported, not just the first.
 
-**Winding design (`src/core/winding/WindingDesign.cpp`):** required conductor area from RMS current and `DesignRules.allowableCurrentDensityAperCm2`, AWG gauge selection (`src/data/AwgTable.h`, standard NEMA MW1000 reference geometry) with parallel strands when a single strand would be impractically thick, fill factor, current density - all computed. DCR and total wire length are computed from `CoreCandidate.mltMm` (a real-geometry estimate, `data/real_cores.csv`'s `Mlt` column) when it's available, `not_evaluated` for the subset of cores whose upstream geometry doesn't support that estimate.
+**Winding design (`src/core/winding/WindingDesign.cpp`):** required conductor area from RMS current and `DesignRules.allowableCurrentDensityAperCm2`, AWG gauge selection (`src/data/AwgTable.h`, standard NEMA MW1000 reference geometry) with parallel strands when a single strand would be impractically thick, raw copper fill factor, current density - all computed. A separate, realistic **physical window fill** (insulation build-up, achievable packing density, bobbin wall thickness, margin/lead-exit clearance - all `DesignRules` estimates) is what `WindingFitValidation` actually gates on; the raw copper-only figure stays as an informational field. DCR (now including lead/routing/connection resistance, not just core-winding resistance) and total wire length are computed from `CoreCandidate.mltMm` (a real-geometry estimate, `data/real_cores.csv`'s `Mlt` column) when it's available, `not_evaluated` for the subset of cores whose upstream geometry doesn't support that estimate. See FORMULAS.md section 6.
 
 **Copper Loss (`src/core/losses/CopperLoss.cpp`, implemented):**
 ```
@@ -178,9 +178,11 @@ Bswing (T) = calculatedInductanceH * ripplePeakToPeakA / (turns * Ae_m2)
 ```
 Real for candidates whose material has coefficients in `data/real_core_loss_coefficients.csv` (17 of 32) AND whose request supplied `rippleCurrentPeakToPeakA` - `MaterialCandidate.hasCoreLossData` now reflects real coefficient availability, not the retired `CuLossFactor` field. No ripple current means no flux-density swing to compute Bswing from, so `losses.coreLossStatus` stays `not_evaluated` rather than approximating it from peak flux. Coefficients' temperature-correction terms (ct0/ct1/ct2) are not yet applied.
 
-**High-frequency (skin/proximity) loss:** not implemented in Phase 1 (`src/core/losses/HighFrequencyLosses.cpp` still returns 0.0) - always reported `not_evaluated`, never presented as a real 0 W result.
+**Skin-depth AC-loss risk (`src/core/losses/SkinDepthRisk.cpp`, renamed from the dead `HighFrequencyLosses.cpp` stub):** a real, qualitative Low/Moderate/High risk level based on the selected strand's bare radius vs. the classical skin depth at the switching frequency - never a watts figure (`acLossWattsStatus` is permanently `not_evaluated`, since no AC-loss watts model exists). Named explicitly what it evaluates (single-strand skin effect) and what it doesn't (bundle proximity effect, proximity to the air gap). See FORMULAS.md section 11.
 
-**Thermal evaluation (`src/core/thermal/ThermalEvaluation.cpp`):** always `not_evaluated` - no thermal-resistance model or surface-area data exists in either CSV yet.
+**Thermal evaluation (`src/core/thermal/ThermalEvaluation.cpp`):** a real iterative convergence loop (temp → hot DCR → copper loss → temp rise → repeat, mirroring the turns/gap loop above) now runs, using `DesignRules.defaultThermalResistanceCPerW` (a Phase 1 default, never per-core measured data). Caps at `PreliminaryThermalEstimate` - never a "fully evaluated" value exists. Reports `not_evaluated` when winding DCR geometry is unknown, or when the loop's real positive-feedback iteration diverges rather than converges (a genuine possibility for high-current, low-DCR designs, not just a numerical edge case). See FORMULAS.md section 10.
+
+**3-tier recommendation (`src/validation/RecommendationStatus.cpp`):** `Phase1Recommended` / `PreliminaryCandidate` / `Rejected` replaces the old frontend-only "Recommended" sugar. `Rejected` always mirrors the six-check pass/fail decision above. No real request reaches `Phase1Recommended` today, since `ThermalValidation` always flags its result as a preliminary estimate. See FORMULAS.md section 12.
 
 **Turns count sanity, once real turns exist:** the tool doesn't flag turns < 5 or > 100 as impractical yet - only the six named validation checks above run.
 
@@ -221,7 +223,7 @@ an engine bug. See [DATA_FILES.md](DATA_FILES.md).
 | Inductance (L) | µH | 100 – 1000 | Larger L → larger core, more turns |
 | Peak Current (Ipk) | A | 1 – 30 | Higher I → hotter, larger core |
 | Frequency | kHz | 25 – 1000 | Higher f → smaller core, ferrite better |
-| Temp Rise (ΔT) | °C | 25 – 60 | Checked by ThermalValidation - always `not_evaluated` today (no thermal model/data yet) |
+| Temp Rise (ΔT) | °C | 25 – 60 | Checked by ThermalValidation against a real iterative loop's converged result - `PreliminaryThermalEstimate` at best (never fully evaluated), `not_evaluated` if DCR geometry is unknown or the loop diverges |
 | Window Utilization (Ku) | – | 0.4, from `DesignRules::phase1Default()` | Not yet configurable per-request |
 | Flux Density (Bmax) | T | 0.30 default, from `DesignRules::phase1Default()` | Used unless a material carries its own `BmaxT` (real, material-specific data in `real_materials.csv` for all 32 materials) |
 | Current Density (J) | A/cm² | 400, from `DesignRules::phase1Default()` | Not yet configurable per-request |

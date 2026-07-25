@@ -270,8 +270,39 @@ single formula — it's a loop:
 
 This typically settles in 2-4 iterations. A design is **rejected** — not
 silently forced — if the required gap would be impractically large (more
-than 40% of the core's own magnetic path length) or if it doesn't converge
-within 15 iterations.
+than `DesignRules.maxGapFraction`, default 40%, of the core's own magnetic
+path length) or if it doesn't converge within 15 iterations. An exhaustive
+2,000,000-trial simulation of this exact iteration across wide parameter
+ranges found zero cases where it fails to converge without also hitting
+that excessive-gap rejection first — the turns/gap feedback is structurally
+self-correcting (see `tests/cpp/GapToleranceTests.cpp`).
+
+### Gap-tolerance sweep and small-gap warning
+
+A gap that lands on target as-designed can still fail once realistic
+mechanical tolerance is accounted for. After the loop above converges, the
+gap is swept ±`DesignRules.gapTolerancePercent` (default 10%) and the
+inductance is recomputed at both extremes (turns held fixed):
+
+```
+gapMin = gap * (1 - gapTolerancePercent/100)
+gapMax = gap * (1 + gapTolerancePercent/100)
+```
+
+If either extreme falls outside the requested inductance tolerance, the
+design is rejected with a reason naming which extreme(s) failed
+(`TurnsAndGapResult.inductanceWithinToleranceAcrossGapRange`) — a nominal
+pass alone is not sufficient. Separately, a calculated gap below
+`DesignRules.minManufacturableGapMm` (default 0.05mm) sets
+`smallGapWarning: true` with a plain-language reason — a caveat, not a
+rejection, since the design is still physically valid, just harder to
+reliably machine or lap by hand.
+
+Only `GapMethod.MachinedCenterLeg` has a validated formula in Phase 1 —
+`DesignRules.gapMethod` set to `Spacer`, `Distributed`, or
+`ManufacturerGapped` is rejected outright rather than having this one
+validated formula silently applied to a technique it was never checked
+against.
 
 ### Why it matters if this is wrong
 
@@ -341,6 +372,20 @@ of a real material-specific number, the result explicitly flags
 `usedDefaultLimit: true` — so a generic assumption is never presented as a
 measured fact about a specific material.
 
+### 5.3 Flux-Limit Tiers (Informational)
+
+`calculateFluxLimitTiers()` (`src/validation/DesignValidation.cpp`) breaks
+the single limit above into four named tiers, surfaced per candidate as
+`fluxLimits` — purely informational, it does not change what 5.1/5.2 gate
+on. Only two of the four are real:
+
+```
+absoluteSaturationT      = Blimit (same value as 5.2)
+recommendedOperatingT    = absoluteSaturationT * DesignRules.recommendedFluxDerateFactor  (default 0.85)
+temperatureAdjustedStatus  = always NotEvaluated (no temp-coefficient-vs-saturation data exists)
+coreLossLimitedStatus      = always NotEvaluated (no core-loss-vs-flux-density sweep data exists)
+```
+
 ### Feeds into
 
 The candidate's overall pass/fail decision. A failed check here blocks the
@@ -396,11 +441,47 @@ project-specific assumption — so the only real design decision here is
 manufacturability heuristic (how thick a single solid wire is practical to
 hand-wind), separate from the wire geometry table it's compared against.
 
-### Total wire length and DCR
+### Physical window fill (realistic, not raw copper)
+
+`fillFactor` above is copper-only — it undercounts real winding space.
+`physicalWindowFillFactor` is the figure `WindingFitValidation` actually
+gates on:
 
 ```
-strand_length_m = turns * mltMm / 1000
-DCR = resistivity_ohm_m * strand_length_m / conductorArea_m2 / parallelStrands
+insulatedDiameterMm  = bareStrandDiameterMm + DesignRules.singleBuildInsulationBuildUpMm
+insulatedAreaMm2     = pi/4 * insulatedDiameterMm^2
+
+physicalWindowAreaMm2 = Wa * bobbinWindowDerateFactor * (1 - marginAllowanceAreaFraction - leadExitAllowanceAreaFraction)
+physicalCopperAreaMm2 = (turns * parallelStrands * insulatedAreaMm2) / packingFactor
+
+physicalWindowFillFactor = physicalCopperAreaMm2 / physicalWindowAreaMm2
+```
+
+All four derate factors (`singleBuildInsulationBuildUpMm`,
+`bobbinWindowDerateFactor`, `marginAllowanceAreaFraction`,
+`leadExitAllowanceAreaFraction`, `packingFactor`) are Phase 1 generic
+estimates in `DesignRules`, not per-core measured data — margin and
+lead-exit are area *fractions*, not literal mm, because core data has no
+width/height split, only a raw window area. `WindingFitValidation` gates
+on `physicalWindowFillFactor`/`fitsPhysicalWindow`; the raw copper-only
+`fillFactor`/`fitsWindow` remain in the response as an informational
+figure. **This is an intentional behavior change**: a candidate that
+passed on raw copper fill alone can now fail on the physical model.
+
+Parallel-strand bundle-vs-narrowest-opening fit is permanently
+`not_evaluated` (`bundleFitStatus`) for the same reason — no width/height
+split exists to check a bundle against.
+
+### Total wire length and DCR (lead/routing/connection included)
+
+```
+coreWindingLengthM = turns * mltMm / 1000          (single strand, around the core only)
+leadLengthM        = DesignRules.totalLeadLengthAllowanceMm / 1000
+routingLengthM     = DesignRules.routingLengthAllowanceMm / 1000
+totalLengthM       = coreWindingLengthM + leadLengthM + routingLengthM
+
+coldDcrOhmsAt20C = resistivity_ohm_m * totalLengthM / conductorArea_m2 / parallelStrands
+                   + DesignRules.connectionResistanceMilliOhm / 1000
 ```
 
 Computing these needs the core's mean-length-per-turn (MLT) - `data/real_cores.csv`'s
@@ -408,15 +489,24 @@ Computing these needs the core's mean-length-per-turn (MLT) - `data/real_cores.c
 cross-section (`scripts/export_real_data.py`; not accounting for bobbin
 wall thickness or winding buildup - a documented simplification, same
 policy as the gap formula's fringing-flux omission). `resistivity_ohm_m`
-is annealed copper at 20°C (1.724e-8 Ω·m), not corrected for operating
-temperature. Fill factor and current density never needed MLT (they only
-need turns and window area), so they're computed either way; DCR is
-reported `not_evaluated` with an explicit explanation for the subset of
-cores whose upstream geometry doesn't support an MLT estimate.
+is annealed copper at 20°C (1.724e-8 Ω·m). Lead length, routing length,
+and connection resistance are Phase 1 generic `DesignRules` estimates, not
+per-part measured data — added because a real winding's DCR is more than
+just the wire wound around the core. Fill factor and current density never
+needed MLT (they only need turns and window area), so they're computed
+either way; DCR is reported `not_evaluated` with an explicit explanation
+for the subset of cores whose upstream geometry doesn't support an MLT
+estimate.
+
+`estimatedHotDcrOhms` starts as a conservative sanity-check estimate
+(`coldDcrOhmsAt20C` corrected to `DesignRules.assumedWindingTempCWhenThermalNotEvaluated`,
+default 90°C) and is overwritten with the real converged value from the
+thermal loop (Section 10) whenever that loop converges.
 
 ### Feeds into
 
-DC copper loss (Section 8) — only when DCR was actually computed.
+DC copper loss (Section 8) — only when DCR was actually computed. Thermal
+evaluation (Section 10) — the cold DCR seeds the iterative loop.
 
 ---
 
@@ -548,6 +638,19 @@ real absence, not an export bug) and correctly stay `not_evaluated`
 regardless of ripple current — `MaterialCandidate::hasCoreLossData`
 reflects this per material.
 
+Core loss also carries detail fields surfacing what was already computed
+internally but never exposed: `coreLossMaterialUsed`,
+`coreLossCoefficientMinFreqHz`/`MaxFreqHz` (the matched row's own declared
+valid range, not the requested frequency), `coreLossFluxDensitySwingT`,
+`coreLossVolumeM3`, `coreLossDensityWPerM3`.
+
+**Flux-swing valid-range guard:** the coefficient row optionally carries
+`minFluxSwingT`/`maxFluxSwingT` — when both are present, a computed swing
+outside that range is rejected (`not_evaluated`, "never extrapolated
+silently"), mirroring the frequency-range guard above. Currently a
+documented no-op: `data/real_core_loss_coefficients.csv` carries no such
+columns, so these are always unset against the current snapshot.
+
 ### Known remaining gap
 
 The coefficient rows also carry temperature-correction terms
@@ -559,22 +662,133 @@ corrected for `ambientTemperatureC`.
 
 ---
 
-## 10. Not Implemented: High-Frequency (Skin/Proximity) Loss and Thermal Rise
+## 10. Thermal Evaluation (Real Iterative Loop)
 
-Two results the engine could eventually produce aren't implemented at all
-yet, for different reasons than the data gaps above:
+**File:** `src/core/thermal/ThermalEvaluation.cpp`
 
-- **Skin/proximity effect loss** (`src/core/losses/HighFrequencyLosses.cpp`) —
-  the AC resistance increase caused by high-frequency current crowding
-  toward the outside of a conductor. No model is coded yet; this is a
-  genuine scope gap, not a data gap.
-- **Thermal rise** (`src/core/thermal/ThermalEvaluation.cpp`) — predicting
-  temperature rise from total loss needs a thermal-resistance model (how
-  effectively a given core sheds heat to ambient air), and no such model
-  or supporting data exists in this project yet.
+### What it's for
 
-Both are real pipeline stages that run on every request and report
-`not_evaluated` honestly, rather than being silently skipped.
+Predicts winding temperature rise from the losses computed above, feeding
+back into a temperature-corrected ("hot") DCR and copper loss — closing
+the loop between heat and resistance, since hotter copper has higher
+resistance, which dissipates more power, which raises temperature further.
+
+### Why an iterative loop
+
+Copper resistance rises with temperature (`copperTempCoefficientPerC`,
+0.00393/°C — a real IACS physical constant), so hot DCR depends on the very
+temperature it's used to predict. This is solved the same way turns/gap
+(Section 4) is: seed, compute, check for stability, repeat.
+
+```
+windingTempC = ambientTemperatureC
+repeat:
+  hotDcrOhms  = coldDcrOhmsAt20C * (1 + copperTempCoefficientPerC * (windingTempC - 20))
+  copperLossW = rmsCurrentA^2 * hotDcrOhms
+  knownLossW  = copperLossW + (coreLossW if known)
+  riseC       = knownLossW * defaultThermalResistanceCPerW
+  newWindingTempC = ambientTemperatureC + riseC
+until |newWindingTempC - windingTempC| < thermalConvergenceThresholdC (or maxThermalIterations reached)
+```
+
+`defaultThermalResistanceCPerW` (15°C/W) is a single **Phase 1 default**
+constant — a generic natural-convection order-of-magnitude for a
+small/medium ferrite power inductor, never per-core measured or simulated
+data. Because of that, this loop can only ever produce a
+`PreliminaryThermalEstimate`, never a "fully evaluated" thermal result —
+`ThermalStatus` has no such value at all. `ThermalValidation` still runs a
+real pass/fail comparison against `allowableTempRiseC` on a preliminary
+result, flagged via `ValidationResult.isPreliminaryEstimate: true`.
+
+### Genuine non-convergence (positive-feedback divergence)
+
+Because hotter winding → higher DCR → more loss → hotter winding is a real
+positive-feedback loop, its local iteration gain
+(`rmsCurrentA^2 * coldDcrOhmsAt20C * copperTempCoefficientPerC * defaultThermalResistanceCPerW`)
+can reach or exceed 1 for a high-current, low-DCR design — in which case
+the loop genuinely diverges rather than converges (confirmed against an
+independent hand-simulation of the identical formula before writing
+`tests/cpp/ThermalTests.cpp`'s divergence test). A non-converged result
+reports `not_evaluated`, never a stale intermediate number.
+
+### Feeds into
+
+`WindingDesignResult.estimatedHotDcrOhms` and `LossEvaluationResult.copperLossW`
+are overwritten with the converged values whenever the loop converges
+(`InductorDesignService.cpp`) — otherwise the cold-reference/sanity-check
+values from Sections 6/8 remain, honestly.
+
+---
+
+## 11. Skin-Depth AC-Loss Risk (Qualitative Heuristic)
+
+**File:** `src/core/losses/SkinDepthRisk.h`/`.cpp` (renamed from the dead
+`HighFrequencyLosses.{h,cpp}` stub, which always returned 0.0 and was never
+even called)
+
+### What it's for
+
+Flags when a selected conductor's diameter is large enough, relative to
+the classical skin depth at the switching frequency, that real AC
+(skin-effect) resistance is likely significantly higher than the DC value
+this engine computes everywhere else. **Qualitative only** — this is a
+risk *level*, never a watts figure.
+
+```
+skinDepthM = sqrt(rho_Cu / (pi * f * mu0))
+ratio      = strandRadiusMm / skinDepthMm
+riskLevel  = Low       if ratio <= skinDepthRiskModerateThreshold (1.0)
+             Moderate  if ratio <= skinDepthRiskHighThreshold (2.0)
+             High      otherwise
+```
+
+`rho_Cu` (1.724e-8 Ω·m) and `mu0` (4π×10⁻⁷ H/m) are real physical
+constants; the two threshold ratios are Phase 1 heuristic boundaries, not
+a validated Dowell/FEA AC-loss limit. `acLossWattsStatus` is permanently
+`not_evaluated` — no AC-loss watts model exists. The result's `reason`
+names explicitly what *was* evaluated (single-strand skin effect) and what
+was **not** (proximity effect between bundled parallel strands, proximity
+to the air gap) — no winding-layer or winding-to-gap geometry exists
+anywhere in this engine to compute either from.
+
+---
+
+## 12. Recommendation Tiers and Loss Naming
+
+**Files:** `src/validation/RecommendationStatus.cpp`, `src/backend/services/InductorDesignService.cpp`
+
+Not a formula, but the piece that ties every result above into a single
+honest verdict. `classifyRecommendation()` replaces a binary pass/fail with
+three tiers:
+
+```
+Rejected             = passed == false (mirrors the existing check aggregation, never overridden)
+PreliminaryCandidate = passed == true, but any check not_evaluated, any check isPreliminaryEstimate,
+                        or AC-loss risk is Moderate/High
+Phase1Recommended    = passed == true and none of the above
+```
+
+**Currently unreachable in practice:** `ThermalValidation` (Section 10)
+sets `isPreliminaryEstimate: true` on every result it ever produces, so no
+real Phase 1 request reaches `Phase1Recommended` today — confirmed against
+17 real passing candidates from a live request, all `PreliminaryCandidate`.
+The tier exists for when real thermal-resistance and AC-loss-watts data
+eventually exist, not as a claim that any design today is unconditionally
+ready to build.
+
+Loss naming: `LossSummary.knownEvaluatedLossW` sums whichever of copper/core
+loss are `Evaluated` — labeled "Known Evaluated Loss," never "Total Loss."
+`isCompleteTotal` is permanently `false`, since AC-loss watts (Section 11)
+never becomes `Evaluated`.
+
+Ranking (`InductorDesignService.cpp`'s `candidateRanksAhead()`) sorts by
+tier first, then known evaluated loss, predicted temperature rise,
+manufacturability margin (a documented composite of physical-fill headroom
+and the small-gap warning penalty), saturation margin, current-density
+margin, area product, and finally part number as a deterministic tiebreak.
+A missing number in any tiebreaker ranks as the worst case for that
+dimension, never the best, so a gap in the data can never accidentally win
+a ranking.
 
 ---
 
@@ -601,7 +815,7 @@ Both are real pipeline stages that run on every request and report
 | `DCR` | Winding DC resistance | ohms | Sections 6, 8 |
 | `MLT` | Mean length per turn | mm | Real-geometry estimate for most cores — see Section 6 |
 | `Pcu` | DC copper loss | W | Section 8 |
-| `Pv` | Core loss density | W/cm³ | Section 9 |
+| `Pv` | Core loss density | W/m³ (see Section 9's units caveat) | Section 9 |
 | `fillFactor` | Fraction of window filled with copper | dimensionless (0-1) | Section 6 |
 
 ---

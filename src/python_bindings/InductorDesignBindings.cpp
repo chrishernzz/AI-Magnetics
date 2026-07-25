@@ -257,6 +257,7 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("inductanceWithinToleranceAcrossGapRange", &TurnsAndGapResult::inductanceWithinToleranceAcrossGapRange)
         .def_readwrite("smallGapWarning", &TurnsAndGapResult::smallGapWarning)
         .def_readwrite("smallGapWarningReason", &TurnsAndGapResult::smallGapWarningReason);
+    m.def("design_turns_and_gap", &designTurnsAndGap, "Run the turns/gap convergence loop directly against a core, target inductance, and tolerance - exposed for tests that need this stage in isolation from full core auto-selection");
 
     py::class_<ValidationResult>(m, "ValidationResult")
         .def(py::init<>())

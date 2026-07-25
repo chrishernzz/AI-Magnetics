@@ -23,12 +23,21 @@ struct MaterialCandidate {
     //true if the material's declared [minFrequencyHz, maxFrequencyHz) range contains the requested switching frequency.
     bool frequencySuitable;
 
-    //whether real_materials.csv carries non-placeholder data for this material's saturation flux density / core-loss coefficients. Both are 0.0 (unpopulated) for every material in the current snapshot -
-    //this flag exists so downstream stages (and the API response) can say so honestly instead of silently treating 0.0 as a real value.
+    //hasBmaxData: true when real_materials.csv carries a real (>0.0) saturation flux density for this
+    //material - true for most materials in the current snapshot (e.g. 3C90=0.47T), false for the handful
+    //that don't (see scripts/audit_material_core_database.py for the current count).
+    //hasCoreLossData: true when data/real_core_loss_coefficients.csv carries at least one real Steinmetz
+    //coefficient row for this material, at any frequency (checked against the actual coefficient database,
+    //not the unused cuLossFactor field below - see MaterialEvaluation.cpp's hasAnyCoreLossCoefficients()).
+    //Both flags exist so downstream stages (and the API response) say so honestly instead of silently
+    //treating missing data as a real value.
     bool hasBmaxData;
     bool hasCoreLossData;
 
-    //raw values from real_materials.csv - only meaningful when the corresponding hasXData flag above is true. 0.0 by default, matching "no data" rather than a real material property.
+    //bmaxT: real value from real_materials.csv when hasBmaxData is true, 0.0 otherwise.
+    //cuLossFactor: always 0.0 - real_materials.csv carries no such column in the current snapshot; core-loss
+    //coefficients live entirely in the separate real_core_loss_coefficients.csv (see hasCoreLossData above).
+    //Kept as a field rather than removed since MaterialData (the raw CSV row type) still declares it.
     double bmaxT = 0.0;
     double cuLossFactor = 0.0;
 
