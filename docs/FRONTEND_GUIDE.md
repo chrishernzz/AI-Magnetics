@@ -117,12 +117,12 @@ above instead - it fills these in for you.
 ### 5. Ambient Temperature (°C)
 **What it is:** The environment temperature the inductor operates in.
 **Example:** `25`
-**Current status:** accepted and threaded through to `ThermalEvaluation`, which always reports `not_evaluated` today — no thermal-resistance model or data exists in either CSV yet.
+**Current status:** accepted and threaded through to `ThermalEvaluation`, which runs a real iterative convergence loop (temp → hot DCR → copper loss → temp rise → repeat) and caps at `PreliminaryThermalEstimate` since `defaultThermalResistanceCPerW` is always a Phase 1 default, never per-core data; reports `not_evaluated` only when DCR geometry is unknown or the loop diverges.
 
 ### 6. Allowable Temperature Rise (°C)
 **What it is:** How much hotter than ambient the core can get.
 **Example:** `40`
-**Current status:** a real `ThermalValidation` check exists and runs, but always reports `not_evaluated` (never assumes a pass) pending the same thermal data gap.
+**Current status:** a real `ThermalValidation` check exists and runs, comparing the converged predicted temp rise against this limit and flagging the result `isPreliminaryEstimate: true`; reports `not_evaluated` only when the thermal loop itself can't produce a result.
 
 ### 7. Ripple Current p-p (A, optional)
 **What it is:** The peak-to-peak ripple current the converter design assumes.
