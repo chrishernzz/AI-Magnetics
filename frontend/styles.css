@@ -1004,60 +1004,59 @@ summary {
 
 .triage-strip {
     margin: 0 0 16px;
-    padding: 0 0 16px 16px;
-    border-left: 4px solid var(--brand-red);
+    padding: 0 0 16px;
     border-bottom: 1px solid var(--line);
 }
 
-.triage-counts {
+/* Same tile pattern as the side panel's KPI strip (.detail-kpi), so the
+   headline evaluated/passing/rejected counts read as one consistent visual
+   language with the rest of the app instead of a separate one-off style. */
+.triage-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    max-width: 480px;
+}
+
+.triage-stat {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 14px;
     display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 2px;
 }
 
-.triage-count {
-    color: var(--ink-soft);
-    font-size: 0.9rem;
-}
-
-.triage-count strong {
-    font-size: 1.3rem;
-    margin-right: 4px;
+.triage-stat-value {
     color: var(--brand-black);
+    font-weight: 700;
+    font-size: 1.5rem;
+    font-variant-numeric: tabular-nums;
 }
 
-.triage-count.triage-pass strong {
+.triage-stat-label {
+    color: var(--ink-soft);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.triage-stat-pass {
+    border-left-color: #15803d;
+}
+
+.triage-stat-pass .triage-stat-value {
     color: #15803d;
 }
 
-.triage-count.triage-fail strong {
+.triage-stat-fail {
+    border-left-color: var(--brand-red-dark);
+}
+
+.triage-stat-fail .triage-stat-value {
     color: var(--brand-red-dark);
-}
-
-.triage-tally {
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid var(--line);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-}
-
-.triage-tally-label {
-    color: var(--ink-soft);
-    font-size: 0.85rem;
-    margin-right: 4px;
-}
-
-.tally-chip {
-    background: #fdecec;
-    color: var(--brand-red-dark);
-    border: 1px solid #f3c9c9;
-    border-radius: 999px;
-    padding: 4px 12px;
-    font-size: 0.82rem;
-    font-weight: 600;
 }
 
 /* Candidate table */
@@ -1372,23 +1371,6 @@ summary {
     line-height: 1.5;
 }
 
-
-.diagnostics-assumptions {
-    margin-top: 10px;
-    font-size: 0.82rem;
-    color: var(--ink-soft);
-}
-
-.diagnostics-assumptions summary {
-    cursor: pointer;
-    font-weight: 600;
-}
-
-.diagnostics-assumptions ul {
-    margin: 8px 0 0;
-    padding-left: 18px;
-    line-height: 1.6;
-}
 
 @media (prefers-reduced-motion: reduce) {
     * {

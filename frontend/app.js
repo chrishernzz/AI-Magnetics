@@ -199,15 +199,7 @@ function setWaveformAttrs(id, attrs) {
 
 async function updateBuckDiagnosticsLive() {
     const note = document.getElementById("diagBuckNote");
-    const rowIds = [
-        "diagDutyCycle",
-        "diagDutyCycleVinMin",
-        "diagRippleA",
-        "diagPeakCurrent",
-        "diagPeakCurrentVinMin",
-        "diagAvgCurrent",
-        "diagInductance",
-    ];
+    const rowIds = ["diagDutyCycle", "diagRippleA", "diagPeakCurrent", "diagAvgCurrent", "diagInductance"];
 
     let payload;
     try {
@@ -218,28 +210,16 @@ async function updateBuckDiagnosticsLive() {
 
     try {
         const derived = await postRequest(TOPOLOGY_ENDPOINT, payload);
-        // Both corners are shown side by side, not just the worst case - a
-        // converter that regulates fine at Vin Max can still be marginal (or
-        // even infeasible, see BuckElectricalSolver.cpp's Vout-vs-VinMin
-        // check) at Vin Min, since duty cycle is highest there.
+        // Sized at Vin Maximum - the worst case for ripple current (see
+        // BuckElectricalSolver.cpp), so that's the operating point shown here.
         setDiagValue("diagDutyCycle", `${(derived.atVinMax.dutyCycle * 100).toFixed(1)}%`);
-        setDiagValue("diagDutyCycleVinMin", `${(derived.atVinMin.dutyCycle * 100).toFixed(1)}%`);
         setDiagValue("diagRippleA", `${derived.atVinMax.rippleCurrentPeakToPeakA.toFixed(3)} A`);
         setDiagValue("diagPeakCurrent", `${derived.atVinMax.peakCurrentA.toFixed(3)} A`);
-        setDiagValue("diagPeakCurrentVinMin", `${derived.atVinMin.peakCurrentA.toFixed(3)} A`);
         setDiagValue("diagAvgCurrent", `${derived.request.averageCurrentA.toFixed(3)} A`);
         setDiagValue("diagInductance", `${derived.request.inductanceUH.toFixed(3)} µH`);
 
         rowIds.forEach((id) => setDiagnosticsRowPending(id, false));
         updateRippleWaveform(derived.atVinMax);
-
-        const assumptionsDetails = document.getElementById("diagAssumptionsDetails");
-        const assumptionsList = document.getElementById("diagAssumptionsList");
-        if (assumptionsDetails && assumptionsList) {
-            const items = derived.assumptions || [];
-            assumptionsList.innerHTML = items.map((a) => `<li>${a}</li>`).join("");
-            assumptionsDetails.hidden = items.length === 0;
-        }
 
         if (note) {
             note.textContent = derived.warnings && derived.warnings.length ? derived.warnings.join(" ") : "";
@@ -513,6 +493,10 @@ function renderFeasibility(result) {
 
 // Tallies why candidates were rejected so an engineer can triage a batch
 // of failures at a glance instead of opening each one individually.
+// Three headline counts only - not a rejection-reason tally, since that same
+// information (each check, its actual/limit values, and its real explanation)
+// already lives in every rejected candidate's own side panel. Repeating a
+// summarized version here was the same fact shown twice.
 function renderTriageStrip(result) {
     const element = document.getElementById("triageStrip");
     if (!element) return;
@@ -523,25 +507,21 @@ function renderTriageStrip(result) {
         return;
     }
 
-    const tally = new Map();
-    result.rejectedCandidates.forEach((candidate) => {
-        candidate.rejectionReasons.forEach((reason) => {
-            tally.set(reason.checkName, (tally.get(reason.checkName) || 0) + 1);
-        });
-    });
-
-    const chips = [...tally.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .map(([name, count]) => `<span class="tally-chip">${name} × ${count}</span>`)
-        .join("");
-
     element.innerHTML = `
-        <div class="triage-counts">
-            <span class="triage-count triage-total"><strong>${total}</strong> evaluated</span>
-            <span class="triage-count triage-pass"><strong>${result.candidates.length}</strong> passing</span>
-            <span class="triage-count triage-fail"><strong>${result.rejectedCandidates.length}</strong> rejected</span>
+        <div class="triage-stats">
+            <div class="triage-stat">
+                <span class="triage-stat-value">${total}</span>
+                <span class="triage-stat-label">Evaluated</span>
+            </div>
+            <div class="triage-stat triage-stat-pass">
+                <span class="triage-stat-value">${result.candidates.length}</span>
+                <span class="triage-stat-label">Passing</span>
+            </div>
+            <div class="triage-stat triage-stat-fail">
+                <span class="triage-stat-value">${result.rejectedCandidates.length}</span>
+                <span class="triage-stat-label">Rejected</span>
+            </div>
         </div>
-        ${chips ? `<div class="triage-tally"><span class="triage-tally-label">Why they were rejected:</span> ${chips}</div>` : ""}
     `;
 }
 
