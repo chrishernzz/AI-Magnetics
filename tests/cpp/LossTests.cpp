@@ -157,7 +157,53 @@ void testCoreLossFluxSwingOutsideValidatedRangeIsNotEvaluated() {
     std::printf("testCoreLossFluxSwingOutsideValidatedRangeIsNotEvaluated: %s\n", result.missingData.back().c_str());
 }
 
-//6. A thin strand at a modest switching frequency (radius well below the skin depth) must classify as Low risk.
+//6. A flux-density swing beyond the material's own real saturation flux density (BmaxT) must stay
+//not_evaluated, even when the coefficient row itself has no minFluxSwingT/maxFluxSwingT bound (the
+//current real_core_loss_coefficients.csv never has one - see DATA_FILES.md). Regression test for a real
+//bug found via live UI use: candidates whose flux swing genuinely exceeded saturation were reporting
+//tens of thousands of watts of "core loss" from an unbounded Steinmetz power-law extrapolation - see
+//LossEvaluation.cpp's BmaxT gate, added directly in response.
+void testCoreLossNotEvaluatedWhenFluxSwingExceedsMaterialSaturation() {
+    CoreLossCoefficientData coefficients;
+    coefficients.materialName = "TestMatSaturating";
+    coefficients.minFreqHz = 50000.0;
+    coefficients.maxFreqHz = 150000.0;
+    coefficients.k = 1.0;
+    coefficients.alpha = 1.0;
+    coefficients.beta = 2.0;
+    // No minFluxSwingT/maxFluxSwingT set - this is the realistic case (every material in the
+    // current CSV), so fluxSwingWithinValidatedRange() alone would NOT catch this.
+    CoreLossCoefficientDatabase::setData({coefficients});
+
+    MaterialCandidate material;
+    material.materialFamily = "TestMatSaturating";
+    material.hasBmaxData = true;
+    material.bmaxT = 0.4;  // real material Bsat, e.g. a typical ferrite
+
+    CoreCandidate core = realCore();
+    // Few turns + large ripple current drives a large flux swing - the same real mechanism that
+    // triggered the live bug (see LossEvaluation.cpp comment for the exact numbers found).
+    int turns = 3;
+    double inductanceUH = 250.0;
+    TurnsAndGapResult turnsAndGap = convergedTurnsAndGap(turns, inductanceUH);
+    WindingDesignResult winding = windingWithKnownDcr(0.05);
+    double rippleA = 9.0;
+    double switchingFreqHz = 100000.0;
+
+    // Confirm the scenario really does exceed Bsat before asserting on the gate.
+    double inductanceH = inductanceUH * 1e-6;
+    double aeM2 = core.aeMm2 * 1e-6;
+    double fluxSwingT = (inductanceH * rippleA) / (static_cast<double>(turns) * aeM2);
+    assert(fluxSwingT > material.bmaxT);
+
+    LossEvaluationResult result = evaluateLosses(material, core, turnsAndGap, winding, 5.0, switchingFreqHz, rippleA);
+    assert(result.coreLossStatus == EvaluationStatus::NotEvaluated);
+    assert(!result.missingData.empty());
+    std::printf("testCoreLossNotEvaluatedWhenFluxSwingExceedsMaterialSaturation: fluxSwingT=%.4f > bmaxT=%.4f, %s\n",
+                fluxSwingT, material.bmaxT, result.missingData.back().c_str());
+}
+
+//7. A thin strand at a modest switching frequency (radius well below the skin depth) must classify as Low risk.
 void testSkinDepthRiskLowForThinStrandAtModestFrequency() {
     DesignRules rules = DesignRules::phase1Default();
     // AWG28 bare area (~0.081 mm^2, radius ~0.16 mm) at 50 kHz.
@@ -169,7 +215,7 @@ void testSkinDepthRiskLowForThinStrandAtModestFrequency() {
                 result.radiusToSkinDepthRatio, result.skinDepthMm);
 }
 
-//7. A thick strand at a high switching frequency (radius well beyond the skin depth) must classify as High risk.
+//8. A thick strand at a high switching frequency (radius well beyond the skin depth) must classify as High risk.
 void testSkinDepthRiskHighForThickStrandAtHighFrequency() {
     DesignRules rules = DesignRules::phase1Default();
     // AWG10 bare area (~5.261 mm^2, radius ~1.29 mm) at 500 kHz.
@@ -180,7 +226,7 @@ void testSkinDepthRiskHighForThickStrandAtHighFrequency() {
                 result.radiusToSkinDepthRatio, result.skinDepthMm);
 }
 
-//8. Risk level is always a qualitative heuristic, never a watts figure - acLossWattsStatus must stay
+//9. Risk level is always a qualitative heuristic, never a watts figure - acLossWattsStatus must stay
 //NotEvaluated regardless of how severe the risk level is.
 void testSkinDepthRiskNeverProducesAWattsFigure() {
     DesignRules rules = DesignRules::phase1Default();
@@ -201,6 +247,7 @@ void runLossTests() {
     testCoreLossNotEvaluatedWithoutRippleCurrent();
     testCoreLossEvaluatedWithRealCoefficientsAndRippleCurrent();
     testCoreLossFluxSwingOutsideValidatedRangeIsNotEvaluated();
+    testCoreLossNotEvaluatedWhenFluxSwingExceedsMaterialSaturation();
     testSkinDepthRiskLowForThinStrandAtModestFrequency();
     testSkinDepthRiskHighForThickStrandAtHighFrequency();
     testSkinDepthRiskNeverProducesAWattsFigure();

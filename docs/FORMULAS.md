@@ -638,6 +638,45 @@ real absence, not an export bug) and correctly stay `not_evaluated`
 regardless of ripple current — `MaterialCandidate::hasCoreLossData`
 reflects this per material.
 
+### Saturation gate (found via real UI use, not caught by prior tests)
+
+`Pv = k * f^alpha * B^beta` is only a valid small-signal fit *below* the
+material's own saturation flux density — past that point the real B-H
+curve goes nonlinear and the power-law formula has no physical meaning.
+The intended guard for this is `fluxSwingWithinValidatedRange()`, which
+checks a coefficient row's own `minFluxSwingT`/`maxFluxSwingT` — but
+those columns don't exist in `data/real_core_loss_coefficients.csv` for
+any material yet (see [DATA_FILES.md](DATA_FILES.md)), so that guard is
+currently always a no-op. Without a second check, a candidate whose
+flux swing genuinely exceeded its material's Bsat (few turns + a large
+`rippleCurrentPeakToPeakA`, the same real mechanism `PeakFluxValidation`
+watches for) would still get a Steinmetz value computed and reported —
+confirmed live, producing core-loss figures in the tens of thousands of
+watts for a small inductor, since the power law explodes for a B input
+several times past where it was ever fit.
+
+Fixed by gating on the material's real, already-loaded `bmaxT` (the same
+value `SaturationValidation`/`PeakFluxValidation` use) in
+`LossEvaluation.cpp`: if `fluxDensitySwingT > material.bmaxT`,
+`coreLossStatus` stays `not_evaluated` with an explanation naming the
+exact swing and the material's real Bsat, rather than reporting an
+extrapolated number. This is a real, sourced bound — not a new
+fabricated threshold — and it does not change any candidate's
+pass/fail; `SaturationValidation`/`PeakFluxValidation` already reject
+these designs independently.
+
+**Known remaining gap, not fully closed by this fix:** BmaxT is the
+material's absolute saturation point, not necessarily where the
+Steinmetz fit itself was characterized (real datasheets are often fit
+from much smaller AC swings than Bsat). A flux swing can still be
+*below* Bsat and *outside* the coefficient's real, uncharacterized
+fitted range — one such case was found during the same live check
+(N88 at 300 kHz, swing 0.39 T against a 0.51 T Bsat) still reporting a
+implausibly large core-loss figure. Closing this fully needs the real
+`minFluxSwingT`/`maxFluxSwingT` data this database doesn't have yet —
+not invented here, consistent with every other honest gap in this
+document.
+
 Core loss also carries detail fields surfacing what was already computed
 internally but never exposed: `coreLossMaterialUsed`,
 `coreLossCoefficientMinFreqHz`/`MaxFreqHz` (the matched row's own declared
