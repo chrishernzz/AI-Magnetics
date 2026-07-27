@@ -577,11 +577,17 @@ function formatTotalLossCell(candidate) {
     return `${summary.knownEvaluatedLossW.toFixed(3)} W`;
 }
 
-// 3-tier recommendation chip (spec section 10) - real backend classification, not
-// the old "first row in a loss-sorted list" UI sugar.
+// 3-tier recommendation status (spec section 10) - real backend classification,
+// not the old "first row in a loss-sorted list" UI sugar. Only "Recommended"
+// gets a chip anywhere in the UI - "PreliminaryCandidate" is currently true of
+// every passing candidate (Phase1Recommended is structurally unreachable until
+// real per-core thermal data exists - see FORMULAS.md section 12), so a
+// "Preliminary" label on every single row/panel would be constant noise, not a
+// signal. The real facts behind it (which checks rest on a default assumption
+// rather than measured data) are still spelled out in the status line and
+// validation rows themselves - the tier NAME just isn't repeated as a label.
 function recommendationTierChip(tier) {
     if (tier === "Phase1Recommended") return '<span class="chip chip-recommended">Recommended</span>';
-    if (tier === "PreliminaryCandidate") return '<span class="chip chip-preliminary">Preliminary</span>';
     return "";
 }
 
@@ -703,10 +709,15 @@ function renderCandidateDetail(candidate) {
 
     // One-line status, not a restatement of any check - the list below is
     // the single place every check (and, for a failure, its real reason)
-    // is actually explained. Tier comes from the real backend classification.
+    // is actually explained. Tier comes from the real backend classification -
+    // only "Recommended" ever renders a chip here (see recommendationTierChip);
+    // the real fact behind an unshown tier (some checks rest on a Phase 1
+    // default assumption rather than measured data) is spelled out in words
+    // instead, without naming the tier.
+    const tierChip = recommendationTierChip(candidate.recommendation.tier);
     const statusLine = candidate.rejectionReasons.length
         ? `<div class="detail-status detail-status-fail">Rejected — ${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>`
-        : `<div class="detail-status detail-status-pass">${recommendationTierChip(candidate.recommendation.tier)} — ${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated` : ""}${preliminaryChecks.length ? `, ${preliminaryChecks.length} preliminary estimate${preliminaryChecks.length > 1 ? "s" : ""}` : ""}</div>`;
+        : `<div class="detail-status detail-status-pass">${tierChip ? tierChip + " — " : ""}${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated` : ""}${preliminaryChecks.length ? `, ${preliminaryChecks.length} check${preliminaryChecks.length > 1 ? "s" : ""} based on a Phase 1 default assumption` : ""}</div>`;
 
     const rankingLine = candidate.rankingExplanation
         ? `<p class="detail-ranking-explanation">${candidate.recommendation.explanation}</p>`
@@ -772,15 +783,8 @@ function renderCandidateTable(result) {
         .map((row, index) => {
             const c = row.candidate;
             const tier = c.recommendation.tier;
-            // Only "Recommended" earns a chip in the compact row - "Preliminary"
-            // is currently true of every passing candidate (see FORMULAS.md
-            // section 12: Phase1Recommended is structurally unreachable until
-            // real per-core thermal data exists), so showing it on every single
-            // row is constant noise, not a signal. The real explanation of what
-            // "preliminary" means for this candidate still lives in the detail
-            // panel, where it's actually informative.
             const badge = row.passed
-                ? `<span class="chip chip-pass">PASS</span>${tier === "Phase1Recommended" ? recommendationTierChip(tier) : ""}`
+                ? `<span class="chip chip-pass">PASS</span>${recommendationTierChip(tier)}`
                 : '<span class="chip chip-fail">REJECT</span>';
             const rowClass = ["candidate-row", row.passed ? "row-pass" : "row-reject", tier === "Phase1Recommended" ? "row-recommended" : ""]
                 .filter(Boolean)

@@ -1260,15 +1260,6 @@ summary {
     margin-left: 6px;
 }
 
-/* 3-tier recommendation status (spec section 10) - PreliminaryCandidate reads as
-   "real, but not the final word" (an informational blue), distinct from both the
-   green pass chip and the red recommended/fail chips. */
-.chip-preliminary {
-    background: #dbeafe;
-    color: #1d4ed8;
-    margin-left: 6px;
-}
-
 /* Real shape classification (Toroid/Two-Piece Set), neutral (not a pass/fail
    signal - see coreShapeBadge() in app.js). */
 .chip-shape {

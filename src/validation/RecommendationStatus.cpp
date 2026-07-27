@@ -40,16 +40,16 @@ RecommendationClassification classifyRecommendation(bool passed, const std::vect
             reasons += std::to_string(result.checksNotEvaluatedCount) + " check(s) not evaluated; ";
         }
         if (anyPreliminary) {
-            reasons += "at least one check rests on a preliminary estimate, not measured data; ";
+            reasons += "at least one check rests on a Phase 1 default assumption, not measured data; ";
         }
         if (acRiskLimitsRecommendation) {
             reasons += std::string("AC-loss risk is ") + (acLossRisk.riskLevel == AcLossRiskLevel::High ? "High" : "Moderate") + "; ";
         }
-        result.explanation = "preliminary candidate: passed every check that ran, but " + reasons;
+        result.explanation = "passed every check that ran, but " + reasons;
         return result;
     }
 
     result.tier = RecommendationTier::Phase1Recommended;
-    result.explanation = "recommended: every mandatory check evaluated and passed, no preliminary estimates, low AC-loss risk";
+    result.explanation = "recommended: every mandatory check evaluated and passed, every value is measured (not a Phase 1 default assumption), low AC-loss risk";
     return result;
 }

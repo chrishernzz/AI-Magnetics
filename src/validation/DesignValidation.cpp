@@ -156,7 +156,7 @@ ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, doubl
     result.passed = thermal.predictedTempRiseC <= allowableTempRiseC;
     result.isPreliminaryEstimate = true;
     result.explanation = "predicted temperature rise " + std::to_string(thermal.predictedTempRiseC) + " C vs allowable " +
-                          std::to_string(allowableTempRiseC) + " C (preliminary estimate: Rth=" +
+                          std::to_string(allowableTempRiseC) + " C (Rth=" +
                           std::to_string(thermal.thermalResistanceCPerWUsed) + " C/W is a Phase 1 default, not per-core measured data)";
     return result;
 }
