@@ -79,9 +79,10 @@ def _serialize_validation(v) -> dict:
         "limitValue": v.limitValue,
         "unit": v.unit,
         "explanation": v.explanation,
-        "usedDefaultLimit": v.usedDefaultLimit,
+        "usesDefaultAssumption": v.usesDefaultAssumption,
         "status": v.status.name,
         "isPreliminaryEstimate": v.isPreliminaryEstimate,
+        "mandatory": v.mandatory,
     }
 
 #precondition: s is a valid SourceInfo object
@@ -248,7 +249,7 @@ def _serialize_recommendation(r) -> dict:
 #postcondition: returns a serializable loss-summary dictionary; isCompleteTotal is always False in Phase 1 - see LossSummary.h
 def _serialize_loss_summary(l) -> dict:
     return {
-        "knownEvaluatedLossW": l.knownEvaluatedLossW,
+        "knownPartialLossW": l.knownPartialLossW,
         "isCompleteTotal": l.isCompleteTotal,
         "label": l.label,
     }

@@ -44,15 +44,61 @@ double inductanceAtGapUH(int turns, double gapMm, double aeCm2, double leCm, dou
 //to check inductance stays within tolerancePercent at both extremes, or returns converged=false with a rejection reason.
 TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetInductanceUH, double tolerancePercent, const DesignRules& rules) {
     TurnsAndGapResult result;
-    result.gapMethod = rules.gapMethod;
+
+    //Real powder toroid materials (MPP/Kool Mu/High Flux/Sendust, etc.) achieve their working permeability
+    //through gapping distributed at the powder-particle level, baked into the catalog AL - there is no
+    //discrete machined air gap to report. real_cores.csv's own CoreShape column ("Toroid" vs "TwoPieceSet")
+    //is the real signal for this, not a guess: any core shaped "Toroid" is Distributed-gap; everything else
+    //still requires the validated MachinedCenterLeg formula this function already implements below.
+    bool isDistributedGapCore = core.coreShape == "Toroid";
+    result.gapMethod = isDistributedGapCore ? GapMethod::Distributed : rules.gapMethod;
 
     //Only MachinedCenterLeg has a validated formula in Phase 1 (see GapMethod.h) - any other requested
     //method is rejected here rather than having the one validated formula silently applied to a technique
-    //it was never checked against.
-    if (rules.gapMethod != GapMethod::MachinedCenterLeg) {
+    //it was never checked against. Distributed-gap toroids are exempt from this gate since they never run
+    //the discrete-gap formula at all - see below.
+    if (!isDistributedGapCore && rules.gapMethod != GapMethod::MachinedCenterLeg) {
         result.converged = false;
         result.rejectionReasons.push_back(
             "gap method is not implemented in Phase 1 (only MachinedCenterLeg has a validated formula)");
+        return result;
+    }
+
+    //target inductance is converted from microhenries to nanohenries (1uH = 1000nH)
+    double targetNh = units::uHToNh(targetInductanceUH);
+
+    //Distributed-gap toroids: no center leg exists to machine a discrete gap into, so the McLyman
+    //required-gap iteration below (which solves for an ADDITIONAL air gap on top of the ungapped AL) does
+    //not apply - the only lever available is turns, against the real catalog AL that already reflects the
+    //material's distributed permeability. Reporting a nonzero "gap" here would imply a machinable dimension
+    //that does not physically exist on this part. No gap-tolerance sweep either - there is no gap dimension
+    //for mechanical tolerance to act on; AL manufacturing tolerance is a different, real concern this Phase
+    //1 dataset does not carry data for (see DATA_FILES.md).
+    if (isDistributedGapCore) {
+        int turns = std::max(1, seedTurns(core, targetInductanceUH));
+        double actualNh = static_cast<double>(turns) * turns * core.al;
+        double errorPercent = 100.0 * (actualNh - targetNh) / targetNh;
+
+        result.turns = turns;
+        result.gapMm = 0.0;
+        result.effectiveAlNHPerTurnSquared = core.al;
+        result.calculatedInductanceUH = units::nHToUh(actualNh);
+        result.inductanceErrorPercent = errorPercent;
+        result.withinTolerance = std::abs(errorPercent) <= tolerancePercent;
+        result.converged = true;
+        result.gapMinMm = 0.0;
+        result.gapMaxMm = 0.0;
+        result.inductanceAtMinGapUH = result.calculatedInductanceUH;
+        result.inductanceAtMaxGapUH = result.calculatedInductanceUH;
+        result.inductanceWithinToleranceAcrossGapRange = result.withinTolerance;
+
+        if (!result.withinTolerance) {
+            result.rejectionReasons.push_back("calculated inductance " + std::to_string(result.calculatedInductanceUH) +
+                " uH (turns=" + std::to_string(turns) + " against catalog AL " + std::to_string(core.al) +
+                " nH/turn^2, distributed-gap core, no machined gap available to fine-tune) is outside the " +
+                std::to_string(tolerancePercent) + "% tolerance of the target " + std::to_string(targetInductanceUH) +
+                " uH (error " + std::to_string(errorPercent) + "%)");
+        }
         return result;
     }
 
@@ -60,8 +106,6 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetIndu
     double aeCm2 = units::mm2ToCm2(core.aeMm2);
     //magnetic path length is converted from millimeters to centimeters (1cm = 10mm)
     double leCm = units::mmToCm(core.leMm);
-    //target inductance is converted from microhenries to nanohenries (1uH = 1000nH)
-    double targetNh = units::uHToNh(targetInductanceUH);
     //this calculates the practical gap limit as a fraction of the core's magnetic path length
     double maxGapMm = rules.maxGapFraction * core.leMm;
 

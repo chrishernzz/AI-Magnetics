@@ -2,11 +2,12 @@
 
 //precondition: see header
 //postcondition: see header
-RecommendationClassification classifyRecommendation(bool passed, const std::vector<ValidationResult>& validations,
-                                                      const SkinDepthRiskResult& acLossRisk) {
+RecommendationClassification determineRecommendationStatus(bool passed, const std::vector<ValidationResult>& validations,
+                                                             const SkinDepthRiskResult& acLossRisk) {
     RecommendationClassification result;
 
-    bool anyPreliminary = false;
+    bool anyMandatoryPreliminaryOrDefaulted = false;
+    bool anyMandatoryNotEvaluated = false;
     for (const auto& v : validations) {
         if (v.status == EvaluationStatus::Evaluated) {
             result.checksEvaluatedCount++;
@@ -15,41 +16,43 @@ RecommendationClassification classifyRecommendation(bool passed, const std::vect
             } else {
                 result.checksFailedCount++;
             }
-            if (v.isPreliminaryEstimate) {
-                anyPreliminary = true;
+            if (v.mandatory && (v.isPreliminaryEstimate || v.usesDefaultAssumption)) {
+                anyMandatoryPreliminaryOrDefaulted = true;
             }
         } else {
             result.checksNotEvaluatedCount++;
             result.missingInfo.push_back(v.checkName + ": " + v.explanation);
+            if (v.mandatory) {
+                anyMandatoryNotEvaluated = true;
+            }
         }
     }
 
     if (!passed) {
-        result.tier = RecommendationTier::Rejected;
-        result.explanation = "rejected: at least one evaluated check failed - see rejectionReasons";
+        result.tier = RecommendationTier::Reject;
+        result.explanation = "rejected: at least one mandatory check was evaluated and failed - see rejectionReasons";
         return result;
     }
 
     bool acRiskLimitsRecommendation = acLossRisk.riskLevel != AcLossRiskLevel::Low;
-    bool anyNotEvaluated = result.checksNotEvaluatedCount > 0;
 
-    if (anyNotEvaluated || anyPreliminary || acRiskLimitsRecommendation) {
-        result.tier = RecommendationTier::PreliminaryCandidate;
+    if (anyMandatoryNotEvaluated || anyMandatoryPreliminaryOrDefaulted || acRiskLimitsRecommendation) {
+        result.tier = RecommendationTier::ConditionalPass;
         std::string reasons;
-        if (anyNotEvaluated) {
-            reasons += std::to_string(result.checksNotEvaluatedCount) + " check(s) not evaluated; ";
+        if (anyMandatoryNotEvaluated) {
+            reasons += std::to_string(result.checksNotEvaluatedCount) + " mandatory check(s) not evaluated; ";
         }
-        if (anyPreliminary) {
-            reasons += "at least one check rests on a Phase 1 default assumption, not measured data; ";
+        if (anyMandatoryPreliminaryOrDefaulted) {
+            reasons += "at least one mandatory check rests on a Phase 1 default assumption or preliminary estimate, not measured data; ";
         }
         if (acRiskLimitsRecommendation) {
             reasons += std::string("AC-loss risk is ") + (acLossRisk.riskLevel == AcLossRiskLevel::High ? "High" : "Moderate") + "; ";
         }
-        result.explanation = "passed every check that ran, but " + reasons;
+        result.explanation = "conditional pass: every mandatory check that ran, passed, but " + reasons;
         return result;
     }
 
-    result.tier = RecommendationTier::Phase1Recommended;
-    result.explanation = "recommended: every mandatory check evaluated and passed, every value is measured (not a Phase 1 default assumption), low AC-loss risk";
+    result.tier = RecommendationTier::Pass;
+    result.explanation = "pass: every mandatory check was evaluated and passed, every value is measured (not a Phase 1 default assumption or preliminary estimate), low AC-loss risk";
     return result;
 }

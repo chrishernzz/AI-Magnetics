@@ -109,7 +109,7 @@ E_max = 0.5 × 250µ × 25 = 3.125 mJ
 Ap ≈ 3 cm⁴ (core must satisfy this minimum)
 ```
 
-**Note:** `windowUtilization`, `fluxDensityT`, and `currentDensityAPerCm2` are sourced from `DesignRules::phase1Default()` (Ku=0.4, Bmax=0.30 T, J=400 A/cm²) - a named C++ ruleset, not a hard-coded Python constant (spec section 7; see `src/rules/DesignRules.cpp`). The Phase 1 pipeline's `PeakFluxValidation`/`SaturationValidation` checks prefer a material-specific `BmaxT` over this default when one exists - `data/real_materials.csv`'s `BmaxT` is real, material-specific data for all 81 materials, so the default is now only a fallback for a material with no measured value, and every check that uses the default flags `usedDefaultLimit: true` rather than presenting 0.30 T as a material fact.
+**Note:** `windowUtilization`, `fluxDensityT`, and `currentDensityAPerCm2` are sourced from `DesignRules::phase1Default()` (Ku=0.4, Bmax=0.30 T, J=400 A/cm²) - a named C++ ruleset, not a hard-coded Python constant (spec section 7; see `src/rules/DesignRules.cpp`). The Phase 1 pipeline's `PeakFluxValidation`/`SaturationValidation` checks prefer a material-specific `BmaxT` over this default when one exists - `data/real_materials.csv`'s `BmaxT` is real, material-specific data for all 81 materials, so the default is now only a fallback for a material with no measured value, and every check that uses the default flags `usesDefaultAssumption: true` rather than presenting 0.30 T as a material fact.
 
 ---
 
@@ -182,7 +182,7 @@ Real for candidates whose material has coefficients in `data/real_core_loss_coef
 
 **Thermal evaluation (`src/core/thermal/ThermalEvaluation.cpp`):** a real iterative convergence loop (temp → hot DCR → copper loss → temp rise → repeat, mirroring the turns/gap loop above) now runs, using `DesignRules.defaultThermalResistanceCPerW` (a Phase 1 default, never per-core measured data). Caps at `PreliminaryThermalEstimate` - never a "fully evaluated" value exists. Reports `not_evaluated` when winding DCR geometry is unknown, or when the loop's real positive-feedback iteration diverges rather than converges (a genuine possibility for high-current, low-DCR designs, not just a numerical edge case). See FORMULAS.md section 10.
 
-**3-tier recommendation (`src/validation/RecommendationStatus.cpp`):** `Phase1Recommended` / `PreliminaryCandidate` / `Rejected` replaces the old frontend-only "Recommended" sugar. `Rejected` always mirrors the six-check pass/fail decision above. No real request reaches `Phase1Recommended` today, since `ThermalValidation` always flags its result as a preliminary estimate. See FORMULAS.md section 12.
+**3-tier recommendation (`src/validation/RecommendationStatus.cpp`):** `Pass` / `ConditionalPass` / `Reject` replaces the old frontend-only "Recommended" sugar. `Reject` always mirrors the six-check pass/fail decision above. No real request reaches `Pass` today, since `ThermalValidation` always flags its result as a preliminary estimate. See FORMULAS.md section 12.
 
 **Turns count sanity, once real turns exist:** the tool doesn't flag turns < 5 or > 100 as impractical yet - only the six named validation checks above run.
 

@@ -10,7 +10,7 @@
 // These are Phase 1 defaults, not measured material facts. Where a
 // material-specific limit exists in the data (e.g. BmaxT from
 // real_materials.csv), callers should prefer it over defaultFluxDensityLimitT
-// and flag that the default was NOT used (see ValidationResult.usedDefaultLimit).
+// and flag that the default was NOT used (see ValidationResult.usesDefaultAssumption).
 //
 // Every field added after minimumSingleStrandAwg is a "Phase 1 completion"
 // addition - each is a documented engineering estimate or a real physical

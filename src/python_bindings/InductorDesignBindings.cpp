@@ -256,9 +256,10 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("limitValue", &ValidationResult::limitValue)
         .def_readwrite("unit", &ValidationResult::unit)
         .def_readwrite("explanation", &ValidationResult::explanation)
-        .def_readwrite("usedDefaultLimit", &ValidationResult::usedDefaultLimit)
+        .def_readwrite("usesDefaultAssumption", &ValidationResult::usesDefaultAssumption)
         .def_readwrite("status", &ValidationResult::status)
-        .def_readwrite("isPreliminaryEstimate", &ValidationResult::isPreliminaryEstimate);
+        .def_readwrite("isPreliminaryEstimate", &ValidationResult::isPreliminaryEstimate)
+        .def_readwrite("mandatory", &ValidationResult::mandatory);
 
     py::class_<FluxLimitTiers>(m, "FluxLimitTiers")
         .def(py::init<>())
@@ -364,9 +365,9 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("explanation", &RejectionReason::explanation);
 
     py::enum_<RecommendationTier>(m, "RecommendationTier")
-        .value("Phase1Recommended", RecommendationTier::Phase1Recommended)
-        .value("PreliminaryCandidate", RecommendationTier::PreliminaryCandidate)
-        .value("Rejected", RecommendationTier::Rejected);
+        .value("Pass", RecommendationTier::Pass)
+        .value("ConditionalPass", RecommendationTier::ConditionalPass)
+        .value("Reject", RecommendationTier::Reject);
 
     py::class_<RecommendationClassification>(m, "RecommendationClassification")
         .def(py::init<>())
@@ -377,11 +378,11 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("checksNotEvaluatedCount", &RecommendationClassification::checksNotEvaluatedCount)
         .def_readwrite("missingInfo", &RecommendationClassification::missingInfo)
         .def_readwrite("explanation", &RecommendationClassification::explanation);
-    m.def("classify_recommendation", &classifyRecommendation, "Classify a candidate into the 3-tier Phase1Recommended/PreliminaryCandidate/Rejected recommendation status");
+    m.def("determine_recommendation_status", &determineRecommendationStatus, "Classify a candidate into the 3-tier PASS/CONDITIONAL_PASS/REJECT recommendation status");
 
     py::class_<LossSummary>(m, "LossSummary")
         .def(py::init<>())
-        .def_readwrite("knownEvaluatedLossW", &LossSummary::knownEvaluatedLossW)
+        .def_readwrite("knownPartialLossW", &LossSummary::knownPartialLossW)
         .def_readwrite("isCompleteTotal", &LossSummary::isCompleteTotal)
         .def_readwrite("label", &LossSummary::label);
 

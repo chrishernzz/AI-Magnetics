@@ -57,10 +57,10 @@ def test_case1_normal_dual_line_buck_solves_and_hands_off_cleanly():
     D = Vout/Vin_max = 12/60 = 0.2; ripple = Iout*20% = 8A;
     L = (Vin-Vout)*D / (fsw*ripple) = 48*0.2 / (500000*8) = 2.4 uH; Ipeak = 40+4 = 44A.
     Feeds straight into run_inductor_design and must produce a real, honest status.
-    No candidate reaches Phase1Recommended - confirmed structurally unreachable in
+    No candidate reaches PASS - confirmed structurally unreachable in
     Phase 1 (RecommendationStatus.h: ThermalValidation always sets
     isPreliminaryEstimate=true), so the qualitative claim here is "solves, and
-    every passing candidate is honestly capped at PreliminaryCandidate," not
+    every passing candidate is honestly capped at CONDITIONAL_PASS," not
     "reaches the top tier" (which no real Phase 1 input ever does)."""
     rules = magnetics_cpp.design_rules_phase1_default()
     derived = magnetics_cpp.solve_buck_topology(_buck_topology_input(), rules)
@@ -74,8 +74,8 @@ def test_case1_normal_dual_line_buck_solves_and_hands_off_cleanly():
     assert result.status in ("ok", "no_feasible_design")
     if result.status == "ok":
         tiers = {c.recommendation.tier for c in result.candidates}
-        assert magnetics_cpp.RecommendationTier.Phase1Recommended not in tiers
-        assert all(t == magnetics_cpp.RecommendationTier.PreliminaryCandidate for t in tiers)
+        assert magnetics_cpp.RecommendationTier.Pass not in tiers
+        assert all(t == magnetics_cpp.RecommendationTier.ConditionalPass for t in tiers)
 
 
 def test_case2_high_ripple_90_percent_solves_under_the_phase1_cap():
@@ -204,7 +204,7 @@ def test_case9_small_gap_manufacturability_warning_caps_at_preliminary_not_rejec
     B65646A0000R027, gap 0.02mm) whose calculated gap is below
     rules.minManufacturableGapMm - a real, honest warning, not a fabricated one,
     and the design still passes (small gap is a manufacturability caveat, not a
-    physical failure) but caps at PreliminaryCandidate rather than the top tier."""
+    physical failure) but caps at CONDITIONAL_PASS rather than the top tier."""
     result = magnetics_cpp.run_inductor_design(_design_request())
     assert result.status == "ok"
     small_gap_candidates = [c for c in result.candidates if c.turnsAndGap.smallGapWarning]
@@ -212,7 +212,7 @@ def test_case9_small_gap_manufacturability_warning_caps_at_preliminary_not_rejec
     for c in small_gap_candidates:
         assert c.passed
         assert c.turnsAndGap.smallGapWarningReason
-        assert c.recommendation.tier != magnetics_cpp.RecommendationTier.Phase1Recommended
+        assert c.recommendation.tier != magnetics_cpp.RecommendationTier.Pass
 
 
 def test_case10_missing_core_loss_data_is_never_silently_treated_as_zero():
@@ -220,17 +220,17 @@ def test_case10_missing_core_loss_data_is_never_silently_treated_as_zero():
     core loss must be honestly not_evaluated for every candidate, never silently
     treated as zero, and lossSummary must name the gap rather than presenting a
     copper-only figure as if it were complete. Note: core-loss coverage is not
-    itself one of the six named ValidationResult checks classifyRecommendation()
+    itself one of the named ValidationResult checks determineRecommendationStatus()
     reads (RecommendationStatus.h), so checksNotEvaluatedCount does not count it -
-    the tier still never reaches Phase1Recommended here, but for the separate,
+    the tier still never reaches PASS here, but for the separate,
     always-true reason that ThermalValidation is always a preliminary estimate
     (see test_case11 below), not because of the missing core loss specifically."""
     result = magnetics_cpp.run_inductor_design(_design_request())
     assert result.status == "ok"
     assert all(c.losses.coreLossStatus == magnetics_cpp.EvaluationStatus.NotEvaluated for c in result.candidates)
     assert all(not c.lossSummary.isCompleteTotal for c in result.candidates)
-    assert all("partial coverage" in c.lossSummary.label for c in result.candidates)
-    assert all(c.recommendation.tier != magnetics_cpp.RecommendationTier.Phase1Recommended for c in result.candidates)
+    assert all("Known Partial Loss" in c.lossSummary.label for c in result.candidates)
+    assert all(c.recommendation.tier != magnetics_cpp.RecommendationTier.Pass for c in result.candidates)
 
 
 def test_case11_thermal_stays_preliminary_even_with_full_loss_coverage():
@@ -239,7 +239,7 @@ def test_case11_thermal_stays_preliminary_even_with_full_loss_coverage():
     candidate (E100/60/28-3C90) both copper AND core loss Evaluated - full known
     loss coverage - yet thermal.status is still only ever PreliminaryThermalEstimate
     (never a "fully evaluated" thermal value exists in Phase 1 - see
-    ThermalEvaluation.h), so this candidate still caps at PreliminaryCandidate
+    ThermalEvaluation.h), so this candidate still caps at CONDITIONAL_PASS
     despite having the most complete loss data possible in this engine today."""
     result = magnetics_cpp.run_inductor_design(_design_request(rippleCurrentPeakToPeakA=0.5))
     assert result.status == "ok"
@@ -252,7 +252,7 @@ def test_case11_thermal_stays_preliminary_even_with_full_loss_coverage():
     assert full_coverage, "expected at least one real candidate with full copper+core loss coverage"
     for c in full_coverage:
         assert c.thermal.status == magnetics_cpp.ThermalStatus.PreliminaryThermalEstimate
-        assert c.recommendation.tier == magnetics_cpp.RecommendationTier.PreliminaryCandidate
+        assert c.recommendation.tier == magnetics_cpp.RecommendationTier.ConditionalPass
 
 
 def test_case12_one_turn_high_current_design_exercises_physical_description_and_current_sharing():

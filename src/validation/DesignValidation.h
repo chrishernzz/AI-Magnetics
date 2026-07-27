@@ -5,6 +5,7 @@
 #include "core/thermal/ThermalEvaluation.h"
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/winding/WindingDesign.h"
+#include "core/model/InductorRequirements.h"
 #include "rules/DesignRules.h"
 #include "Validation.h"
 
@@ -13,9 +14,18 @@
 STAGE 6: Magnetic validation
 Six specific checks (spec section 10) instead of one vague pass/fail flag. Each returns its own ValidationResult so a rejected candidate can
 report every failed check, not just the first. A default DesignRules limit used in place of missing material-specific data is always flagged
-via ValidationResult::usedDefaultLimit - never presented as fact.
+via ValidationResult::usesDefaultAssumption - never presented as fact.
 
 */
+//checks that peakCurrentA/rmsCurrentA/rippleCurrentPeakToPeakA describe one physically consistent waveform
+//(spec: current-consistency validation). RequirementDerivationService::derive() already threw
+//std::invalid_argument on a genuine contradiction (negative minimum inductor current, or an out-of-envelope
+//rmsCurrentA), so a candidate reaching this check has already survived that gate - this packages the
+//precomputed OperatingPoint fields into the same ValidationResult shape every other check uses, so the
+//conduction mode / minimum inductor current are visible per-candidate like everything else. NotEvaluated
+//when no ripple was supplied - there is no minimum-current relationship to check without it.
+ValidationResult CurrentConsistencyValidation(const OperatingPoint& operatingPoint);
+
 //check turnsAndGap.withinTolerance/converged against tolerancePercent.
 ValidationResult InductanceValidation(const TurnsAndGapResult& turnsAndGap, double tolerancePercent);
 

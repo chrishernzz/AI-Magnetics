@@ -46,7 +46,7 @@ that script and swap the resulting files in.
 - `real_materials.csv`'s `BmaxT` is now real, material-specific saturation
   flux density data (source: PyOpenMagnetics/MAS) for all 81 materials —
   `PeakFluxValidation`/`SaturationValidation` use it automatically instead
-  of `DesignRules.defaultFluxDensityLimitT` (`usedDefaultLimit: false` when
+  of `DesignRules.defaultFluxDensityLimitT` (`usesDefaultAssumption: false` when
   it's in use). The old placeholder `CuLossFactor` column was retired;
   real Steinmetz coefficients (`k`, `alpha`, `beta`, plus temperature
   terms) now exist in `data/real_core_loss_coefficients.csv` for 25 of the

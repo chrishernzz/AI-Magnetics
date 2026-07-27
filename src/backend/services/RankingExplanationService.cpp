@@ -3,13 +3,13 @@
 namespace {
 const char* tierName(RecommendationTier tier) {
     switch (tier) {
-        case RecommendationTier::Phase1Recommended:
-            return "Phase1Recommended";
-        case RecommendationTier::PreliminaryCandidate:
-            return "PreliminaryCandidate";
-        case RecommendationTier::Rejected:
+        case RecommendationTier::Pass:
+            return "PASS";
+        case RecommendationTier::ConditionalPass:
+            return "CONDITIONAL_PASS";
+        case RecommendationTier::Reject:
         default:
-            return "Rejected";
+            return "REJECT";
     }
 }
 }  // namespace
@@ -18,6 +18,6 @@ const char* tierName(RecommendationTier tier) {
 //postcondition: see header
 std::string explainRanking(const InductorCandidate& candidate) {
     return std::string("[") + tierName(candidate.recommendation.tier) + "] " + candidate.recommendation.explanation + " " +
-           candidate.lossSummary.label + " (" + std::to_string(candidate.lossSummary.knownEvaluatedLossW) +
-           " W known evaluated loss, " + std::to_string(candidate.manufacturabilityMarginPercent) + "% manufacturability margin).";
+           candidate.lossSummary.label + " (" + std::to_string(candidate.lossSummary.knownPartialLossW) +
+           " W known partial loss, " + std::to_string(candidate.manufacturabilityMarginPercent) + "% manufacturability margin).";
 }

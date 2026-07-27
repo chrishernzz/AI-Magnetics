@@ -55,10 +55,10 @@ infer RMS current. If neither is supplied, the request fails with HTTP 422.
       "thermal": { "status": "PreliminaryThermalEstimate", "convergedWindingTempC": 38.2, "predictedTempRiseC": 13.2, "converged": true, "iterationsUsed": 3, "thermalResistanceCPerWUsed": 15.0 },
       "acLossRisk": { "riskLevel": "Low", "reason": "evaluated: single-strand skin effect...", "acLossWattsStatus": "NotEvaluated" },
       "fluxLimits": { "absoluteSaturationT": 0.47, "recommendedOperatingT": 0.3995, "temperatureAdjustedStatus": "NotEvaluated", "coreLossLimitedStatus": "NotEvaluated" },
-      "recommendation": { "tier": "PreliminaryCandidate", "checksEvaluatedCount": 6, "checksPassedCount": 6, "checksNotEvaluatedCount": 0, "explanation": "passed every check that ran, but at least one check rests on a Phase 1 default assumption, not measured data; " },
-      "lossSummary": { "knownEvaluatedLossW": 0.55, "isCompleteTotal": false, "label": "Known Evaluated Loss (copper - partial coverage, AC/skin-effect loss not modeled)" },
+      "recommendation": { "tier": "ConditionalPass", "checksEvaluatedCount": 7, "checksPassedCount": 7, "checksNotEvaluatedCount": 0, "explanation": "conditional pass: every mandatory check that ran, passed, but at least one mandatory check rests on a Phase 1 default assumption or preliminary estimate, not measured data; " },
+      "lossSummary": { "knownPartialLossW": 0.55, "isCompleteTotal": false, "label": "Known Partial Loss (copper - AC/skin-effect loss not modeled)" },
       "manufacturabilityMarginPercent": 71.4,
-      "rankingExplanation": "[PreliminaryCandidate] passed every check that ran, but ...",
+      "rankingExplanation": "[ConditionalPass] passed every check that ran, but ...",
       "passed": true,
       "rejectionReasons": []
     }
@@ -113,8 +113,8 @@ otherwise. See [DATA_FILES.md](DATA_FILES.md). These are real data gaps,
 not silent bugs — the engine reports them explicitly rather than
 inventing a number, and every candidate's `recommendation.tier` reflects
 them (a `not_evaluated`/preliminary check anywhere caps a candidate at
-`PreliminaryCandidate`, never `Phase1Recommended` — see FORMULAS.md
-section 12 for why `Phase1Recommended` is currently unreachable in
+`ConditionalPass`, never `Pass` — see FORMULAS.md
+section 12 for why `Pass` is currently unreachable in
 practice).
 
 ---
@@ -289,15 +289,15 @@ The rest are conditionally real, never fabricated:
   doesn't support it. DCR now includes lead/routing/connection resistance
   (`DesignRules` allowances), not just core-winding resistance.
 
-**Recommendation tier** (`recommendation.tier`): `Phase1Recommended` |
-`PreliminaryCandidate` | `Rejected`, replacing the old frontend-only
-"Recommended" UI sugar. `Rejected` always mirrors `passed`. No real Phase 1
-request reaches `Phase1Recommended` today, since `ThermalValidation`
+**Recommendation tier** (`recommendation.tier`): `Pass` |
+`ConditionalPass` | `Reject`, replacing the old frontend-only
+"Recommended" UI sugar. `Reject` always mirrors `passed`. No real Phase 1
+request reaches `Pass` today, since `ThermalValidation`
 always sets `isPreliminaryEstimate: true` — see FORMULAS.md section 12.
 
 **Ranking:** passing candidates are ranked by tier first, then by real
 known evaluated loss (copper + core, whichever are `Evaluated`,
-`lossSummary.knownEvaluatedLossW`), predicted temperature rise,
+`lossSummary.knownPartialLossW`), predicted temperature rise,
 manufacturability margin, saturation margin, current-density margin, area
 product, and finally part number — see FORMULAS.md section 12 for the full
 comparator. A missing number in any tiebreaker ranks as the worst case for

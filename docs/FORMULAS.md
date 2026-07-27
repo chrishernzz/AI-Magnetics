@@ -369,7 +369,7 @@ margin% = 100 * (Blimit - Bpk) / Blimit
 
 **Important:** whenever `Blimit` falls back to the Phase 1 default instead
 of a real material-specific number, the result explicitly flags
-`usedDefaultLimit: true` — so a generic assumption is never presented as a
+`usesDefaultAssumption: true` — so a generic assumption is never presented as a
 measured fact about a specific material.
 
 ### 5.3 Flux-Limit Tiers (Informational)
@@ -523,8 +523,8 @@ saturation flux density for all 81 materials (source: PyOpenMagnetics/MAS),
 so this default is now the exception rather than the rule - it's only
 used as a fallback for a material with no measured value. The engine never
 presents it as if it were a measured fact about a specific material —
-every check that uses it sets `usedDefaultLimit: true` in its result, and
-`usedDefaultLimit: false` whenever a real material-specific `BmaxT` was
+every check that uses it sets `usesDefaultAssumption: true` in its result, and
+`usesDefaultAssumption: false` whenever a real material-specific `BmaxT` was
 used instead.
 
 ---
@@ -797,26 +797,26 @@ anywhere in this engine to compute either from.
 **Files:** `src/validation/RecommendationStatus.cpp`, `src/backend/services/InductorDesignService.cpp`
 
 Not a formula, but the piece that ties every result above into a single
-honest verdict. `classifyRecommendation()` replaces a binary pass/fail with
+honest verdict. `determineRecommendationStatus()` replaces a binary pass/fail with
 three tiers:
 
 ```
 Rejected             = passed == false (mirrors the existing check aggregation, never overridden)
-PreliminaryCandidate = passed == true, but any check not_evaluated, any check isPreliminaryEstimate,
+ConditionalPass = passed == true, but any check not_evaluated, any check isPreliminaryEstimate,
                         or AC-loss risk is Moderate/High
-Phase1Recommended    = passed == true and none of the above
+Pass    = passed == true and none of the above
 ```
 
 **Currently unreachable in practice:** `ThermalValidation` (Section 10)
 sets `isPreliminaryEstimate: true` on every result it ever produces, so no
-real Phase 1 request reaches `Phase1Recommended` today — confirmed against
-17 real passing candidates from a live request, all `PreliminaryCandidate`.
+real Phase 1 request reaches `Pass` today — confirmed against
+17 real passing candidates from a live request, all `ConditionalPass`.
 The tier exists for when real thermal-resistance and AC-loss-watts data
 eventually exist, not as a claim that any design today is unconditionally
 ready to build.
 
-Loss naming: `LossSummary.knownEvaluatedLossW` sums whichever of copper/core
-loss are `Evaluated` — labeled "Known Evaluated Loss," never "Total Loss."
+Loss naming: `LossSummary.knownPartialLossW` sums whichever of copper/core
+loss are `Evaluated` — labeled "Known Partial Loss," never "Total Loss."
 `isCompleteTotal` is permanently `false`, since AC-loss watts (Section 11)
 never becomes `Evaluated`.
 

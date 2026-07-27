@@ -42,11 +42,11 @@ struct InductorCandidate {
     //Phase 1, though a High risk level factors into the 3-tier recommendation classification.
     SkinDepthRiskResult acLossRisk;
 
-    //3-tier recommendation classification (spec section 10) - see RecommendationStatus.h. tier == Rejected
-    //always mirrors `passed` above; never contradicts it.
+    //3-tier PASS/CONDITIONAL_PASS/REJECT recommendation classification - see RecommendationStatus.h.
+    //tier == Reject always mirrors `passed` above; never contradicts it.
     RecommendationClassification recommendation;
 
-    //"Known Evaluated Loss" naming (spec section 11) - see LossSummary.h. isCompleteTotal is permanently false.
+    //"Known Partial Loss" naming - see LossSummary.h. isCompleteTotal is permanently false.
     LossSummary lossSummary;
 
     //documented simple composite of the two concrete manufacturability signals this pipeline actually

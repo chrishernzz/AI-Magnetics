@@ -23,22 +23,22 @@ namespace {
 
 //precondition: none
 //postcondition: sum of copper + core loss for whichever of the two are Evaluated - never presented as a
-//complete total (spec section 11) since AC-loss watts is never Evaluated in Phase 1 - see LossSummary.h.
+//complete total, since AC-loss watts is never Evaluated in Phase 1 - see LossSummary.h.
 LossSummary buildLossSummary(const LossEvaluationResult& losses) {
     LossSummary summary;
     std::string components;
     if (losses.copperLossStatus == EvaluationStatus::Evaluated) {
-        summary.knownEvaluatedLossW += losses.copperLossW;
+        summary.knownPartialLossW += losses.copperLossW;
         components += "copper";
     }
     if (losses.coreLossStatus == EvaluationStatus::Evaluated) {
-        summary.knownEvaluatedLossW += losses.coreLossW;
+        summary.knownPartialLossW += losses.coreLossW;
         components += components.empty() ? "core" : "+core";
     }
     summary.isCompleteTotal = false;
     summary.label = components.empty()
-        ? "Known Evaluated Loss: no loss components evaluated"
-        : "Known Evaluated Loss (" + components + " - partial coverage, AC/skin-effect loss not modeled)";
+        ? "Known Partial Loss: no loss components evaluated"
+        : "Known Partial Loss (" + components + " - AC/skin-effect loss not modeled)";
     return summary;
 }
 
@@ -53,7 +53,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
 
     if (!candidate.turnsAndGap.converged) {
         candidate.passed = false;
-        candidate.recommendation.tier = RecommendationTier::Rejected;
+        candidate.recommendation.tier = RecommendationTier::Reject;
         candidate.recommendation.explanation = "rejected: turns/gap design did not converge - no further evaluation performed";
         for (const auto& reason : candidate.turnsAndGap.rejectionReasons) {
             candidate.rejectionReasons.push_back({"TurnsAndGapDesign", reason});
@@ -89,6 +89,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     candidate.acLossRisk = evaluateSkinDepthRisk(requirements.operatingPoint.switchingFreqHz, candidate.winding.conductorAreaMm2, rules);
 
     candidate.validations = {
+        CurrentConsistencyValidation(requirements.operatingPoint),
         InductanceValidation(candidate.turnsAndGap, requirements.inductanceTolerancePercent),
         PeakFluxValidation(core, material, candidate.turnsAndGap, requirements.operatingPoint.peakCurrentA, rules),
         SaturationValidation(core, material, candidate.turnsAndGap, requirements.operatingPoint.peakCurrentA, rules),
@@ -111,7 +112,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
         }
     }
 
-    candidate.recommendation = classifyRecommendation(candidate.passed, candidate.validations, candidate.acLossRisk);
+    candidate.recommendation = determineRecommendationStatus(candidate.passed, candidate.validations, candidate.acLossRisk);
     candidate.lossSummary = buildLossSummary(candidate.losses);
 
     // Manufacturability margin (spec section 11): a documented simple composite of the two concrete
@@ -164,17 +165,17 @@ double marginForRanking(const InductorCandidate& candidate, const char* checkNam
 }
 
 //precondition: recommendation.candidates only ever contains passed==true candidates (see run()'s split below),
-//so tier here is always Phase1Recommended or PreliminaryCandidate, never Rejected - the tier comparison is
-//still real and future-proofed, it simply currently has nothing to differentiate (Phase1Recommended is
-//unreachable today - see RecommendationStatus.h) and falls straight through to the finer-grained tiebreakers,
-//which is where real differentiation actually happens in the current dataset.
+//so tier here is always Pass or ConditionalPass, never Reject - the tier comparison is still real and
+//future-proofed, it simply currently has nothing to differentiate (Pass is unreachable today - see
+//RecommendationStatus.h) and falls straight through to the finer-grained tiebreakers, which is where real
+//differentiation actually happens in the current dataset.
 //postcondition: true if a should rank strictly ahead of b
 bool candidateRanksAhead(const InductorCandidate& a, const InductorCandidate& b) {
     if (a.recommendation.tier != b.recommendation.tier) {
         return static_cast<int>(a.recommendation.tier) < static_cast<int>(b.recommendation.tier);
     }
-    if (a.lossSummary.knownEvaluatedLossW != b.lossSummary.knownEvaluatedLossW) {
-        return a.lossSummary.knownEvaluatedLossW < b.lossSummary.knownEvaluatedLossW;
+    if (a.lossSummary.knownPartialLossW != b.lossSummary.knownPartialLossW) {
+        return a.lossSummary.knownPartialLossW < b.lossSummary.knownPartialLossW;
     }
     double riseA = thermalRiseForRanking(a);
     double riseB = thermalRiseForRanking(b);

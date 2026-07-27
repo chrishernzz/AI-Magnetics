@@ -27,7 +27,52 @@ FluxLimit applicableFluxLimit(const MaterialCandidate& material, const DesignRul
     return {rules.defaultFluxDensityLimitT, true};
 }
 
+std::string conductionModeName(ConductionMode mode) {
+    switch (mode) {
+        case ConductionMode::CCM:
+            return "CCM";
+        case ConductionMode::CCMBoundary:
+            return "CCMBoundary";
+        case ConductionMode::DCMUnsupported:
+            return "DCMUnsupported";
+    }
+    return "unknown";
+}
+
 }  // namespace
+
+//precondition: none
+//postcondition: see header
+ValidationResult CurrentConsistencyValidation(const OperatingPoint& operatingPoint) {
+    ValidationResult result;
+    result.checkName = "CurrentConsistencyValidation";
+    result.unit = "A";
+    result.mandatory = true;
+
+    if (operatingPoint.currentConsistencyStatus != EvaluationStatus::Evaluated) {
+        result.status = EvaluationStatus::NotEvaluated;
+        result.passed = false;
+        result.calculatedValue = 0.0;
+        result.explanation =
+            "not evaluated: no rippleCurrentPeakToPeakA supplied - minimum inductor current, and therefore "
+            "conduction mode, cannot be derived from peak current alone";
+        return result;
+    }
+
+    //A genuine physical contradiction (negative minimum current, or an out-of-envelope rmsCurrentA) already
+    //threw in RequirementDerivationService::derive() before any candidate was evaluated, so this check
+    //always passes for a candidate that reaches it - it exists to surface the real conduction-mode/minimum-
+    //current numbers per candidate, the same way every other check surfaces its own real numbers, not to
+    //re-run a gate that already ran once at the requirements level.
+    result.calculatedValue = operatingPoint.minInductorCurrentA;
+    result.limitValue = 0.0;
+    result.passed = true;
+    result.explanation = "conduction mode " + conductionModeName(operatingPoint.conductionMode) +
+                          ", minimum inductor current " + std::to_string(operatingPoint.minInductorCurrentA) +
+                          " A vs peak " + std::to_string(operatingPoint.peakCurrentA) + " A (" +
+                          operatingPoint.currentConsistencyExplanation + ")";
+    return result;
+}
 
 //precondition: none
 //postcondition: passes only if turns/gap converged and the resulting inductance is within tolerance
@@ -63,7 +108,7 @@ ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCan
 
     result.calculatedValue = bpk;
     result.limitValue = limit.limitT;
-    result.usedDefaultLimit = limit.usedDefault;
+    result.usesDefaultAssumption = limit.usedDefault;
     result.passed = turnsAndGap.converged && bpk <= limit.limitT;
     result.explanation = "peak flux density " + std::to_string(bpk) + " T vs limit " +
                           std::to_string(limit.limitT) + " T (" +
@@ -89,7 +134,7 @@ ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialC
     double marginPercent = limit.limitT > 0.0 ? 100.0 * (limit.limitT - bpk) / limit.limitT : 0.0;
 
     result.calculatedValue = marginPercent;
-    result.usedDefaultLimit = limit.usedDefault;
+    result.usesDefaultAssumption = limit.usedDefault;
     result.passed = turnsAndGap.converged && marginPercent >= rules.minimumSaturationMarginPercent;
     result.explanation = "saturation margin " + std::to_string(marginPercent) + "% vs required " + std::to_string(rules.minimumSaturationMarginPercent) + "% (" +
                           (limit.usedDefault ? "against the Phase 1 default flux limit, not a material fact"

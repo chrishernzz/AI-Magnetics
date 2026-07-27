@@ -20,7 +20,7 @@ struct ValidationResult {
     std::string explanation;
 
     //true if this check compared against DesignRules' Phase 1 default (e.g. defaultFluxDensityLimitT) rather than a material-specific measured value - so a default is never silently presented as fact.
-    bool usedDefaultLimit = false;
+    bool usesDefaultAssumption = false;
 
     //Evaluated: the check actually ran and passed/failed on real data.
     //NotEvaluated: required data/model wasn't available, so `passed` is false per spec ("never assume missing data equals a pass"), but a
@@ -32,4 +32,10 @@ struct ValidationResult {
     //data (currently: ThermalValidation when thermal.status == PreliminaryThermalEstimate) - status stays
     //Evaluated (the check DID run and DID pass/fail), this flag is the caveat that it's not a final answer.
     bool isPreliminaryEstimate = false;
+
+    //true when this check is a required gate for determineRecommendationStatus()'s PASS tier - every check
+    //this engine runs today is mandatory (spec: "PASS only when every mandatory check was evaluated AND
+    //passed"). Exists as an explicit field, not an implicit "everything in the list" assumption, so a future
+    //informational-only check can be added without silently becoming a gate.
+    bool mandatory = true;
 };

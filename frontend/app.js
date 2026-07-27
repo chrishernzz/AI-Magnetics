@@ -545,29 +545,30 @@ function formatLossCell(status, watts) {
     return `${watts.toFixed(3)} W`;
 }
 
-// candidate.lossSummary.knownEvaluatedLossW is the exact number the backend ranks
+// candidate.lossSummary.knownPartialLossW is the exact number the backend ranks
 // passing candidates by (InductorDesignService.cpp's candidateRanksAhead()) - read
 // directly from the API response rather than re-deriving it here, so the table's
-// "Known Evaluated Loss" column can never silently drift from the real ranking.
+// "Known Partial Loss" column can never silently drift from the real ranking.
 function formatTotalLossCell(candidate) {
     const summary = candidate.lossSummary;
     if (!summary || (candidate.losses.copperLossStatus !== "Evaluated" && candidate.losses.coreLossStatus !== "Evaluated")) {
         return '<span class="cell-muted">not evaluated</span>';
     }
-    return `${summary.knownEvaluatedLossW.toFixed(3)} W`;
+    return `${summary.knownPartialLossW.toFixed(3)} W`;
 }
 
-// 3-tier recommendation status (spec section 10) - real backend classification,
-// not the old "first row in a loss-sorted list" UI sugar. Only "Recommended"
-// gets a chip anywhere in the UI - "PreliminaryCandidate" is currently true of
-// every passing candidate (Phase1Recommended is structurally unreachable until
-// real per-core thermal data exists - see FORMULAS.md section 12), so a
-// "Preliminary" label on every single row/panel would be constant noise, not a
-// signal. The real facts behind it (which checks rest on a default assumption
-// rather than measured data) are still spelled out in the status line and
-// validation rows themselves - the tier NAME just isn't repeated as a label.
+// 3-tier PASS/CONDITIONAL_PASS/REJECT recommendation status - real backend
+// classification (RecommendationStatus.h), not the old "first row in a
+// loss-sorted list" UI sugar. Only PASS gets a chip anywhere in the UI -
+// CONDITIONAL_PASS is currently true of every passing candidate (PASS is
+// structurally unreachable until real per-core thermal data exists - see
+// FORMULAS.md section 12), so a "Conditional" label on every single row/panel
+// would be constant noise, not a signal. The real facts behind it (which
+// checks rest on a default assumption or preliminary estimate rather than
+// measured data) are still spelled out in the status line and validation rows
+// themselves - the tier NAME just isn't repeated as a label on every row.
 function recommendationTierChip(tier) {
-    if (tier === "Phase1Recommended") return '<span class="chip chip-recommended">Recommended</span>';
+    if (tier === "Pass") return '<span class="chip chip-recommended">PASS</span>';
     return "";
 }
 
@@ -592,7 +593,7 @@ function renderValidationList(validations) {
             <div class="validation-row-main">
                 ${chip}
                 <span class="validation-item-name">${v.checkName}</span>
-                <span class="validation-item-value">actual <strong>${v.calculatedValue.toFixed(3)}</strong> · limit <strong>${v.limitValue.toFixed(3)}</strong> ${v.unit}${v.usedDefaultLimit ? " *" : ""}</span>
+                <span class="validation-item-value">actual <strong>${v.calculatedValue.toFixed(3)}</strong> · limit <strong>${v.limitValue.toFixed(3)}</strong> ${v.unit}${v.usesDefaultAssumption ? " *" : ""}</span>
             </div>
             <div class="validation-row-explain">${v.explanation}</div>
         </li>
@@ -606,6 +607,18 @@ function renderValidationList(validations) {
 // no shape data was recorded for this core (never guessed from the part number).
 // Its own table column (not a badge crammed next to the part number), same
 // treatment as the Material column next to it.
+// Real powder toroid materials achieve their working permeability through gapping
+// distributed at the powder-particle level, baked into the catalog AL - there is
+// no discrete machined air gap to report (see TurnsAndGapDesign.cpp's
+// isDistributedGapCore branch). Showing "0.00 mm" for these would misleadingly
+// imply a machinable dimension that does not physically exist on the part.
+function gapCellLabel(turnsAndGap) {
+    if (turnsAndGap.gapMethod === "Distributed") {
+        return '<span class="cell-muted" title="Distributed-gap toroid - no discrete machined air gap exists on this part">Distributed gap</span>';
+    }
+    return turnsAndGap.gapMm.toFixed(2);
+}
+
 function shapeCellLabel(core) {
     if (!core.coreShape) return '<span class="cell-muted">—</span>';
     const label = core.coreShape === "TwoPieceSet" ? "Two-Piece Set" : core.coreShape;
@@ -656,7 +669,7 @@ function renderCandidateDetail(candidate) {
     const failCount = candidate.validations.filter((v) => v.status !== "NotEvaluated" && !v.passed).length;
     const notEvalCount = candidate.validations.filter((v) => v.status === "NotEvaluated").length;
     const passCount = candidate.validations.length - failCount - notEvalCount;
-    const usedDefaultLimit = candidate.validations.some((v) => v.usedDefaultLimit);
+    const usesDefaultAssumption = candidate.validations.some((v) => v.usesDefaultAssumption);
     const preliminaryChecks = candidate.validations.filter((v) => v.isPreliminaryEstimate);
 
     // KPIs first, always - the numbers an engineer actually judges a
@@ -664,7 +677,7 @@ function renderCandidateDetail(candidate) {
     const kpis = `
         <div class="detail-kpis">
             <div class="detail-kpi">
-                <span class="detail-kpi-label">${candidate.lossSummary.label.startsWith("Known") ? "Known Evaluated Loss" : "Loss"}</span>
+                <span class="detail-kpi-label">${candidate.lossSummary.label.startsWith("Known") ? "Known Partial Loss" : "Loss"}</span>
                 <span class="detail-kpi-value">${formatTotalLossCell(candidate)}</span>
             </div>
             <div class="detail-kpi">
@@ -672,8 +685,9 @@ function renderCandidateDetail(candidate) {
                 <span class="detail-kpi-value">${formatLoss(candidate.losses.coreLossStatus, candidate.losses.coreLossW)}</span>
             </div>
             <div class="detail-kpi">
-                <span class="detail-kpi-label">Fill Factor</span>
-                <span class="detail-kpi-value">${(candidate.winding.fillFactor * 100).toFixed(1)}%</span>
+                <span class="detail-kpi-label" title="Physical window fill - includes insulation build-up, packing density, and margin/lead-exit allowance. This is the number WindingFitValidation gates on.">Physical Fill %</span>
+                <span class="detail-kpi-value">${(candidate.winding.physicalWindowFillFactor * 100).toFixed(1)}%</span>
+                <span class="detail-kpi-sub" title="Raw copper cross-section over window area, before any insulation/packing/margin derating - informational only, not the gate.">raw copper fill ${(candidate.winding.fillFactor * 100).toFixed(1)}%</span>
             </div>
             <div class="detail-kpi">
                 <span class="detail-kpi-label">Current Density</span>
@@ -681,7 +695,7 @@ function renderCandidateDetail(candidate) {
             </div>
             <div class="detail-kpi">
                 <span class="detail-kpi-label">Turns / Gap</span>
-                <span class="detail-kpi-value">${candidate.turnsAndGap.turns}t, ${candidate.turnsAndGap.gapMm.toFixed(2)}mm</span>
+                <span class="detail-kpi-value">${candidate.turnsAndGap.turns}t, ${candidate.turnsAndGap.gapMethod === "Distributed" ? "distributed gap" : candidate.turnsAndGap.gapMm.toFixed(2) + "mm"}</span>
             </div>
         </div>
         <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong> &nbsp; ${acLossRiskChip(candidate.acLossRisk)}</p>
@@ -708,7 +722,7 @@ function renderCandidateDetail(candidate) {
         ${statusLine}
         ${rankingLine}
         <ul class="validation-list">${renderValidationList(candidate.validations)}</ul>
-        ${usedDefaultLimit ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
+        ${usesDefaultAssumption ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
         ${renderSourcesDetail(candidate)}
         ${
             warnings.length
@@ -747,10 +761,10 @@ function renderCandidateTable(result) {
         { label: "Gap (mm)", numeric: true },
         { label: "Calc L (µH)", numeric: true },
         { label: "Error %", numeric: true },
-        { label: "Fill %", numeric: true },
+        { label: "Physical Fill %", numeric: true },
         { label: "DC Copper Loss", numeric: true },
         { label: "Core Loss", numeric: true },
-        { label: "Known Evaluated Loss", numeric: true },
+        { label: "Known Partial Loss", numeric: true },
     ];
 
     const headerHtml = headers.map((h) => `<th${h.numeric ? ' class="numeric"' : ""}>${h.label}</th>`).join("");
@@ -762,7 +776,7 @@ function renderCandidateTable(result) {
             const badge = row.passed
                 ? `<span class="chip chip-pass">PASS</span>${recommendationTierChip(tier)}`
                 : '<span class="chip chip-fail">REJECT</span>';
-            const rowClass = ["candidate-row", row.passed ? "row-pass" : "row-reject", tier === "Phase1Recommended" ? "row-recommended" : ""]
+            const rowClass = ["candidate-row", row.passed ? "row-pass" : "row-reject", tier === "Pass" ? "row-recommended" : ""]
                 .filter(Boolean)
                 .join(" ");
             return `
@@ -772,10 +786,10 @@ function renderCandidateTable(result) {
                     <td>${shapeCellLabel(c.core)}</td>
                     <td>${c.material.materialFamily}</td>
                     <td class="numeric">${c.turnsAndGap.turns}</td>
-                    <td class="numeric">${c.turnsAndGap.gapMm.toFixed(2)}</td>
+                    <td class="numeric">${gapCellLabel(c.turnsAndGap)}</td>
                     <td class="numeric">${c.turnsAndGap.calculatedInductanceUH.toFixed(2)}</td>
                     <td class="numeric">${c.turnsAndGap.inductanceErrorPercent.toFixed(2)}</td>
-                    <td class="numeric">${(c.winding.fillFactor * 100).toFixed(1)}</td>
+                    <td class="numeric">${(c.winding.physicalWindowFillFactor * 100).toFixed(1)}</td>
                     <td class="numeric">${formatLossCell(c.losses.copperLossStatus, c.losses.copperLossW)}</td>
                     <td class="numeric">${formatLossCell(c.losses.coreLossStatus, c.losses.coreLossW)}</td>
                     <td class="numeric">${formatTotalLossCell(c)}</td>
