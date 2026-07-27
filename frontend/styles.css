@@ -1105,6 +1105,22 @@ summary {
     color: #fff;
 }
 
+.shape-filter {
+    background: var(--paper);
+    color: var(--ink-soft);
+    border: 1px solid #c9c9cc;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.shape-filter:hover {
+    color: var(--ink);
+    border-color: #a9a9ac;
+}
+
 .table-scroll {
     overflow-x: auto;
     max-height: 70vh;
@@ -1258,6 +1274,16 @@ summary {
     background: #dbeafe;
     color: #1d4ed8;
     margin-left: 6px;
+}
+
+/* Real shape classification (Toroid/Two-Piece Set), neutral (not a pass/fail
+   signal - see coreShapeBadge() in app.js). */
+.chip-shape {
+    background: var(--paper-sunk);
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    margin-left: 6px;
+    font-weight: 600;
 }
 
 .detail-ranking-explanation {

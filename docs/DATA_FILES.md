@@ -26,13 +26,16 @@
 `data/real_core_loss_coefficients.csv`
 **Used by:** `python/services/magnetics_data.py`
 **Format:**
-`PartNumber,Material,Mu,AL,Ae,Wa,Le,Mlt,PartCost,Vendor,MaxCurrent_A,MaxFreq_kHz`
+`PartNumber,Material,Mu,AL,Ae,Wa,Le,Mlt,PartCost,Vendor,MaxCurrent_A,MaxFreq_kHz,CoreShape,ShapeFamily`
 for cores, `Name,MuOpt,MinFrequencyHz,MaxFrequencyHz,Reason,Alternatives,BmaxT`
 for materials, and `MaterialName,MinFrequencyHz,MaxFrequencyHz,K,Alpha,Beta,Ct0,Ct1,Ct2`
 (one row per frequency range) for the Steinmetz core-loss coefficients.
-**Currently:** 32 materials, 60 cores — real data (Ferroxcube, TDK,
-Magnetics, Fair-Rite), filtered to power-application materials and
-ungapped cores, spread across vendors.
+**Currently:** 81 materials, 168 cores — real data (Ferroxcube, TDK,
+Magnetics, Fair-Rite, Micrometals), filtered to power-application materials
+and ungapped cores, spread across vendors. `CoreShape` (`Toroid`/
+`TwoPieceSet`) and `ShapeFamily` (e.g. `T`, `ETD`, `PQ`, `RM`) are real
+geometry classifications from PyOpenMagnetics' own shape record - see
+"Core shape is now real" below.
 **Do not hand-edit these files.** To change what's in them, either adjust
 the filters in `scripts/export_real_data.py` and re-run it (needs
 PyOpenMagnetics installed — Linux/macOS/WSL2 only, see
@@ -41,14 +44,15 @@ that script and swap the resulting files in.
 
 **Known Phase 1 data gaps (real limitations, not bugs in the engine):**
 - `real_materials.csv`'s `BmaxT` is now real, material-specific saturation
-  flux density data (source: PyOpenMagnetics/MAS) for all 32 materials —
+  flux density data (source: PyOpenMagnetics/MAS) for all 81 materials —
   `PeakFluxValidation`/`SaturationValidation` use it automatically instead
   of `DesignRules.defaultFluxDensityLimitT` (`usedDefaultLimit: false` when
   it's in use). The old placeholder `CuLossFactor` column was retired;
   real Steinmetz coefficients (`k`, `alpha`, `beta`, plus temperature
-  terms) now exist in `data/real_core_loss_coefficients.csv` for 17 of the
-  32 materials (the ferrite families — the powder/Kool Mµ/XFlux materials
-  aren't characterized as Steinmetz upstream, not an export bug), loaded
+  terms) now exist in `data/real_core_loss_coefficients.csv` for 25 of the
+  81 materials (the ferrite families — the powder/Kool Mµ/XFlux/MPP
+  materials aren't characterized as Steinmetz upstream, not an export
+  bug), loaded
   at startup into `CoreLossCoefficientDatabase`
   (`src/data/CoreLossCoefficientDatabase.h`). Core loss is now a real,
   computed watt value via the Steinmetz equation `Pv = k*f^alpha*B^beta`
@@ -67,16 +71,35 @@ that script and swap the resulting files in.
   (`losses.copperLossStatus`) follows automatically.
 - `real_cores.csv`'s `PartCost` and `MaxCurrent_A` columns are still 0.0 for
   every row — not currently used by any Phase 1 check.
-- `real_cores.csv` has no core-geometry/shape column at all, so
-  `TurnsAndGapDesign.cpp` applies the same discrete-air-gap physics model
-  (`GapDesign.cpp`) to every candidate uniformly, including the powder
-  toroids in the snapshot (Kool Mµ, XFlux, Fair-Rite "78"/"79"/"80" grades).
-  Real toroids don't get a machined air gap the way E-cores do — their
-  effective permeability is a distributed-gap material property, not a
-  mechanical gap length. The engine still returns a `gapMm` for these
-  (nearly always ~0.00mm since the fitted permeability needs little gap),
-  which is numerically harmless here but doesn't model the real physics of
-  a toroidal core. No shape-aware branch exists yet.
+- **Core shape is now real** (`CoreShape`/`ShapeFamily` columns, added after
+  a real user report that the tool had no way to identify or filter for a
+  toroidal reference core - see git log). Sourced directly from
+  PyOpenMagnetics' `functionalDescription.shape`: `magneticCircuit: closed`
+  → `Toroid`, `open` → `TwoPieceSet` (E-core, ETD, PQ, RM, etc.), with
+  `shape.family` (e.g. `t`, `etd`, `pq`) as the human-readable geometry
+  code. Surfaced in the API (`core.coreShape`/`core.shapeFamily`) and the
+  frontend (a shape badge per candidate plus a shape filter dropdown).
+  Fixing this also surfaced a real curation bug: the export script's
+  per-vendor cap was a single flat counter, so whichever powder family
+  happened to iterate first for a vendor (Kool Mµ/Edge/XFlux, for Magnetics)
+  could consume the entire quota before other real, qualifying materials
+  from that vendor (MPP) were ever considered — MPP toroids were completely
+  absent from every snapshot before this fix, confirmed against the live
+  upstream PyOpenMagnetics database (10,000+ cores, only 60 were ever
+  imported). The cap is now tracked per (vendor, shape) pair, and a specific
+  real reference part (Magnetics `C055439A2X2`, an MPP-60 toroid) is
+  explicitly prioritized so it survives the per-material cap too — see
+  `scripts/export_real_data.py`'s module docstring and
+  `PRIORITY_CORE_REFERENCES`.
+- **What this does NOT fix:** `TurnsAndGapDesign.cpp` still applies the
+  same discrete-machined-gap physics model (`GapDesign.cpp`) to every
+  candidate uniformly, including toroids. Real toroids don't get a
+  machined air gap the way E-cores do — their effective permeability is a
+  distributed-gap material property, not a mechanical gap length. The
+  engine still returns a `gapMm` for these (nearly always ~0.00mm since
+  the fitted permeability needs little gap), which is numerically harmless
+  here but doesn't model the real physics of a toroidal core. The shape is
+  now correctly labeled; no shape-aware gap-physics branch exists yet.
 
 Closing these gaps means re-running `scripts/export_real_data.py` with those
 fields actually populated, or adding real per-part datasheet values by
@@ -155,7 +178,7 @@ AL ≈ 0.4π × µ₀ × µᵣ × (Ae / Le) × 10⁹ (nH/100T; µ₀ = 4π×10�
 | MaxFrequencyHz | Hz | 250000 | Maximum operating frequency |
 | Reason | — | "Balanced performance 50-250kHz..." | Why this material suits its range |
 | Alternatives | — | `Ferrite\|Powder Iron` | Pipe-separated alternatives; passed through as a raw string by the API, not parsed into a list |
-| BmaxT | T | 1.0 | Max flux density — as of today's Phase 1 engine, `PeakFluxValidation`/`SaturationValidation` (`DesignValidation.cpp`) prefer a material's own `BmaxT` over the `DesignRules` default (0.30 T) whenever it's populated. (This is the deprecated hand-typed format — the real snapshot, `real_materials.csv`, now has real `BmaxT` for all 32 materials; see the section above.) Not a hard-coded value in `src/core/sizing/AreaProduct.cpp` anymore - see [FORMULAS.md](FORMULAS.md) section 7 |
+| BmaxT | T | 1.0 | Max flux density — as of today's Phase 1 engine, `PeakFluxValidation`/`SaturationValidation` (`DesignValidation.cpp`) prefer a material's own `BmaxT` over the `DesignRules` default (0.30 T) whenever it's populated. (This is the deprecated hand-typed format — the real snapshot, `real_materials.csv`, now has real `BmaxT` for all 81 materials; see the section above.) Not a hard-coded value in `src/core/sizing/AreaProduct.cpp` anymore - see [FORMULAS.md](FORMULAS.md) section 7 |
 | CuLossFactor | — | 1.15 | Multiplier for AC copper loss — retired from the real snapshot in favor of real Steinmetz coefficients in `data/real_core_loss_coefficients.csv` (see the section above), now driving a real core-loss computation whenever ripple current is supplied. See [FORMULAS.md](FORMULAS.md) section 9 |
 
 ### Frequency Ranges (current data)

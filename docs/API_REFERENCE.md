@@ -280,7 +280,7 @@ The rest are conditionally real, never fabricated:
 - **Core loss** (`losses.coreLossStatus`) — `Evaluated` when the material
   has real Steinmetz coefficients for the request's frequency AND the
   request supplied `rippleCurrentPeakToPeakA`; `not_evaluated` otherwise
-  (17 of 32 materials have coefficients; ripple current is optional on
+  (25 of 81 materials have coefficients; ripple current is optional on
   every request; run `scripts/audit_material_core_database.py` for the
   current live count).
 - **DCR / total wire length** (`winding.resistanceStatus`) and **DC

@@ -133,11 +133,15 @@ def test_case5_vout_at_or_above_vin_min_is_rejected():
 
 def test_case6_saturation_failure_rejects_every_candidate():
     """Case 6: a target inductance/current combination that saturates every
-    real candidate core - found by probing the live engine (470uH, 12A peak,
-    8A rms, 80kHz against the real database rejects all 8 area-product-feasible
-    cores on SaturationValidation, none on anything else first)."""
+    real candidate core - found by probing the live engine (470uH, 40A peak,
+    28A rms, 80kHz against the real database rejects all 3 area-product-feasible
+    cores on SaturationValidation). Re-probed after the CoreShape database fix
+    (60->168 cores) added real MPP-toroid coverage - the original 12A-peak
+    trigger now has a real passing candidate (C055439A2X2, the exact MPP-60
+    toroid this fix was built to surface), so it no longer demonstrates a
+    saturation rejection; 40A peak still genuinely rejects every candidate."""
     result = magnetics_cpp.run_inductor_design(
-        _design_request(inductanceUH=470.0, peakCurrentA=12.0, rmsCurrentA=8.0, switchingFreqKHz=80.0)
+        _design_request(inductanceUH=470.0, peakCurrentA=40.0, rmsCurrentA=28.0, switchingFreqKHz=80.0)
     )
     assert result.status == "no_feasible_design"
     assert len(result.rejectedCandidates) > 0
@@ -274,3 +278,46 @@ def test_case12_one_turn_high_current_design_exercises_physical_description_and_
         candidate.winding.currentDensityAperMm2 / magnetics_cpp.design_rules_phase1_default().currentSharingDerateFactor,
         rel_tol=1e-9,
     )
+
+
+def test_case13_mpp_toroid_c055439a2x2_reachable_after_database_fix():
+    """Case 13: regression test for a real bug report. A coworker tested a
+    reference design using Magnetics C055439A2 (MPP-60 toroid) and it was
+    completely absent from the tool. Root cause, confirmed by directly
+    querying the live PyOpenMagnetics database: the export script's
+    per-vendor cap (15) was entirely consumed by Kool Mu/Edge/XFlux toroids
+    - a different powder family - before MPP was ever reached, and the
+    exact reference (C055439A2X2, the epoxy-coated variant PyOpenMagnetics
+    actually carries) was the 35th of 50 real physical sizes under the
+    "MPP 60" material name, past the old per-material cap of 4.
+
+    Fixed in scripts/export_real_data.py: the vendor cap is now tracked per
+    (vendor, shape) so one powder family can't crowd out another, and
+    C055439A2X2 is explicitly prioritized so it wins its slot in the
+    per-material cap instead of losing to an arbitrary same-name sibling
+    from PyOpenMagnetics' iteration order (see PRIORITY_CORE_REFERENCES).
+
+    This does not replay the coworker's exact application point - their
+    reference sheet gives no switching frequency, so one can't be assumed
+    without fabricating an input. Instead it uses a request under which
+    this exact part is independently verified reachable end-to-end through
+    the live pipeline (found by probing, same as every other case here).
+
+    Known open discrepancy, not resolved by this test: the reference
+    sheet lists AL = 135 nH/turn^2 for this core; the real geometry
+    PyOpenMagnetics provides (Ae=449.49mm^2, Le=106.94mm, mu=60) computes
+    to AL = 316.9 nH/turn^2 via the standard mu0*mu_r*Ae/Le formula - a
+    ~2.3x difference. Attempts to fetch the Magnetics datasheet directly
+    to resolve it were blocked (HTTP 403). Flagged, not silently trusted
+    either way."""
+    result = magnetics_cpp.run_inductor_design(
+        _design_request(inductanceUH=470.0, peakCurrentA=12.0, rmsCurrentA=8.0, switchingFreqKHz=80.0)
+    )
+    assert result.status == "ok"
+    matches = [c for c in result.candidates if c.core.partNumber == "C055439A2X2"]
+    assert matches, "expected the real MPP-60 toroid C055439A2X2 to be a reachable candidate"
+    candidate = matches[0]
+    assert candidate.core.material == "MPP 60"
+    assert candidate.core.coreShape == "Toroid"
+    assert candidate.core.shapeFamily == "T"
+    assert candidate.core.vendor == "Magnetics"

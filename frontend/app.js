@@ -3,6 +3,7 @@ const TOPOLOGY_ENDPOINT = "/topology-design/buck";
 
 let lastResult = null;
 let currentFilter = "all"; // all | passing | rejected
+let currentShapeFilter = "all"; // all | Toroid | TwoPieceSet
 
 // Set when Mode 1 (Buck converter) has derived requirements - holds the
 // averageCurrentA/rippleCurrentPeakToPeakA pair so buildPayload() sends
@@ -609,6 +610,15 @@ function renderValidationList(validations) {
         .join("");
 }
 
+// Real shape classification (Toroid/TwoPieceSet) from PyOpenMagnetics geometry -
+// see scripts/export_real_data.py's _core_shape_and_family(). Empty string means
+// no shape data was recorded for this core (never guessed from the part number).
+function coreShapeBadge(core) {
+    if (!core.coreShape) return "";
+    const label = core.coreShape === "TwoPieceSet" ? "Two-Piece Set" : core.coreShape;
+    return ` <span class="chip chip-shape" title="Shape family: ${core.shapeFamily || "unknown"}">${label}</span>`;
+}
+
 function candidateRows(result) {
     // result.candidates is already ranked (see InductorDesignService.cpp's
     // candidateRanksAhead()) - the passed flag drives which bucket a row sorts
@@ -727,6 +737,7 @@ function renderCandidateTable(result) {
     let rows = candidateRows(result);
     if (currentFilter === "passing") rows = rows.filter((r) => r.passed);
     if (currentFilter === "rejected") rows = rows.filter((r) => !r.passed);
+    if (currentShapeFilter !== "all") rows = rows.filter((r) => r.candidate.core.coreShape === currentShapeFilter);
 
     if (rows.length === 0) {
         table.innerHTML = `<tbody><tr><td class="table-empty">No candidates match this filter.</td></tr></tbody>`;
@@ -760,7 +771,7 @@ function renderCandidateTable(result) {
             return `
                 <tr class="${rowClass}" data-row-index="${index}">
                     <td>${badge}</td>
-                    <td>${c.core.partNumber}</td>
+                    <td>${c.core.partNumber}${coreShapeBadge(c.core)}</td>
                     <td>${c.material.materialFamily}</td>
                     <td class="numeric">${c.turnsAndGap.turns}</td>
                     <td class="numeric">${c.turnsAndGap.gapMm.toFixed(2)}</td>
@@ -821,6 +832,37 @@ function renderFilterChips(result) {
             renderCandidateTable(lastResult);
         });
     });
+
+    renderShapeFilter(result);
+}
+
+// Shape filter (Toroid / Two-Piece Set) - added directly in response to a real
+// user report that the tool had no way to search or filter by core shape. Only
+// offers shapes actually present in this result, so an empty snapshot can't
+// show a dead dropdown option.
+function renderShapeFilter(result) {
+    const element = document.getElementById("shapeFilter");
+    if (!element) return;
+
+    const allCandidates = result.candidates.concat(result.rejectedCandidates);
+    const shapesPresent = new Set(allCandidates.map((c) => c.core.coreShape).filter(Boolean));
+
+    if (shapesPresent.size === 0) {
+        element.hidden = true;
+        return;
+    }
+    element.hidden = false;
+
+    const shapeLabels = { all: "All shapes", Toroid: "Toroid", TwoPieceSet: "Two-Piece Set" };
+    const options = ["all", ...Array.from(shapesPresent)]
+        .map((key) => `<option value="${key}"${key === currentShapeFilter ? " selected" : ""}>${shapeLabels[key] || key}</option>`)
+        .join("");
+    element.innerHTML = options;
+
+    element.onchange = () => {
+        currentShapeFilter = element.value;
+        renderCandidateTable(lastResult);
+    };
 }
 
 async function generateRecommendation() {

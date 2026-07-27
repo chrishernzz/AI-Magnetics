@@ -49,6 +49,8 @@ std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate
         //real vendor data, already fetched by magnetics_data.py but previously dropped before reaching this
         //struct - not fabricated, just finally threaded through.
         candidate.vendor = core.vendor;
+        candidate.coreShape = core.coreShape;
+        candidate.shapeFamily = core.shapeFamily;
         candidate.source.manufacturer = core.vendor.empty() ? std::nullopt : std::optional<std::string>(core.vendor);
         candidate.source.partNumber = core.partNumber;
         candidate.source.materialGrade = core.material;

@@ -88,6 +88,8 @@ def load_real_magnetics_data():
         "le" : "Le",
         "mlt" : "Mlt",
         "vendor" : "Vendor",
+        "coreShape" : "CoreShape",
+        "shapeFamily" : "ShapeFamily",
     })
     cpp_core_loss_coefficients = _build_cpp_record(core_loss_coefficients, magnetics_cpp.CoreLossCoefficientData, {
         "materialName" : "MaterialName",

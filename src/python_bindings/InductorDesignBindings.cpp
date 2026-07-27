@@ -69,7 +69,9 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("wa", &CoreData::wa)
         .def_readwrite("le", &CoreData::le)
         .def_readwrite("mlt", &CoreData::mlt)
-        .def_readwrite("vendor", &CoreData::vendor);
+        .def_readwrite("vendor", &CoreData::vendor)
+        .def_readwrite("coreShape", &CoreData::coreShape)
+        .def_readwrite("shapeFamily", &CoreData::shapeFamily);
     py::class_<MaterialData>(m, "MaterialData")
         .def(py::init<>())
         .def_readwrite("name", &MaterialData::name)
@@ -237,6 +239,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("areaProductCm4", &CoreCandidate::areaProductCm4)
         .def_readwrite("meetsAreaProduct", &CoreCandidate::meetsAreaProduct)
         .def_readwrite("vendor", &CoreCandidate::vendor)
+        .def_readwrite("coreShape", &CoreCandidate::coreShape)
+        .def_readwrite("shapeFamily", &CoreCandidate::shapeFamily)
         .def_readwrite("source", &CoreCandidate::source);
 
     py::class_<TurnsAndGapResult>(m, "TurnsAndGapResult")

@@ -102,11 +102,15 @@ def fetch_cores() -> list[dict]:
     engine expects:
 
     PartNumber, Material, Mu, AL, Ae, Wa, Le, Mlt,
-    PartCost, Vendor, MaxCurrent_A, MaxFreq_kHz
+    PartCost, Vendor, MaxCurrent_A, MaxFreq_kHz, CoreShape, ShapeFamily
 
     Mlt (mean-length-per-turn, mm) is a real-geometry estimate as of this
     snapshot - see scripts/export_real_data.py's module docstring for
     exactly what it does and doesn't account for.
+
+    CoreShape ("Toroid"/"TwoPieceSet") and ShapeFamily (e.g. "T", "ETD",
+    "PQ") are real geometry classifications from PyOpenMagnetics - see
+    scripts/export_real_data.py's _core_shape_and_family().
     """
     rows = _read_csv(CORES_FILE)
 
@@ -127,6 +131,8 @@ def fetch_cores() -> list[dict]:
                 "Vendor": r["Vendor"],
                 "MaxCurrent_A": float(r["MaxCurrent_A"]),
                 "MaxFreq_kHz": float(r["MaxFreq_kHz"]),
+                "CoreShape": r.get("CoreShape", ""),
+                "ShapeFamily": r.get("ShapeFamily", ""),
             }
         )
 

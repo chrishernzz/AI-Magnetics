@@ -159,6 +159,8 @@ def _serialize_core(c) -> dict:
         "areaProductCm4": c.areaProductCm4,
         "meetsAreaProduct": c.meetsAreaProduct,
         "vendor": c.vendor,
+        "coreShape": c.coreShape,
+        "shapeFamily": c.shapeFamily,
         "source": _serialize_source_info(c.source),
     }
 
