@@ -723,9 +723,6 @@ function renderCandidateDetail(candidate) {
         ? `<p class="detail-ranking-explanation">${candidate.recommendation.explanation}</p>`
         : "";
 
-    const hardware = candidate.hardwareValidation;
-    const hardwareSection = `<details><summary>Hardware validation</summary><p>${hardware && hardware.status === "not_measured" ? "Not measured yet - this candidate has not been bench-tested. Fields exist to record real measurements once hardware validation happens." : hardware.status}</p></details>`;
-
     return `
         ${kpis}
         ${statusLine}
@@ -733,7 +730,6 @@ function renderCandidateDetail(candidate) {
         <ul class="validation-list">${renderValidationList(candidate.validations)}</ul>
         ${usedDefaultLimit ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
         ${renderSourcesDetail(candidate)}
-        ${hardwareSection}
         ${
             warnings.length
                 ? `<details><summary>Missing-data warnings</summary><ul>${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
@@ -819,10 +815,10 @@ function renderCandidateTable(result) {
 }
 
 // Slide-in side panel for candidate detail (replaces the old inline accordion
-// row, which crammed KPIs, status, every validation check, sources, hardware
-// validation, and warnings into one long stacked block under the table row).
-// The table stays visible/scrollable behind it - clicking a different row
-// just re-renders the same panel's contents rather than opening a second one.
+// row, which crammed KPIs, status, every validation check, sources, and
+// warnings into one long stacked block under the table row). The table stays
+// visible/scrollable behind it - clicking a different row just re-renders
+// the same panel's contents rather than opening a second one.
 function openCandidateSidePanel(candidate, passed) {
     const panel = document.getElementById("candidateSidePanel");
     const title = document.getElementById("sidePanelTitle");

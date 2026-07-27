@@ -20,7 +20,6 @@
 #include "core/losses/SkinDepthRisk.h"
 #include "core/magnetics/GapMethod.h"
 #include "core/model/Provenance.h"
-#include "core/model/HardwareValidation.h"
 #include "core/model/EngineVersions.h"
 #include "data/CoreDatabase.h"
 #include "data/CoreLossCoefficientDatabase.h"
@@ -186,20 +185,6 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("dateAccessed", &SourceInfo::dateAccessed)
         .def_readwrite("confidence", &SourceInfo::confidence)
         .def_readwrite("confidenceNote", &SourceInfo::confidenceNote);
-
-    py::class_<HardwareValidationRecord>(m, "HardwareValidationRecord")
-        .def(py::init<>())
-        .def_readwrite("measuredInductanceUH", &HardwareValidationRecord::measuredInductanceUH)
-        .def_readwrite("measuredDcrMilliOhm", &HardwareValidationRecord::measuredDcrMilliOhm)
-        .def_readwrite("measuredRippleCurrentA", &HardwareValidationRecord::measuredRippleCurrentA)
-        .def_readwrite("measuredPeakCurrentA", &HardwareValidationRecord::measuredPeakCurrentA)
-        .def_readwrite("measuredCoreTempC", &HardwareValidationRecord::measuredCoreTempC)
-        .def_readwrite("measuredWindingTempC", &HardwareValidationRecord::measuredWindingTempC)
-        .def_readwrite("predictedVsMeasuredInductanceErrorPercent", &HardwareValidationRecord::predictedVsMeasuredInductanceErrorPercent)
-        .def_readwrite("predictedVsMeasuredDcrErrorPercent", &HardwareValidationRecord::predictedVsMeasuredDcrErrorPercent)
-        .def_readwrite("testNotes", &HardwareValidationRecord::testNotes)
-        .def_readwrite("testDate", &HardwareValidationRecord::testDate)
-        .def_readwrite("status", &HardwareValidationRecord::status);
 
     py::class_<EngineVersions>(m, "EngineVersions")
         .def(py::init<>())
@@ -411,7 +396,6 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("thermal", &InductorCandidate::thermal)
         .def_readwrite("passed", &InductorCandidate::passed)
         .def_readwrite("rejectionReasons", &InductorCandidate::rejectionReasons)
-        .def_readwrite("hardwareValidation", &InductorCandidate::hardwareValidation)
         .def_readwrite("fluxLimits", &InductorCandidate::fluxLimits)
         .def_readwrite("acLossRisk", &InductorCandidate::acLossRisk)
         .def_readwrite("recommendation", &InductorCandidate::recommendation)

@@ -55,11 +55,10 @@ infer RMS current. If neither is supplied, the request fails with HTTP 422.
       "thermal": { "status": "PreliminaryThermalEstimate", "convergedWindingTempC": 38.2, "predictedTempRiseC": 13.2, "converged": true, "iterationsUsed": 3, "thermalResistanceCPerWUsed": 15.0 },
       "acLossRisk": { "riskLevel": "Low", "reason": "evaluated: single-strand skin effect...", "acLossWattsStatus": "NotEvaluated" },
       "fluxLimits": { "absoluteSaturationT": 0.47, "recommendedOperatingT": 0.3995, "temperatureAdjustedStatus": "NotEvaluated", "coreLossLimitedStatus": "NotEvaluated" },
-      "recommendation": { "tier": "PreliminaryCandidate", "checksEvaluatedCount": 6, "checksPassedCount": 6, "checksNotEvaluatedCount": 0, "explanation": "preliminary candidate: passed every check that ran, but at least one check rests on a preliminary estimate, not measured data; " },
+      "recommendation": { "tier": "PreliminaryCandidate", "checksEvaluatedCount": 6, "checksPassedCount": 6, "checksNotEvaluatedCount": 0, "explanation": "passed every check that ran, but at least one check rests on a Phase 1 default assumption, not measured data; " },
       "lossSummary": { "knownEvaluatedLossW": 0.55, "isCompleteTotal": false, "label": "Known Evaluated Loss (copper - partial coverage, AC/skin-effect loss not modeled)" },
       "manufacturabilityMarginPercent": 71.4,
-      "rankingExplanation": "[PreliminaryCandidate] preliminary candidate: ...",
-      "hardwareValidation": { "status": "not_measured" },
+      "rankingExplanation": "[PreliminaryCandidate] passed every check that ran, but ...",
       "passed": true,
       "rejectionReasons": []
     }

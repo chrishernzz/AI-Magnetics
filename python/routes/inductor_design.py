@@ -100,23 +100,6 @@ def _serialize_source_info(s) -> dict:
         "confidenceNote": s.confidenceNote,
     }
 
-#precondition: h is a valid HardwareValidationRecord object
-#postcondition: returns a serializable dictionary - every field is None and status is "not_measured" in Phase 1
-def _serialize_hardware_validation(h) -> dict:
-    return {
-        "measuredInductanceUH": h.measuredInductanceUH,
-        "measuredDcrMilliOhm": h.measuredDcrMilliOhm,
-        "measuredRippleCurrentA": h.measuredRippleCurrentA,
-        "measuredPeakCurrentA": h.measuredPeakCurrentA,
-        "measuredCoreTempC": h.measuredCoreTempC,
-        "measuredWindingTempC": h.measuredWindingTempC,
-        "predictedVsMeasuredInductanceErrorPercent": h.predictedVsMeasuredInductanceErrorPercent,
-        "predictedVsMeasuredDcrErrorPercent": h.predictedVsMeasuredDcrErrorPercent,
-        "testNotes": h.testNotes,
-        "testDate": h.testDate,
-        "status": h.status,
-    }
-
 #precondition: v is a valid EngineVersions object
 #postcondition: returns a serializable versions dictionary
 def _serialize_versions(v) -> dict:
@@ -319,7 +302,6 @@ def _serialize_candidate(c) -> dict:
         "thermal": _serialize_thermal(c.thermal),
         "passed": c.passed,
         "rejectionReasons": [_serialize_rejection(r) for r in c.rejectionReasons],
-        "hardwareValidation": _serialize_hardware_validation(c.hardwareValidation),
         "fluxLimits": _serialize_flux_limit_tiers(c.fluxLimits),
         "acLossRisk": _serialize_skin_depth_risk(c.acLossRisk),
         "recommendation": _serialize_recommendation(c.recommendation),
