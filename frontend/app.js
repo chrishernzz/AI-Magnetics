@@ -441,15 +441,20 @@ async function postRequest(endpoint, payload) {
     return await response.json();
 }
 
-// Reproducibility footer - real content hashes of the loaded CSV data plus literal
+// Reproducibility info - real content hashes of the loaded CSV data plus literal
 // engine/rules version strings (EngineVersions.h), never an invented upstream semver.
+// Folded into the existing "Active Rules & Assumptions" disclosure instead of its
+// own always-visible line at the page bottom - same collapsed-by-default pattern
+// as everything else reference-only on this page.
 function renderVersions(versions) {
-    const element = document.getElementById("versionsFooter");
+    const element = document.getElementById("assistant");
     if (!element || !versions) return;
-    element.hidden = false;
-    element.textContent =
+    const line = document.createElement("p");
+    line.className = "rules-versions-line";
+    line.textContent =
         `Engine ${versions.calculationEngineVersion} · Rules ${versions.designRulesVersion} · ` +
         `Core DB ${versions.coreDatabaseVersion} · Material DB ${versions.materialDatabaseVersion}`;
+    element.appendChild(line);
 }
 
 function renderRules(rules) {
@@ -613,10 +618,12 @@ function renderValidationList(validations) {
 // Real shape classification (Toroid/TwoPieceSet) from PyOpenMagnetics geometry -
 // see scripts/export_real_data.py's _core_shape_and_family(). Empty string means
 // no shape data was recorded for this core (never guessed from the part number).
-function coreShapeBadge(core) {
-    if (!core.coreShape) return "";
+// Its own table column (not a badge crammed next to the part number), same
+// treatment as the Material column next to it.
+function shapeCellLabel(core) {
+    if (!core.coreShape) return '<span class="cell-muted">—</span>';
     const label = core.coreShape === "TwoPieceSet" ? "Two-Piece Set" : core.coreShape;
-    return ` <span class="chip chip-shape" title="Shape family: ${core.shapeFamily || "unknown"}">${label}</span>`;
+    return `<span class="chip chip-shape" title="Shape family: ${core.shapeFamily || "unknown"}">${label}</span>`;
 }
 
 function candidateRows(result) {
@@ -747,6 +754,7 @@ function renderCandidateTable(result) {
     const headers = [
         { label: "Status" },
         { label: "Core" },
+        { label: "Shape" },
         { label: "Material" },
         { label: "Turns", numeric: true },
         { label: "Gap (mm)", numeric: true },
@@ -764,14 +772,24 @@ function renderCandidateTable(result) {
         .map((row, index) => {
             const c = row.candidate;
             const tier = c.recommendation.tier;
-            const badge = row.passed ? `<span class="chip chip-pass">PASS</span>${recommendationTierChip(tier)}` : '<span class="chip chip-fail">REJECT</span>';
+            // Only "Recommended" earns a chip in the compact row - "Preliminary"
+            // is currently true of every passing candidate (see FORMULAS.md
+            // section 12: Phase1Recommended is structurally unreachable until
+            // real per-core thermal data exists), so showing it on every single
+            // row is constant noise, not a signal. The real explanation of what
+            // "preliminary" means for this candidate still lives in the detail
+            // panel, where it's actually informative.
+            const badge = row.passed
+                ? `<span class="chip chip-pass">PASS</span>${tier === "Phase1Recommended" ? recommendationTierChip(tier) : ""}`
+                : '<span class="chip chip-fail">REJECT</span>';
             const rowClass = ["candidate-row", row.passed ? "row-pass" : "row-reject", tier === "Phase1Recommended" ? "row-recommended" : ""]
                 .filter(Boolean)
                 .join(" ");
             return `
                 <tr class="${rowClass}" data-row-index="${index}">
                     <td>${badge}</td>
-                    <td>${c.core.partNumber}${coreShapeBadge(c.core)}</td>
+                    <td>${c.core.partNumber}</td>
+                    <td>${shapeCellLabel(c.core)}</td>
                     <td>${c.material.materialFamily}</td>
                     <td class="numeric">${c.turnsAndGap.turns}</td>
                     <td class="numeric">${c.turnsAndGap.gapMm.toFixed(2)}</td>
@@ -782,9 +800,6 @@ function renderCandidateTable(result) {
                     <td class="numeric">${formatLossCell(c.losses.coreLossStatus, c.losses.coreLossW)}</td>
                     <td class="numeric">${formatTotalLossCell(c)}</td>
                 </tr>
-                <tr class="detail-row" data-detail-index="${index}" hidden>
-                    <td colspan="11">${renderCandidateDetail(c)}</td>
-                </tr>
             `;
         })
         .join("");
@@ -793,18 +808,45 @@ function renderCandidateTable(result) {
 
     table.querySelectorAll(".candidate-row").forEach((tr) => {
         tr.addEventListener("click", () => {
-            const detailRow = table.querySelector(`.detail-row[data-detail-index="${tr.dataset.rowIndex}"]`);
-            if (!detailRow) return;
-            const wasHidden = detailRow.hidden;
-            // Accordion, not a pile of open rows - opening one candidate's
-            // detail closes whatever else was open, so the table doesn't
-            // grow into an unreadable wall of expanded sections.
-            table.querySelectorAll(".detail-row").forEach((row) => {
-                row.hidden = true;
-            });
-            detailRow.hidden = !wasHidden;
+            const row = rows[Number(tr.dataset.rowIndex)];
+            if (row) openCandidateSidePanel(row.candidate, row.passed);
         });
     });
+}
+
+// Slide-in side panel for candidate detail (replaces the old inline accordion
+// row, which crammed KPIs, status, every validation check, sources, hardware
+// validation, and warnings into one long stacked block under the table row).
+// The table stays visible/scrollable behind it - clicking a different row
+// just re-renders the same panel's contents rather than opening a second one.
+function openCandidateSidePanel(candidate, passed) {
+    const panel = document.getElementById("candidateSidePanel");
+    const title = document.getElementById("sidePanelTitle");
+    const subtitle = document.getElementById("sidePanelSubtitle");
+    const body = document.getElementById("sidePanelBody");
+    if (!panel || !title || !subtitle || !body) return;
+
+    title.textContent = candidate.core.partNumber;
+    subtitle.innerHTML = `${shapeCellLabel(candidate.core)} <span>${candidate.material.materialFamily}</span> <span>·</span> <span>${passed ? "Passing" : "Rejected"}</span>`;
+    body.innerHTML = renderCandidateDetail(candidate);
+
+    panel.hidden = false;
+    panel.setAttribute("aria-hidden", "false");
+    // Next frame, so the hidden->visible change and the slide-in transition
+    // don't collapse into a single instant jump.
+    requestAnimationFrame(() => panel.classList.add("open"));
+}
+
+function closeCandidateSidePanel() {
+    const panel = document.getElementById("candidateSidePanel");
+    if (!panel || panel.hidden) return;
+    panel.classList.remove("open");
+    panel.setAttribute("aria-hidden", "true");
+    // Wait for the slide-out transition to finish before actually hiding -
+    // matches the CSS transition duration (see .side-panel-content).
+    window.setTimeout(() => {
+        if (!panel.classList.contains("open")) panel.hidden = true;
+    }, 220);
 }
 
 function renderFilterChips(result) {
@@ -927,6 +969,12 @@ window.addEventListener("DOMContentLoaded", () => {
     });
 
     document.querySelectorAll(".field-tabs").forEach(initFieldTabs);
+
+    document.getElementById("sidePanelClose").addEventListener("click", closeCandidateSidePanel);
+    document.getElementById("sidePanelOverlay").addEventListener("click", closeCandidateSidePanel);
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeCandidateSidePanel();
+    });
 
     switchMode("direct");
 });

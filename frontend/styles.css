@@ -183,6 +183,14 @@ body {
     color: var(--brand-black);
 }
 
+.rules-versions-line {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+}
+
 .card {
     background: var(--paper);
     border: 1px solid var(--line);
@@ -1170,10 +1178,7 @@ summary {
     transition: background 0.12s ease;
 }
 
-/* Each candidate occupies two <tr> slots (the row itself, then its
-   hidden detail row), so every other *candidate* is 4 nth-child steps
-   apart, not 2. */
-.candidate-row:nth-child(4n + 1) {
+.candidate-row:nth-child(2n + 1) {
     background: var(--paper-alt);
 }
 
@@ -1194,7 +1199,7 @@ summary {
     border-left-width: 4px;
 }
 
-.candidate-row.row-recommended:nth-child(4n + 1) {
+.candidate-row.row-recommended:nth-child(2n + 1) {
     background: #fce7e7;
 }
 
@@ -1206,18 +1211,6 @@ summary {
     color: #8a8a8d;
     font-style: italic;
     font-size: 0.88em;
-}
-
-.detail-row td {
-    white-space: normal;
-    background: var(--paper-sunk);
-    padding: 18px 22px;
-    border-bottom: 1px solid var(--line);
-    border-left: 3px solid var(--brand-red);
-}
-
-.detail-row:not([hidden]) {
-    animation: panel-in 0.16s ease;
 }
 
 @keyframes panel-in {
@@ -1286,6 +1279,101 @@ summary {
     font-weight: 600;
 }
 
+/* Slide-in candidate detail panel - replaces the old inline accordion row,
+   which stacked KPIs, status, every validation check, sources, hardware
+   validation, and warnings into one long block under the table row. The
+   table stays visible/scrollable behind the panel. */
+.side-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+}
+
+.side-panel-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 20, 22, 0.42);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.side-panel.open .side-panel-overlay {
+    opacity: 1;
+}
+
+.side-panel-content {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: min(520px, 100vw);
+    background: var(--paper);
+    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.18);
+    transform: translateX(100%);
+    transition: transform 0.22s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.side-panel.open .side-panel-content {
+    transform: translateX(0);
+}
+
+.side-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 22px 24px;
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+}
+
+.side-panel-head-titles h3 {
+    margin: 0 0 8px;
+    font-size: 1.2rem;
+    color: var(--brand-black);
+}
+
+.side-panel-subtitle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+}
+
+.side-panel-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: var(--ink-soft);
+    cursor: pointer;
+    padding: 2px 10px;
+    border-radius: 6px;
+}
+
+.side-panel-close:hover {
+    background: var(--paper-sunk);
+    color: var(--ink);
+}
+
+.side-panel-body {
+    padding: 22px 24px 36px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .side-panel-overlay,
+    .side-panel-content {
+        transition: none;
+    }
+}
+
 .detail-ranking-explanation {
     margin-top: 8px;
     color: var(--ink-soft);
@@ -1293,14 +1381,6 @@ summary {
     line-height: 1.5;
 }
 
-.versions-footer {
-    max-width: 1100px;
-    margin: 24px auto 40px;
-    padding: 0 4px;
-    color: var(--ink-soft);
-    font-size: 0.76rem;
-    text-align: center;
-}
 
 .diagnostics-assumptions {
     margin-top: 10px;

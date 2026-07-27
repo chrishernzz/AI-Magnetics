@@ -357,7 +357,19 @@
         </div>
     </div>
 
-    <p id="versionsFooter" class="versions-footer" hidden></p>
+    <div id="candidateSidePanel" class="side-panel" hidden aria-hidden="true">
+        <div id="sidePanelOverlay" class="side-panel-overlay"></div>
+        <aside class="side-panel-content" role="dialog" aria-modal="true" aria-labelledby="sidePanelTitle">
+            <div class="side-panel-head">
+                <div class="side-panel-head-titles">
+                    <h3 id="sidePanelTitle">–</h3>
+                    <div id="sidePanelSubtitle" class="side-panel-subtitle"></div>
+                </div>
+                <button id="sidePanelClose" class="side-panel-close" type="button" aria-label="Close detail panel">&times;</button>
+            </div>
+            <div id="sidePanelBody" class="side-panel-body"></div>
+        </aside>
+    </div>
 
     <script src="/static/app.js"></script>
 </body>
