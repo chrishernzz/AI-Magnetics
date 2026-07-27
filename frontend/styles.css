@@ -629,6 +629,16 @@ button:hover {
     background: var(--brand-red-dark);
 }
 
+.primary-button:disabled {
+    background: #c9c9cc;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.primary-button:disabled:hover {
+    background: #c9c9cc;
+}
+
 .status-message {
     margin-top: 22px;
     color: var(--ink-soft);
@@ -1091,33 +1101,6 @@ summary {
     border: 1px solid var(--line);
 }
 
-.filter-chips {
-    display: flex;
-    gap: 8px;
-}
-
-.filter-chip {
-    background: var(--paper);
-    color: var(--ink-soft);
-    border: 1px solid #c9c9cc;
-    border-radius: 999px;
-    padding: 7px 16px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.filter-chip:hover {
-    color: var(--ink);
-    border-color: #a9a9ac;
-}
-
-.filter-chip.active {
-    background: var(--brand-red);
-    border-color: var(--brand-red);
-    color: #fff;
-}
-
 .shape-filter {
     background: var(--paper);
     color: var(--ink-soft);
@@ -1384,4 +1367,242 @@ summary {
         animation-iteration-count: 1 !important;
         transition-duration: 0.001ms !important;
     }
+}
+
+/* ============================================================
+   Frontend redesign pass: Recommended Candidate card, completeness
+   chip, input validation, split passing/rejected tables, collapsible
+   detail groups, loading/empty states.
+   ============================================================ */
+
+/* Recommended Candidate - the one card the whole page exists to produce.
+   Same .card shell as everything else, with a brand-colored top border so
+   it reads as the headline result without a second, louder visual system. */
+.recommended-card {
+    margin: 0 35px 20px;
+    border-top: 3px solid var(--brand-red);
+}
+
+.recommended-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.recommended-identity {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.recommended-part {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--brand-black);
+}
+
+.recommended-view-detail {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--brand-black);
+    cursor: pointer;
+}
+
+.recommended-view-detail:hover {
+    border-color: var(--brand-red);
+    color: var(--brand-red);
+}
+
+.recommended-kpis {
+    margin-bottom: 14px;
+}
+
+.recommended-block {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+
+.recommended-block h4 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+}
+
+.recommended-explanation {
+    color: var(--ink);
+    font-size: 0.92rem;
+    line-height: 1.55;
+}
+
+.recommended-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.88rem;
+    color: var(--ink);
+    line-height: 1.5;
+}
+
+/* Completeness chip - "N/M evaluated", neutral until every mandatory check
+   has actually run, then a quiet green tint. Never itself a pass/fail
+   signal (the tier chip next to it already is that), just a count. */
+.chip-completeness {
+    background: var(--paper-sunk);
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    font-weight: 600;
+}
+
+.chip-completeness-full {
+    background: #dcfce7;
+    color: #15803d;
+    border-color: transparent;
+}
+
+/* Input validation - a real hard block, not a soft warning next to an
+   enabled button. Same error-red vocabulary as .status-message.error. */
+.input-validation-card {
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: #fdecec;
+    border: 1px solid #f3b8b8;
+    border-radius: 8px;
+}
+
+.input-validation-title {
+    color: var(--brand-red-dark);
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+}
+
+.input-validation-card ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--brand-red-dark);
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+/* Candidates empty/loading state - distinct from a populated table instead
+   of an empty <table> with no explanation. */
+.candidates-empty-state {
+    padding: 28px 12px;
+    text-align: center;
+    color: var(--ink-soft);
+}
+
+.candidates-empty-title {
+    color: var(--brand-black);
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.loading-skeleton {
+    height: 54px;
+    border-radius: 8px;
+    margin: 0 0 10px;
+    background: linear-gradient(90deg, var(--paper-sunk) 25%, var(--paper-alt) 37%, var(--paper-sunk) 63%);
+    background-size: 400% 100%;
+    animation: skeleton-shimmer 1.4s ease infinite;
+}
+
+@keyframes skeleton-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+/* Rejected Candidates - same collapsed-strip pattern as .rules-strip, so a
+   first look at the Candidates card opens on the passing table, not a wall
+   of failures, while every rejected candidate stays one click away. */
+.rejected-section {
+    margin-top: 18px;
+    border-top: 1px solid var(--line);
+    padding-top: 4px;
+}
+
+.rejected-section summary {
+    cursor: pointer;
+    padding: 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    list-style: none;
+    color: var(--ink-soft);
+}
+
+.rejected-section summary::-webkit-details-marker {
+    display: none;
+}
+
+.rejected-section-marker::before {
+    content: "▸";
+    color: var(--ink-soft);
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+
+.rejected-section[open] .rejected-section-marker::before {
+    transform: rotate(90deg);
+}
+
+.rejected-section-summary {
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.candidate-table-rejected {
+    opacity: 0.9;
+}
+
+/* Collapsible groups inside the candidate detail panel (Validations,
+   Sources, Missing-data warnings) - Overview (KPIs/status) above is never
+   wrapped in one of these, it's always visible. */
+.detail-group {
+    margin-top: 14px;
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+}
+
+.detail-group summary {
+    cursor: pointer;
+    list-style: none;
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: var(--brand-black);
+    padding: 4px 0;
+}
+
+.detail-group summary::-webkit-details-marker {
+    display: none;
+}
+
+.detail-group summary::before {
+    content: "▸ ";
+    color: var(--brand-red);
+}
+
+.detail-group[open] summary::before {
+    content: "▾ ";
+}
+
+.detail-group-count {
+    font-weight: 400;
+    color: var(--ink-soft);
+    text-transform: none;
+    letter-spacing: normal;
 }

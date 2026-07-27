@@ -2,7 +2,6 @@ const ENDPOINT = "/inductor-design";
 const TOPOLOGY_ENDPOINT = "/topology-design/buck";
 
 let lastResult = null;
-let currentFilter = "all"; // all | passing | rejected
 let currentShapeFilter = "all"; // all | Toroid | TwoPieceSet
 
 // Set when Mode 1 (Buck converter) has derived requirements - holds the
@@ -299,6 +298,7 @@ function clearTopologyDerived() {
         banner.hidden = true;
         banner.innerHTML = "";
     }
+    renderInputValidation();
 }
 
 function applyTopologyDerivedRequest(result, vinUsedV) {
@@ -345,6 +345,7 @@ function applyTopologyDerivedRequest(result, vinUsedV) {
     }
 
     switchMode("direct");
+    renderInputValidation();
 }
 
 async function calculateTopology() {
@@ -382,6 +383,71 @@ function checkCurrentSanity() {
     }
 }
 
+// Real client-side checks on the direct-mode fields (the ones Generate
+// actually submits, regardless of whether they were typed directly or
+// auto-filled by a Buck calculation) - catches the same physical
+// contradictions RequirementDerivationService::derive() would otherwise
+// reject only after a full round trip (peak < RMS, ripple implying a
+// negative minimum inductor current/DCM - mirrors the backend's own
+// CurrentConsistencyValidation gate, just surfaced before the request is
+// even sent). Hard-blocks Generate: the button stays disabled while any
+// error is present, not just a warning shown alongside an enabled button.
+function validateDirectInputs() {
+    const errors = [];
+    const inductanceUH = Number(document.getElementById("inductance").value);
+    const peakA = Number(document.getElementById("current").value);
+    const rmsA = Number(document.getElementById("rmsCurrent").value);
+    const freqKHz = Number(document.getElementById("frequency").value);
+    const ambientC = Number(document.getElementById("ambientTemp").value);
+    const tempRiseC = Number(document.getElementById("tempRise").value);
+    const rippleRaw = document.getElementById("rippleCurrent").value;
+
+    if (!(inductanceUH > 0)) errors.push("Inductance must be a positive number.");
+    if (!(peakA > 0)) errors.push("Peak current must be a positive number.");
+    if (!topologyDerived) {
+        if (!(rmsA > 0)) errors.push("RMS current must be a positive number.");
+        if (peakA > 0 && rmsA > 0 && rmsA > peakA) {
+            errors.push("RMS current cannot exceed peak current - a real waveform's RMS value never exceeds its own peak.");
+        }
+    }
+    if (!(freqKHz > 0)) errors.push("Switching frequency must be a positive number.");
+    if (!Number.isFinite(ambientC)) errors.push("Ambient temperature must be a number.");
+    if (!(tempRiseC > 0)) errors.push("Allowable temperature rise must be a positive number.");
+    if (rippleRaw !== "") {
+        const ripple = Number(rippleRaw);
+        if (!(ripple >= 0)) {
+            errors.push("Ripple current must be zero or a positive number.");
+        } else if (peakA > 0 && ripple > peakA) {
+            errors.push(
+                "Ripple current (peak-to-peak) cannot exceed peak current - that implies a negative minimum inductor current (discontinuous conduction mode), which this engine does not model."
+            );
+        }
+    }
+
+    return { valid: errors.length === 0, errors };
+}
+
+function renderInputValidation() {
+    const card = document.getElementById("inputValidationCard");
+    const generateButton = document.getElementById("generateButton");
+    const { valid, errors } = validateDirectInputs();
+
+    if (card) {
+        if (valid) {
+            card.hidden = true;
+            card.innerHTML = "";
+        } else {
+            card.hidden = false;
+            card.innerHTML = `
+                <p class="input-validation-title">Fix before generating:</p>
+                <ul>${errors.map((e) => `<li>${e}</li>`).join("")}</ul>
+            `;
+        }
+    }
+    if (generateButton) generateButton.disabled = !valid;
+    return valid;
+}
+
 function setStatus(message, isError = false) {
     const status = document.getElementById("statusMessage");
     if (!status) return;
@@ -396,10 +462,20 @@ function clearResults() {
     });
     const feasibility = document.getElementById("feasibility");
     if (feasibility) feasibility.hidden = true;
+    const recommended = document.getElementById("recommendedCandidateCard");
+    if (recommended) {
+        recommended.hidden = false;
+        recommended.innerHTML = '<div class="loading-skeleton" aria-hidden="true"></div>';
+    }
     const table = document.getElementById("candidateTable");
     if (table) table.innerHTML = "";
-    const chips = document.getElementById("filterChips");
-    if (chips) chips.innerHTML = "";
+    const emptyState = document.getElementById("candidatesEmptyState");
+    if (emptyState) {
+        emptyState.hidden = false;
+        emptyState.innerHTML = '<div class="loading-skeleton" aria-hidden="true"></div><div class="loading-skeleton" aria-hidden="true"></div>';
+    }
+    const rejectedSection = document.getElementById("rejectedSection");
+    if (rejectedSection) rejectedSection.hidden = true;
     const rankingNote = document.getElementById("rankingNote");
     if (rankingNote) rankingNote.hidden = true;
     const rulesSummaryLine = document.getElementById("rulesSummaryLine");
@@ -525,6 +601,116 @@ function renderTriageStrip(result) {
     `;
 }
 
+// How many of a candidate's MANDATORY checks actually ran and produced a
+// real result - the same "mandatory" flag determineRecommendationStatus()
+// gates the tier on (RecommendationStatus.cpp), read back out here so the
+// UI's completeness chip can never disagree with the tier it sits next to.
+function completeness(candidate) {
+    const mandatory = candidate.validations.filter((v) => v.mandatory);
+    const evaluated = mandatory.filter((v) => v.status === "Evaluated").length;
+    return { evaluated, total: mandatory.length };
+}
+
+function completenessChip(candidate) {
+    const c = completeness(candidate);
+    const complete = c.evaluated === c.total;
+    return `<span class="chip chip-completeness${complete ? " chip-completeness-full" : ""}" title="${c.evaluated} of ${c.total} mandatory checks evaluated">${c.evaluated}/${c.total} evaluated</span>`;
+}
+
+// Surfaces the one candidate result.candidates[0] already is (the table's
+// own rank order, backend-computed by candidateRanksAhead() - see
+// InductorDesignService.cpp) as a prominent card instead of leaving "which
+// one is recommended" to be discovered by reading table position. Every
+// number here is read from the same candidate object the table/detail panel
+// use - nothing here is a second calculation of anything.
+function renderRecommendedCandidate(result) {
+    const element = document.getElementById("recommendedCandidateCard");
+    if (!element) return;
+
+    if (!result.candidates || result.candidates.length === 0) {
+        element.hidden = true;
+        element.innerHTML = "";
+        return;
+    }
+
+    const candidate = result.candidates[0];
+    const c = completeness(candidate);
+    const tier = candidate.recommendation.tier;
+    const tierLabel = tier === "Pass" ? "PASS" : tier === "ConditionalPass" ? "CONDITIONAL PASS" : "REJECT";
+    const tierClass = tier === "Pass" ? "chip-pass" : tier === "ConditionalPass" ? "chip-warn" : "chip-fail";
+
+    const notEvaluated = candidate.validations.filter((v) => v.status === "NotEvaluated");
+    const stillNotEvaluated = notEvaluated.length
+        ? `
+        <div class="recommended-block">
+            <h4>Still not evaluated</h4>
+            <ul class="recommended-list">
+                ${notEvaluated.map((v) => `<li><strong>${v.checkName}:</strong> ${v.explanation}</li>`).join("")}
+            </ul>
+        </div>`
+        : "";
+
+    const nextSteps = notEvaluated.length
+        ? `Supply ${notEvaluated.map((v) => (v.checkName === "CurrentConsistencyValidation" ? "ripple current" : v.checkName)).join(", ")} for a more complete evaluation before treating this as final.`
+        : "Every mandatory check ran on real data - review the full validation list before committing to this part.";
+
+    element.hidden = false;
+    element.innerHTML = `
+        <div class="card-head">
+            <span class="card-icon" aria-hidden="true">
+                <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 2 L11 6.5 L16 7.2 L12.5 10.6 L13.3 15.5 L9 13.2 L4.7 15.5 L5.5 10.6 L2 7.2 L7 6.5 Z"/>
+                </svg>
+            </span>
+            <div class="card-head-titles">
+                <h2>Recommended Candidate</h2>
+                <span class="card-subtitle">Top-ranked of ${result.candidates.length} passing candidate${result.candidates.length === 1 ? "" : "s"}</span>
+            </div>
+        </div>
+        <div class="recommended-top">
+            <div class="recommended-identity">
+                <span class="recommended-part">${candidate.core.partNumber}</span>
+                ${shapeCellLabel(candidate.core)}
+                <span class="chip ${tierClass}">${tierLabel}</span>
+                ${completenessChip(candidate)}
+            </div>
+            <button type="button" class="recommended-view-detail" id="recommendedViewDetail">View full detail</button>
+        </div>
+        <div class="detail-kpis recommended-kpis">
+            <div class="detail-kpi">
+                <span class="detail-kpi-label">Material</span>
+                <span class="detail-kpi-value">${candidate.material.materialFamily}</span>
+            </div>
+            <div class="detail-kpi">
+                <span class="detail-kpi-label">Known Partial Loss</span>
+                <span class="detail-kpi-value">${formatTotalLossCell(candidate)}</span>
+            </div>
+            <div class="detail-kpi">
+                <span class="detail-kpi-label">Physical Fill %</span>
+                <span class="detail-kpi-value">${(candidate.winding.physicalWindowFillFactor * 100).toFixed(1)}%</span>
+            </div>
+            <div class="detail-kpi">
+                <span class="detail-kpi-label">Turns / Gap</span>
+                <span class="detail-kpi-value">${candidate.turnsAndGap.turns}t, ${candidate.turnsAndGap.gapMethod === "Distributed" ? "distributed gap" : candidate.turnsAndGap.gapMm.toFixed(2) + "mm"}</span>
+            </div>
+        </div>
+        <div class="recommended-block">
+            <h4>Why this one</h4>
+            <p class="recommended-explanation">${candidate.recommendation.explanation}</p>
+        </div>
+        ${stillNotEvaluated}
+        <div class="recommended-block">
+            <h4>Next steps</h4>
+            <p class="recommended-explanation">${nextSteps}</p>
+        </div>
+    `;
+
+    const viewDetailButton = document.getElementById("recommendedViewDetail");
+    if (viewDetailButton) {
+        viewDetailButton.addEventListener("click", () => openCandidateSidePanel(candidate, true));
+    }
+}
+
 function statusChip(status) {
     if (status === "Evaluated") return "";
     if (status === "NotEvaluated") return '<span class="chip chip-warn">not evaluated</span>';
@@ -625,15 +811,6 @@ function shapeCellLabel(core) {
     return `<span class="chip chip-shape" title="Shape family: ${core.shapeFamily || "unknown"}">${label}</span>`;
 }
 
-function candidateRows(result) {
-    // result.candidates is already ranked (see InductorDesignService.cpp's
-    // candidateRanksAhead()) - the passed flag drives which bucket a row sorts
-    // into; the 3-tier chip itself comes from the real backend classification
-    // (candidate.recommendation.tier), not from table position.
-    const passing = result.candidates.map((c) => ({ candidate: c, passed: true }));
-    const rejected = result.rejectedCandidates.map((c) => ({ candidate: c, passed: false }));
-    return passing.concat(rejected);
-}
 
 // Sources row: manufacturer/confidence/note for the material and core, collapsed
 // by default - real provenance where it exists (core Vendor column), honestly
@@ -649,7 +826,7 @@ function renderSourcesDetail(candidate) {
             return `<li><strong>${label}:</strong> ${manufacturer} (${confidence})${note}</li>`;
         })
         .join("");
-    return `<details><summary>Sources</summary><ul>${rows}</ul></details>`;
+    return `<details class="detail-group"><summary>Sources</summary><ul>${rows}</ul></details>`;
 }
 
 // AC-loss risk chip (spec section 8) - qualitative skin-depth heuristic, never a
@@ -711,101 +888,152 @@ function renderCandidateDetail(candidate) {
     const tierChip = recommendationTierChip(candidate.recommendation.tier);
     const statusLine = candidate.rejectionReasons.length
         ? `<div class="detail-status detail-status-fail">Rejected — ${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>`
-        : `<div class="detail-status detail-status-pass">${tierChip ? tierChip + " — " : ""}${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated` : ""}${preliminaryChecks.length ? `, ${preliminaryChecks.length} check${preliminaryChecks.length > 1 ? "s" : ""} based on a Phase 1 default assumption` : ""}</div>`;
+        : `<div class="detail-status detail-status-pass">${tierChip ? tierChip + " — " : ""}${completenessChip(candidate)} — ${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated` : ""}${preliminaryChecks.length ? `, ${preliminaryChecks.length} check${preliminaryChecks.length > 1 ? "s" : ""} based on a Phase 1 default assumption` : ""}</div>`;
 
     const rankingLine = candidate.rankingExplanation
         ? `<p class="detail-ranking-explanation">${candidate.recommendation.explanation}</p>`
         : "";
 
+    // Overview (KPIs + status + why-ranked) is always visible, never
+    // collapsed - it's the numbers a candidate is actually judged by.
+    // Everything below is grouped into its own collapsible section so the
+    // panel doesn't read as one long undifferentiated scroll - Validations
+    // stays open by default since it's still primary content, Sources and
+    // Warnings default closed (unchanged from before this pass).
     return `
         ${kpis}
         ${statusLine}
         ${rankingLine}
-        <ul class="validation-list">${renderValidationList(candidate.validations)}</ul>
-        ${usesDefaultAssumption ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
+        <details class="detail-group" open>
+            <summary>Validation Checks <span class="detail-group-count">(${passCount} passed, ${failCount} failed, ${notEvalCount} not evaluated)</span></summary>
+            <ul class="validation-list">${renderValidationList(candidate.validations)}</ul>
+            ${usesDefaultAssumption ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
+        </details>
         ${renderSourcesDetail(candidate)}
         ${
             warnings.length
-                ? `<details><summary>Missing-data warnings</summary><ul>${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
+                ? `<details class="detail-group"><summary>Missing-data warnings <span class="detail-group-count">(${warnings.length})</span></summary><ul>${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
                 : ""
         }
     `;
 }
 
-function renderCandidateTable(result) {
+const CANDIDATE_TABLE_HEADERS = [
+    { label: "Status" },
+    { label: "Core" },
+    { label: "Shape" },
+    { label: "Material" },
+    { label: "Turns", numeric: true },
+    { label: "Gap (mm)", numeric: true },
+    { label: "Calc L (µH)", numeric: true },
+    { label: "Error %", numeric: true },
+    { label: "Physical Fill %", numeric: true },
+    { label: "DC Copper Loss", numeric: true },
+    { label: "Core Loss", numeric: true },
+    { label: "Known Partial Loss", numeric: true },
+];
+
+function candidateRowHtml(c, passed, index) {
+    const tier = c.recommendation.tier;
+    const badge = passed
+        ? `<span class="chip chip-pass">PASS</span>${recommendationTierChip(tier)}`
+        : '<span class="chip chip-fail">REJECT</span>';
+    const rowClass = ["candidate-row", passed ? "row-pass" : "row-reject", tier === "Pass" ? "row-recommended" : ""]
+        .filter(Boolean)
+        .join(" ");
+    return `
+        <tr class="${rowClass}" data-row-index="${index}">
+            <td>${badge} ${completenessChip(c)}</td>
+            <td>${c.core.partNumber}</td>
+            <td>${shapeCellLabel(c.core)}</td>
+            <td>${c.material.materialFamily}</td>
+            <td class="numeric">${c.turnsAndGap.turns}</td>
+            <td class="numeric">${gapCellLabel(c.turnsAndGap)}</td>
+            <td class="numeric">${c.turnsAndGap.calculatedInductanceUH.toFixed(2)}</td>
+            <td class="numeric">${c.turnsAndGap.inductanceErrorPercent.toFixed(2)}</td>
+            <td class="numeric">${(c.winding.physicalWindowFillFactor * 100).toFixed(1)}</td>
+            <td class="numeric">${formatLossCell(c.losses.copperLossStatus, c.losses.copperLossW)}</td>
+            <td class="numeric">${formatLossCell(c.losses.coreLossStatus, c.losses.coreLossW)}</td>
+            <td class="numeric">${formatTotalLossCell(c)}</td>
+        </tr>
+    `;
+}
+
+function wireCandidateRowClicks(table, rows, passed) {
+    table.querySelectorAll(".candidate-row").forEach((tr) => {
+        tr.addEventListener("click", () => {
+            const candidate = rows[Number(tr.dataset.rowIndex)];
+            if (candidate) openCandidateSidePanel(candidate, passed);
+        });
+    });
+}
+
+// Passing candidates get their own always-visible table (result.candidates
+// is already ranked by the backend - candidateRanksAhead() in
+// InductorDesignService.cpp - lowest known-partial-loss first within a tier),
+// separated structurally from Rejected rather than a filter toggle a reader
+// has to remember to use, so a first-time look at this card never opens on
+// a wall of failures.
+function renderPassingTable(result) {
     const table = document.getElementById("candidateTable");
+    const emptyState = document.getElementById("candidatesEmptyState");
     if (!table) return;
 
-    // Fixed order - candidateRows() already returns passing candidates
-    // ranked by the backend (lowest total loss first), then rejected. Since
-    // the tool always names one specific recommended candidate, letting a
-    // reader re-sort by another column can't change which one that is -
-    // it would just be a different view of the same fixed recommendation,
-    // so there's no sort control here.
-    let rows = candidateRows(result);
-    if (currentFilter === "passing") rows = rows.filter((r) => r.passed);
-    if (currentFilter === "rejected") rows = rows.filter((r) => !r.passed);
-    if (currentShapeFilter !== "all") rows = rows.filter((r) => r.candidate.core.coreShape === currentShapeFilter);
+    let rows = result.candidates;
+    if (currentShapeFilter !== "all") rows = rows.filter((c) => c.core.coreShape === currentShapeFilter);
 
     if (rows.length === 0) {
-        table.innerHTML = `<tbody><tr><td class="table-empty">No candidates match this filter.</td></tr></tbody>`;
+        table.innerHTML = "";
+        if (emptyState) {
+            emptyState.hidden = false;
+            emptyState.innerHTML =
+                result.candidates.length === 0
+                    ? '<p class="candidates-empty-title">No candidate passed every mandatory check.</p><p>See Rejected Candidates below for why.</p>'
+                    : '<p class="candidates-empty-title">No passing candidate matches the selected shape filter.</p>';
+        }
+        return;
+    }
+    if (emptyState) {
+        emptyState.hidden = true;
+        emptyState.innerHTML = "";
+    }
+
+    const headerHtml = CANDIDATE_TABLE_HEADERS.map((h) => `<th${h.numeric ? ' class="numeric"' : ""}>${h.label}</th>`).join("");
+    const bodyHtml = rows.map((c, index) => candidateRowHtml(c, true, index)).join("");
+    table.innerHTML = `<thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody>`;
+    wireCandidateRowClicks(table, rows, true);
+}
+
+// Rejected candidates live in a collapsed <details> below the passing table -
+// de-emphasized by default (closed, quieter styling - see .rejected-section
+// in styles.css) since they're the "why not" record, not the primary answer,
+// but never hidden entirely - every evaluated candidate is still one click away.
+function renderRejectedSection(result) {
+    const section = document.getElementById("rejectedSection");
+    const summary = document.getElementById("rejectedSectionSummary");
+    const table = document.getElementById("rejectedTable");
+    if (!section || !table) return;
+
+    if (result.rejectedCandidates.length === 0) {
+        section.hidden = true;
+        table.innerHTML = "";
+        return;
+    }
+    section.hidden = false;
+    if (summary) summary.textContent = `Rejected Candidates (${result.rejectedCandidates.length})`;
+
+    let rows = result.rejectedCandidates;
+    if (currentShapeFilter !== "all") rows = rows.filter((c) => c.core.coreShape === currentShapeFilter);
+
+    if (rows.length === 0) {
+        table.innerHTML = `<tbody><tr><td class="table-empty">No rejected candidates match the selected shape filter.</td></tr></tbody>`;
         return;
     }
 
-    const headers = [
-        { label: "Status" },
-        { label: "Core" },
-        { label: "Shape" },
-        { label: "Material" },
-        { label: "Turns", numeric: true },
-        { label: "Gap (mm)", numeric: true },
-        { label: "Calc L (µH)", numeric: true },
-        { label: "Error %", numeric: true },
-        { label: "Physical Fill %", numeric: true },
-        { label: "DC Copper Loss", numeric: true },
-        { label: "Core Loss", numeric: true },
-        { label: "Known Partial Loss", numeric: true },
-    ];
-
-    const headerHtml = headers.map((h) => `<th${h.numeric ? ' class="numeric"' : ""}>${h.label}</th>`).join("");
-
-    const bodyHtml = rows
-        .map((row, index) => {
-            const c = row.candidate;
-            const tier = c.recommendation.tier;
-            const badge = row.passed
-                ? `<span class="chip chip-pass">PASS</span>${recommendationTierChip(tier)}`
-                : '<span class="chip chip-fail">REJECT</span>';
-            const rowClass = ["candidate-row", row.passed ? "row-pass" : "row-reject", tier === "Pass" ? "row-recommended" : ""]
-                .filter(Boolean)
-                .join(" ");
-            return `
-                <tr class="${rowClass}" data-row-index="${index}">
-                    <td>${badge}</td>
-                    <td>${c.core.partNumber}</td>
-                    <td>${shapeCellLabel(c.core)}</td>
-                    <td>${c.material.materialFamily}</td>
-                    <td class="numeric">${c.turnsAndGap.turns}</td>
-                    <td class="numeric">${gapCellLabel(c.turnsAndGap)}</td>
-                    <td class="numeric">${c.turnsAndGap.calculatedInductanceUH.toFixed(2)}</td>
-                    <td class="numeric">${c.turnsAndGap.inductanceErrorPercent.toFixed(2)}</td>
-                    <td class="numeric">${(c.winding.physicalWindowFillFactor * 100).toFixed(1)}</td>
-                    <td class="numeric">${formatLossCell(c.losses.copperLossStatus, c.losses.copperLossW)}</td>
-                    <td class="numeric">${formatLossCell(c.losses.coreLossStatus, c.losses.coreLossW)}</td>
-                    <td class="numeric">${formatTotalLossCell(c)}</td>
-                </tr>
-            `;
-        })
-        .join("");
-
+    const headerHtml = CANDIDATE_TABLE_HEADERS.map((h) => `<th${h.numeric ? ' class="numeric"' : ""}>${h.label}</th>`).join("");
+    const bodyHtml = rows.map((c, index) => candidateRowHtml(c, false, index)).join("");
     table.innerHTML = `<thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody>`;
-
-    table.querySelectorAll(".candidate-row").forEach((tr) => {
-        tr.addEventListener("click", () => {
-            const row = rows[Number(tr.dataset.rowIndex)];
-            if (row) openCandidateSidePanel(row.candidate, row.passed);
-        });
-    });
+    wireCandidateRowClicks(table, rows, false);
 }
 
 // Slide-in side panel for candidate detail (replaces the old inline accordion
@@ -843,35 +1071,6 @@ function closeCandidateSidePanel() {
     }, 220);
 }
 
-function renderFilterChips(result) {
-    const element = document.getElementById("filterChips");
-    if (!element) return;
-
-    const counts = {
-        all: result.candidates.length + result.rejectedCandidates.length,
-        passing: result.candidates.length,
-        rejected: result.rejectedCandidates.length,
-    };
-    const labels = { all: "All", passing: "Passing", rejected: "Rejected" };
-
-    element.innerHTML = Object.keys(labels)
-        .map(
-            (key) =>
-                `<button type="button" class="filter-chip${key === currentFilter ? " active" : ""}" data-filter="${key}">${labels[key]} (${counts[key]})</button>`
-        )
-        .join("");
-
-    element.querySelectorAll(".filter-chip").forEach((button) => {
-        button.addEventListener("click", () => {
-            currentFilter = button.dataset.filter;
-            renderFilterChips(lastResult);
-            renderCandidateTable(lastResult);
-        });
-    });
-
-    renderShapeFilter(result);
-}
-
 // Shape filter (Toroid / Two-Piece Set) - added directly in response to a real
 // user report that the tool had no way to search or filter by core shape. Only
 // offers shapes actually present in this result, so an empty snapshot can't
@@ -897,11 +1096,20 @@ function renderShapeFilter(result) {
 
     element.onchange = () => {
         currentShapeFilter = element.value;
-        renderCandidateTable(lastResult);
+        renderPassingTable(lastResult);
+        renderRejectedSection(lastResult);
     };
 }
 
 async function generateRecommendation() {
+    // Hard block - re-check even though the button is already disabled when
+    // invalid, since this function is the single entry point regardless of
+    // how it's triggered.
+    if (!renderInputValidation()) {
+        setStatus("Fix the highlighted inputs before generating.", true);
+        return;
+    }
+
     clearResults();
     setStatus("Generating recommendation...");
 
@@ -913,7 +1121,7 @@ async function generateRecommendation() {
         const payload = buildPayload();
         const result = await postRequest(ENDPOINT, payload);
         lastResult = result;
-        currentFilter = "all";
+        currentShapeFilter = "all";
 
         console.log("DesignRecommendation", result);
 
@@ -921,8 +1129,10 @@ async function generateRecommendation() {
         renderVersions(result.versions);
         renderFeasibility(result);
         renderTriageStrip(result);
-        renderFilterChips(result);
-        renderCandidateTable(result);
+        renderRecommendedCandidate(result);
+        renderShapeFilter(result);
+        renderPassingTable(result);
+        renderRejectedSection(result);
 
         // The ranking policy only means anything once there's something to
         // rank - showing it before any run just reads as unexplained noise.
@@ -937,6 +1147,16 @@ async function generateRecommendation() {
     } catch (error) {
         console.error(error);
         setStatus(error.message, true);
+        const recommended = document.getElementById("recommendedCandidateCard");
+        if (recommended) {
+            recommended.hidden = true;
+            recommended.innerHTML = "";
+        }
+        const emptyState = document.getElementById("candidatesEmptyState");
+        if (emptyState) {
+            emptyState.hidden = false;
+            emptyState.innerHTML = `<p class="candidates-empty-title">Could not generate a recommendation.</p><p>${error.message}</p>`;
+        }
     } finally {
         button.disabled = false;
         button.textContent = "Generate Recommendation";
@@ -961,6 +1181,20 @@ window.addEventListener("DOMContentLoaded", () => {
     ["inductance", "current", "rmsCurrent", "rippleCurrent"].forEach((id) => {
         document.getElementById(id).addEventListener("input", updateDirectDiagnosticsLive);
     });
+
+    ["inductance", "current", "rmsCurrent", "rippleCurrent", "frequency", "ambientTemp", "tempRise"].forEach((id) => {
+        document.getElementById(id).addEventListener("input", renderInputValidation);
+    });
+    renderInputValidation();
+
+    // Before any run: distinct from "generating" (skeleton) and "no results
+    // matched a filter" (see renderPassingTable) - a plain first-look state
+    // pointing at what to do next.
+    const emptyState = document.getElementById("candidatesEmptyState");
+    if (emptyState) {
+        emptyState.hidden = false;
+        emptyState.innerHTML = '<p class="candidates-empty-title">No recommendation generated yet.</p><p>Enter your requirements above and click Generate Recommendation.</p>';
+    }
 
     document.querySelectorAll(".field-tabs").forEach(initFieldTabs);
 
