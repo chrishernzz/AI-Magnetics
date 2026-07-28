@@ -474,8 +474,13 @@ function clearResults() {
         emptyState.hidden = false;
         emptyState.innerHTML = '<div class="loading-skeleton" aria-hidden="true"></div><div class="loading-skeleton" aria-hidden="true"></div>';
     }
+    const passingSection = document.getElementById("passingSection");
+    if (passingSection) passingSection.open = true;
     const rejectedSection = document.getElementById("rejectedSection");
-    if (rejectedSection) rejectedSection.hidden = true;
+    if (rejectedSection) {
+        rejectedSection.hidden = true;
+        rejectedSection.open = false;
+    }
     const rankingNote = document.getElementById("rankingNote");
     if (rankingNote) rankingNote.hidden = true;
     const rulesSummaryLine = document.getElementById("rulesSummaryLine");
@@ -779,8 +784,8 @@ function renderValidationList(validations) {
             <div class="validation-row-main">
                 ${chip}
                 <span class="validation-item-name">${v.checkName}</span>
-                <span class="validation-item-value">actual <strong>${v.calculatedValue.toFixed(3)}</strong> · limit <strong>${v.limitValue.toFixed(3)}</strong> ${v.unit}${v.usesDefaultAssumption ? " *" : ""}</span>
             </div>
+            <div class="validation-item-value">actual <strong>${v.calculatedValue.toFixed(3)}</strong> · limit <strong>${v.limitValue.toFixed(3)}</strong> ${v.unit}${v.usesDefaultAssumption ? " *" : ""}</div>
             <div class="validation-row-explain">${v.explanation}</div>
         </li>
     `;
@@ -890,20 +895,22 @@ function renderCandidateDetail(candidate) {
         ? `<div class="detail-status detail-status-fail">Rejected — ${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>`
         : `<div class="detail-status detail-status-pass">${tierChip ? tierChip + " — " : ""}${completenessChip(candidate)} — ${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated` : ""}${preliminaryChecks.length ? `, ${preliminaryChecks.length} check${preliminaryChecks.length > 1 ? "s" : ""} based on a Phase 1 default assumption` : ""}</div>`;
 
-    const rankingLine = candidate.rankingExplanation
-        ? `<p class="detail-ranking-explanation">${candidate.recommendation.explanation}</p>`
-        : "";
+    // No rankingLine/recommendation.explanation paragraph here - that exact
+    // sentence already appears once, in the Recommended Candidate card's
+    // "Why this one" section (see renderRecommendedCandidate()), and the
+    // statusLine directly above already states the same passed/not-evaluated/
+    // preliminary facts in the panel's own words. Repeating the backend's
+    // sentence a second time here said the same thing three times over for
+    // the top candidate (card, then twice in its own panel).
 
-    // Overview (KPIs + status + why-ranked) is always visible, never
-    // collapsed - it's the numbers a candidate is actually judged by.
-    // Everything below is grouped into its own collapsible section so the
-    // panel doesn't read as one long undifferentiated scroll - Validations
-    // stays open by default since it's still primary content, Sources and
-    // Warnings default closed (unchanged from before this pass).
+    // Overview (KPIs + status) is always visible, never collapsed - it's the
+    // numbers a candidate is actually judged by. Everything below is grouped
+    // into its own collapsible section so the panel doesn't read as one long
+    // undifferentiated scroll - Validations stays open by default since it's
+    // still primary content, Sources and Warnings default closed.
     return `
         ${kpis}
         ${statusLine}
-        ${rankingLine}
         <details class="detail-group" open>
             <summary>Validation Checks <span class="detail-group-count">(${passCount} passed, ${failCount} failed, ${notEvalCount} not evaluated)</span></summary>
             <ul class="validation-list">${renderValidationList(candidate.validations)}</ul>
@@ -977,7 +984,10 @@ function wireCandidateRowClicks(table, rows, passed) {
 function renderPassingTable(result) {
     const table = document.getElementById("candidateTable");
     const emptyState = document.getElementById("candidatesEmptyState");
+    const summary = document.getElementById("passingSectionSummary");
     if (!table) return;
+
+    if (summary) summary.textContent = `Passing Candidates (${result.candidates.length})`;
 
     let rows = result.candidates;
     if (currentShapeFilter !== "all") rows = rows.filter((c) => c.core.coreShape === currentShapeFilter);
@@ -1005,7 +1015,7 @@ function renderPassingTable(result) {
 }
 
 // Rejected candidates live in a collapsed <details> below the passing table -
-// de-emphasized by default (closed, quieter styling - see .rejected-section
+// de-emphasized by default (closed, quieter styling - see .candidates-section
 // in styles.css) since they're the "why not" record, not the primary answer,
 // but never hidden entirely - every evaluated candidate is still one click away.
 function renderRejectedSection(result) {
@@ -1034,6 +1044,25 @@ function renderRejectedSection(result) {
     const bodyHtml = rows.map((c, index) => candidateRowHtml(c, false, index)).join("");
     table.innerHTML = `<thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody>`;
     wireCandidateRowClicks(table, rows, false);
+}
+
+// Real accordion: opening one of Passing/Rejected closes the other, so a long
+// list in one never keeps the other permanently scrolled out of view below
+// it. Wired once against the static <details> elements in the page (their
+// contents get replaced on every render, but the elements themselves never
+// do), listening to the native `toggle` event so this also catches a user
+// clicking the <summary> directly, not just a script-driven open/close.
+function wireCandidatesAccordion() {
+    const passing = document.getElementById("passingSection");
+    const rejected = document.getElementById("rejectedSection");
+    if (!passing || !rejected) return;
+
+    passing.addEventListener("toggle", () => {
+        if (passing.open) rejected.open = false;
+    });
+    rejected.addEventListener("toggle", () => {
+        if (rejected.open) passing.open = false;
+    });
 }
 
 // Slide-in side panel for candidate detail (replaces the old inline accordion
@@ -1197,6 +1226,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     document.querySelectorAll(".field-tabs").forEach(initFieldTabs);
+    wireCandidatesAccordion();
 
     document.getElementById("sidePanelClose").addEventListener("click", closeCandidateSidePanel);
     document.getElementById("sidePanelOverlay").addEventListener("click", closeCandidateSidePanel);

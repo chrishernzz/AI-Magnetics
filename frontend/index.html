@@ -327,26 +327,34 @@
                     </svg>
                 </span>
                 <div class="card-head-titles">
-                    <h2>Passing Candidates</h2>
-                    <span class="card-subtitle">Ranked - lowest known partial loss first</span>
+                    <h2>Candidates</h2>
+                    <span class="card-subtitle">Every evaluated candidate - passing and rejected</span>
                 </div>
             </div>
             <select id="shapeFilter" class="shape-filter" aria-label="Filter by core shape" hidden></select>
         </div>
         <div id="triageStrip" class="triage-strip"></div>
-        <p id="rankingNote" class="ranking-note" hidden>
-            Passing candidates are ranked by <strong>recommendation tier</strong> first, then by <strong>known partial loss</strong>
-            (DC copper + core loss, whichever are evaluated), predicted temperature rise, manufacturability margin, saturation margin, and current-density margin, in that order.
-            A missing number is treated as the worst case for that tiebreaker, never the best, so it can't accidentally win a ranking.
-        </p>
-        <div id="candidatesEmptyState" class="candidates-empty-state" hidden></div>
-        <div class="table-scroll">
-            <table id="candidateTable" class="candidate-table"></table>
-        </div>
-        <details id="rejectedSection" class="rejected-section" hidden>
+
+        <details id="passingSection" class="candidates-section" open>
             <summary>
-                <span class="rejected-section-marker" aria-hidden="true"></span>
-                <span id="rejectedSectionSummary" class="rejected-section-summary">Rejected Candidates</span>
+                <span class="candidates-section-marker" aria-hidden="true"></span>
+                <span id="passingSectionSummary" class="candidates-section-summary">Passing Candidates</span>
+            </summary>
+            <p id="rankingNote" class="ranking-note" hidden>
+                Passing candidates are ranked by <strong>recommendation tier</strong> first, then by <strong>known partial loss</strong>
+                (DC copper + core loss, whichever are evaluated), predicted temperature rise, manufacturability margin, saturation margin, and current-density margin, in that order.
+                A missing number is treated as the worst case for that tiebreaker, never the best, so it can't accidentally win a ranking.
+            </p>
+            <div id="candidatesEmptyState" class="candidates-empty-state" hidden></div>
+            <div class="table-scroll">
+                <table id="candidateTable" class="candidate-table"></table>
+            </div>
+        </details>
+
+        <details id="rejectedSection" class="candidates-section candidates-section-rejected" hidden>
+            <summary>
+                <span class="candidates-section-marker" aria-hidden="true"></span>
+                <span id="rejectedSectionSummary" class="candidates-section-summary">Rejected Candidates</span>
             </summary>
             <div class="table-scroll">
                 <table id="rejectedTable" class="candidate-table candidate-table-rejected"></table>
