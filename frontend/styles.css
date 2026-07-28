@@ -183,6 +183,14 @@ body {
     color: var(--brand-black);
 }
 
+.rules-versions-line {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+}
+
 .card {
     background: var(--paper);
     border: 1px solid var(--line);
@@ -621,6 +629,16 @@ button:hover {
     background: var(--brand-red-dark);
 }
 
+.primary-button:disabled {
+    background: #c9c9cc;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.primary-button:disabled:hover {
+    background: #c9c9cc;
+}
+
 .status-message {
     margin-top: 22px;
     color: var(--ink-soft);
@@ -701,6 +719,11 @@ button:hover {
 
 .topology-derived-banner strong {
     color: var(--brand-black);
+}
+
+.topology-derived-warning {
+    color: #9a5b00;
+    font-weight: 600;
 }
 
 .topology-derived-banner button {
@@ -858,6 +881,12 @@ button:hover {
     font-variant-numeric: tabular-nums;
 }
 
+.detail-kpi-sub {
+    color: var(--ink-soft);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+}
+
 .detail-winding-line {
     color: var(--ink-soft);
     font-size: 0.88rem;
@@ -929,13 +958,21 @@ button:hover {
     color: var(--brand-black);
     flex: 1;
     min-width: 110px;
+    overflow-wrap: anywhere;
 }
 
+/* Its own line below the chip/name row, never sharing a line with them -
+   some check names (e.g. CurrentConsistencyValidation) are one long
+   unbreakable word, and this value string ("actual X · limit Y unit") can
+   run long too; keeping them on separate flex items in the same row risked
+   the two colliding at narrower panel widths. Wrapping freely here (no
+   forced nowrap) means it always has room. */
 .validation-item-value {
+    display: block;
+    margin-top: 4px;
     color: var(--ink-soft);
     font-size: 0.85rem;
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
 }
 
 .validation-item-value strong {
@@ -991,60 +1028,59 @@ summary {
 
 .triage-strip {
     margin: 0 0 16px;
-    padding: 0 0 16px 16px;
-    border-left: 4px solid var(--brand-red);
+    padding: 0 0 16px;
     border-bottom: 1px solid var(--line);
 }
 
-.triage-counts {
+/* Same tile pattern as the side panel's KPI strip (.detail-kpi), so the
+   headline evaluated/passing/rejected counts read as one consistent visual
+   language with the rest of the app instead of a separate one-off style. */
+.triage-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    max-width: 480px;
+}
+
+.triage-stat {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 14px;
     display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 2px;
 }
 
-.triage-count {
-    color: var(--ink-soft);
-    font-size: 0.9rem;
-}
-
-.triage-count strong {
-    font-size: 1.3rem;
-    margin-right: 4px;
+.triage-stat-value {
     color: var(--brand-black);
+    font-weight: 700;
+    font-size: 1.5rem;
+    font-variant-numeric: tabular-nums;
 }
 
-.triage-count.triage-pass strong {
+.triage-stat-label {
+    color: var(--ink-soft);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.triage-stat-pass {
+    border-left-color: #15803d;
+}
+
+.triage-stat-pass .triage-stat-value {
     color: #15803d;
 }
 
-.triage-count.triage-fail strong {
+.triage-stat-fail {
+    border-left-color: var(--brand-red-dark);
+}
+
+.triage-stat-fail .triage-stat-value {
     color: var(--brand-red-dark);
-}
-
-.triage-tally {
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid var(--line);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-}
-
-.triage-tally-label {
-    color: var(--ink-soft);
-    font-size: 0.85rem;
-    margin-right: 4px;
-}
-
-.tally-chip {
-    background: #fdecec;
-    color: var(--brand-red-dark);
-    border: 1px solid #f3c9c9;
-    border-radius: 999px;
-    padding: 4px 12px;
-    font-size: 0.82rem;
-    font-weight: 600;
 }
 
 /* Candidate table */
@@ -1073,31 +1109,20 @@ summary {
     border: 1px solid var(--line);
 }
 
-.filter-chips {
-    display: flex;
-    gap: 8px;
-}
-
-.filter-chip {
+.shape-filter {
     background: var(--paper);
     color: var(--ink-soft);
     border: 1px solid #c9c9cc;
     border-radius: 999px;
-    padding: 7px 16px;
+    padding: 7px 14px;
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
 }
 
-.filter-chip:hover {
+.shape-filter:hover {
     color: var(--ink);
     border-color: #a9a9ac;
-}
-
-.filter-chip.active {
-    background: var(--brand-red);
-    border-color: var(--brand-red);
-    color: #fff;
 }
 
 .table-scroll {
@@ -1149,10 +1174,7 @@ summary {
     transition: background 0.12s ease;
 }
 
-/* Each candidate occupies two <tr> slots (the row itself, then its
-   hidden detail row), so every other *candidate* is 4 nth-child steps
-   apart, not 2. */
-.candidate-row:nth-child(4n + 1) {
+.candidate-row:nth-child(2n + 1) {
     background: var(--paper-alt);
 }
 
@@ -1173,7 +1195,7 @@ summary {
     border-left-width: 4px;
 }
 
-.candidate-row.row-recommended:nth-child(4n + 1) {
+.candidate-row.row-recommended:nth-child(2n + 1) {
     background: #fce7e7;
 }
 
@@ -1185,18 +1207,6 @@ summary {
     color: #8a8a8d;
     font-style: italic;
     font-size: 0.88em;
-}
-
-.detail-row td {
-    white-space: normal;
-    background: var(--paper-sunk);
-    padding: 18px 22px;
-    border-bottom: 1px solid var(--line);
-    border-left: 3px solid var(--brand-red);
-}
-
-.detail-row:not([hidden]) {
-    animation: panel-in 0.16s ease;
 }
 
 @keyframes panel-in {
@@ -1246,10 +1256,362 @@ summary {
     margin-left: 6px;
 }
 
+/* Real shape classification (Toroid/Two-Piece Set), neutral (not a pass/fail
+   signal - see coreShapeBadge() in app.js). */
+.chip-shape {
+    background: var(--paper-sunk);
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    margin-left: 6px;
+    font-weight: 600;
+}
+
+/* Slide-in candidate detail panel - replaces the old inline accordion row,
+   which stacked KPIs, status, every validation check, sources, hardware
+   validation, and warnings into one long block under the table row. The
+   table stays visible/scrollable behind the panel. */
+.side-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+}
+
+.side-panel-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(20, 20, 22, 0.42);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.side-panel.open .side-panel-overlay {
+    opacity: 1;
+}
+
+.side-panel-content {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: min(520px, 100vw);
+    background: var(--paper);
+    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.18);
+    transform: translateX(100%);
+    transition: transform 0.22s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.side-panel.open .side-panel-content {
+    transform: translateX(0);
+}
+
+.side-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 22px 24px;
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+}
+
+.side-panel-head-titles h3 {
+    margin: 0 0 8px;
+    font-size: 1.2rem;
+    color: var(--brand-black);
+}
+
+.side-panel-subtitle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+}
+
+.side-panel-close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    font-size: 1.6rem;
+    line-height: 1;
+    color: var(--ink-soft);
+    cursor: pointer;
+    padding: 2px 10px;
+    border-radius: 6px;
+}
+
+.side-panel-close:hover {
+    background: var(--paper-sunk);
+    color: var(--ink);
+}
+
+.side-panel-body {
+    padding: 22px 24px 36px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .side-panel-overlay,
+    .side-panel-content {
+        transition: none;
+    }
+}
+
+
+
 @media (prefers-reduced-motion: reduce) {
     * {
         animation-duration: 0.001ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.001ms !important;
     }
+}
+
+/* ============================================================
+   Frontend redesign pass: Recommended Candidate card, completeness
+   chip, input validation, split passing/rejected tables, collapsible
+   detail groups, loading/empty states.
+   ============================================================ */
+
+/* Recommended Candidate - the one card the whole page exists to produce.
+   Same .card shell as everything else, with a brand-colored top border so
+   it reads as the headline result without a second, louder visual system. */
+.recommended-card {
+    margin: 0 35px 20px;
+    border-top: 3px solid var(--brand-red);
+}
+
+.recommended-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.recommended-identity {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.recommended-part {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--brand-black);
+}
+
+.recommended-view-detail {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--brand-black);
+    cursor: pointer;
+}
+
+.recommended-view-detail:hover {
+    border-color: var(--brand-red);
+    color: var(--brand-red);
+}
+
+.recommended-kpis {
+    margin-bottom: 14px;
+}
+
+.recommended-block {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+
+.recommended-block h4 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+}
+
+.recommended-explanation {
+    color: var(--ink);
+    font-size: 0.92rem;
+    line-height: 1.55;
+}
+
+.recommended-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.88rem;
+    color: var(--ink);
+    line-height: 1.5;
+}
+
+/* Completeness chip - "N/M evaluated", neutral until every mandatory check
+   has actually run, then a quiet green tint. Never itself a pass/fail
+   signal (the tier chip next to it already is that), just a count. */
+.chip-completeness {
+    background: var(--paper-sunk);
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    font-weight: 600;
+}
+
+.chip-completeness-full {
+    background: #dcfce7;
+    color: #15803d;
+    border-color: transparent;
+}
+
+/* Input validation - a real hard block, not a soft warning next to an
+   enabled button. Same error-red vocabulary as .status-message.error. */
+.input-validation-card {
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: #fdecec;
+    border: 1px solid #f3b8b8;
+    border-radius: 8px;
+}
+
+.input-validation-title {
+    color: var(--brand-red-dark);
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+}
+
+.input-validation-card ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--brand-red-dark);
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+/* Candidates empty/loading state - distinct from a populated table instead
+   of an empty <table> with no explanation. */
+.candidates-empty-state {
+    padding: 28px 12px;
+    text-align: center;
+    color: var(--ink-soft);
+}
+
+.candidates-empty-title {
+    color: var(--brand-black);
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.loading-skeleton {
+    height: 54px;
+    border-radius: 8px;
+    margin: 0 0 10px;
+    background: linear-gradient(90deg, var(--paper-sunk) 25%, var(--paper-alt) 37%, var(--paper-sunk) 63%);
+    background-size: 400% 100%;
+    animation: skeleton-shimmer 1.4s ease infinite;
+}
+
+@keyframes skeleton-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+/* Passing/Rejected Candidates - both real accordion sections now (see
+   wireCandidatesAccordion() in app.js): opening one closes the other, so
+   a long passing list and a long rejected list never both take up the
+   whole card's height at once. Passing starts open (it's the answer);
+   Rejected starts closed (it's the "why not" record) - same collapsed-
+   strip visual pattern as .rules-strip either way. */
+.candidates-section {
+    margin-top: 6px;
+}
+
+.candidates-section-rejected {
+    margin-top: 18px;
+    border-top: 1px solid var(--line);
+    padding-top: 4px;
+}
+
+.candidates-section summary {
+    cursor: pointer;
+    padding: 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    list-style: none;
+    color: var(--ink-soft);
+}
+
+.candidates-section summary::-webkit-details-marker {
+    display: none;
+}
+
+.candidates-section-marker::before {
+    content: "▸";
+    color: var(--ink-soft);
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+
+.candidates-section[open] .candidates-section-marker::before {
+    transform: rotate(90deg);
+}
+
+.candidates-section-summary {
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.candidate-table-rejected {
+    opacity: 0.9;
+}
+
+/* Collapsible groups inside the candidate detail panel (Validations,
+   Sources, Missing-data warnings) - Overview (KPIs/status) above is never
+   wrapped in one of these, it's always visible. */
+.detail-group {
+    margin-top: 14px;
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+}
+
+.detail-group summary {
+    cursor: pointer;
+    list-style: none;
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: var(--brand-black);
+    padding: 4px 0;
+}
+
+.detail-group summary::-webkit-details-marker {
+    display: none;
+}
+
+.detail-group summary::before {
+    content: "▸ ";
+    color: var(--brand-red);
+}
+
+.detail-group[open] summary::before {
+    content: "▾ ";
+}
+
+.detail-group-count {
+    font-weight: 400;
+    color: var(--ink-soft);
+    text-transform: none;
+    letter-spacing: normal;
 }

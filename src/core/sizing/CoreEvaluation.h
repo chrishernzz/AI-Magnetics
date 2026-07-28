@@ -27,6 +27,19 @@ struct CoreCandidate {
     double mltMm = 0.0;
     double areaProductCm4;
     bool meetsAreaProduct;
+
+    //real vendor/manufacturer name from real_cores.csv's Vendor column - empty string means no vendor recorded for this core.
+    std::string vendor;
+
+    //real shape classification ("Toroid"/"TwoPieceSet") from real_cores.csv's CoreShape column - empty string means no shape data recorded for this core.
+    std::string coreShape;
+
+    //human-readable geometry family (e.g. "T", "ETD", "PQ") from real_cores.csv's ShapeFamily column - empty string means no shape data recorded.
+    std::string shapeFamily;
+
+    //provenance for this core's data - see Provenance.h. datasheetRevision/Url/dateAccessed are always unset
+    //in Phase 1 (no real per-core datasheet revision/URL/access-date exists in this snapshot).
+    SourceInfo source;
 };
 
 //precondition: CoreDatabase::load() has been populated

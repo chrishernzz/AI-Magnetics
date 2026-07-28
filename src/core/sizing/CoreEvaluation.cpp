@@ -1,6 +1,7 @@
 #include "core/sizing/CoreEvaluation.h"
 #include "data/CoreDatabase.h"
 #include <algorithm>
+#include <optional>
 
 //precondition: Ap formula converts catalog core dimensions (mm^2 x mm^2) to cm^4
 //postcondition: returns the area product in cm^4 for a core with Ae and Wa in mm^2
@@ -44,6 +45,22 @@ std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate
         candidate.areaProductCm4 = apCm4;
         //this will return true or false based on the checking of apCm4 > requriedAreaProdcutCm4
         candidate.meetsAreaProduct = apCm4 >= requiredAreaProductCm4 * 0.95;
+
+        //real vendor data, already fetched by magnetics_data.py but previously dropped before reaching this
+        //struct - not fabricated, just finally threaded through.
+        candidate.vendor = core.vendor;
+        candidate.coreShape = core.coreShape;
+        candidate.shapeFamily = core.shapeFamily;
+        candidate.source.manufacturer = core.vendor.empty() ? std::nullopt : std::optional<std::string>(core.vendor);
+        candidate.source.partNumber = core.partNumber;
+        candidate.source.materialGrade = core.material;
+        candidate.source.datasheetName = "PyOpenMagnetics/MAS export (data/real_cores.csv snapshot)";
+        //datasheetRevision/Url/dateAccessed intentionally left unset - no such data exists in this snapshot.
+        candidate.source.confidence = core.vendor.empty() ? DataConfidence::Estimated : DataConfidence::Manufacturer;
+        candidate.source.confidenceNote = core.vendor.empty()
+            ? "no vendor recorded for this core in the snapshot"
+            : "geometry and vendor sourced from PyOpenMagnetics/MAS, itself built from real manufacturer "
+              "datasheets - no datasheet revision/URL/date-accessed is tracked in this snapshot";
 
         candidates.push_back(std::move(candidate));
     }

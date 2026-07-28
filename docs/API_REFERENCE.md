@@ -46,27 +46,37 @@ infer RMS current. If neither is supplied, the request fails with HTTP 422.
   "message": "1 candidate(s) passed every check; 2 rejected.",
   "candidates": [
     {
-      "material": { "materialFamily": "3C90", "muOpt": 2249.28, "hasBmaxData": false, "missingDataWarnings": ["..."], "..." : "..." },
-      "core": { "partNumber": "E100/60/28-3C90", "areaProductCm4": 15.7, "meetsAreaProduct": true, "..." : "..." },
-      "turnsAndGap": { "turns": 42, "gapMm": 1.15, "calculatedInductanceUH": 249.8, "inductanceErrorPercent": -0.08, "withinTolerance": true, "converged": true },
-      "validations": [ { "checkName": "InductanceValidation", "passed": true, "..." : "..." }, "... five more ..." ],
-      "winding": { "wireDescription": "AWG18 single strand", "fillFactor": 0.11, "fitsWindow": true, "resistanceStatus": "NotEvaluated", "missingData": ["core '...' has no mean-length-per-turn data..."] },
-      "losses": { "copperLossStatus": "NotEvaluated", "coreLossStatus": "NotEvaluated", "highFrequencyLossStatus": "NotEvaluated", "missingData": ["..."] },
-      "thermal": { "status": "NotEvaluated", "missingDataExplanation": "no thermal-resistance model or data is available in Phase 1" },
+      "material": { "materialFamily": "3C90", "muOpt": 2249.28, "hasBmaxData": true, "source": { "confidence": "Manufacturer", "..." : "..." }, "missingDataWarnings": ["..."], "..." : "..." },
+      "core": { "partNumber": "E100/60/28-3C90", "vendor": "Ferroxcube", "areaProductCm4": 15.7, "meetsAreaProduct": true, "source": { "..." : "..." }, "..." : "..." },
+      "turnsAndGap": { "turns": 42, "gapMm": 1.15, "calculatedInductanceUH": 249.8, "inductanceErrorPercent": -0.08, "withinTolerance": true, "converged": true, "gapMinMm": 1.035, "gapMaxMm": 1.265, "inductanceWithinToleranceAcrossGapRange": true, "smallGapWarning": false },
+      "validations": [ { "checkName": "InductanceValidation", "passed": true, "isPreliminaryEstimate": false, "..." : "..." }, "... five more (including ThermalValidation, isPreliminaryEstimate: true when Evaluated) ..." ],
+      "winding": { "wireDescription": "AWG18 single strand", "fillFactor": 0.11, "fitsWindow": true, "physicalWindowFillFactor": 0.21, "fitsPhysicalWindow": true, "resistanceStatus": "Evaluated", "coldDcrOhmsAt20C": 0.045, "estimatedHotDcrOhms": 0.052, "physicalDescription": "AWG18 magnet wire (bare 1.02 mm, insulated ~1.07 mm), single strand", "missingData": [] },
+      "losses": { "copperLossStatus": "Evaluated", "copperLossW": 0.55, "coreLossStatus": "NotEvaluated", "missingData": ["..."] },
+      "thermal": { "status": "PreliminaryThermalEstimate", "convergedWindingTempC": 38.2, "predictedTempRiseC": 13.2, "converged": true, "iterationsUsed": 3, "thermalResistanceCPerWUsed": 15.0 },
+      "acLossRisk": { "riskLevel": "Low", "reason": "evaluated: single-strand skin effect...", "acLossWattsStatus": "NotEvaluated" },
+      "fluxLimits": { "absoluteSaturationT": 0.47, "recommendedOperatingT": 0.3995, "temperatureAdjustedStatus": "NotEvaluated", "coreLossLimitedStatus": "NotEvaluated" },
+      "recommendation": { "tier": "ConditionalPass", "checksEvaluatedCount": 7, "checksPassedCount": 7, "checksNotEvaluatedCount": 0, "explanation": "conditional pass: every mandatory check that ran, passed, but at least one mandatory check rests on a Phase 1 default assumption or preliminary estimate, not measured data; " },
+      "lossSummary": { "knownPartialLossW": 0.55, "isCompleteTotal": false, "label": "Known Partial Loss (copper - AC/skin-effect loss not modeled)" },
+      "manufacturabilityMarginPercent": 71.4,
+      "rankingExplanation": "[ConditionalPass] passed every check that ran, but ...",
       "passed": true,
       "rejectionReasons": []
     }
   ],
-  "rejectedCandidates": ["... same shape, passed=false, rejectionReasons populated ..."],
-  "activeRules": { "windowUtilization": 0.4, "allowableCurrentDensityAperCm2": 400.0, "defaultFluxDensityLimitT": 0.30, "minimumSaturationMarginPercent": 10.0, "maximumFillFactor": 0.6, "defaultInductanceTolerancePercent": 10.0, "minimumSingleStrandAwg": 18 },
+  "rejectedCandidates": ["... same shape, passed=false, rejectionReasons populated, recommendation.tier=Rejected ..."],
+  "activeRules": { "windowUtilization": 0.4, "allowableCurrentDensityAperCm2": 400.0, "defaultFluxDensityLimitT": 0.30, "minimumSaturationMarginPercent": 10.0, "maximumFillFactor": 0.6, "defaultInductanceTolerancePercent": 10.0, "minimumSingleStrandAwg": 18, "gapTolerancePercent": 10.0, "defaultThermalResistanceCPerW": 15.0, "...": "30 fields total - see DesignRules.h" },
   "requiredAreaProductCm4": 0.0,
-  "largestAvailableAreaProductCm4": 0.0
+  "largestAvailableAreaProductCm4": 0.0,
+  "versions": { "calculationEngineVersion": "1.1.0", "designRulesVersion": "1.1.0", "coreDatabaseVersion": "60 rows, sha256:...", "materialDatabaseVersion": "32 rows, sha256:..." }
 }
 ```
 
 `activeRules` is always returned — this is the entire `DesignRules::phase1Default()`
-ruleset, so no assumption (Ku, Bmax, J, tolerances) is ever hidden in the
-route layer (spec section 7).
+ruleset (30 fields as of this pass), so no assumption (Ku, Bmax, J,
+tolerances, gap/thermal/skin-depth heuristics) is ever hidden in the route
+layer (spec section 7). `versions` is a real, reproducible SHA-256 content
+hash of the loaded CSV bytes, computed once at FastAPI startup — not an
+invented upstream semver.
 
 When nothing is feasible, `status` is `"no_feasible_design"` instead of
 `"ok"`, `candidates` is empty, and `message` explains why — for an
@@ -85,19 +95,27 @@ just a console warning:
 }
 ```
 
-**Data-gap fields you may still see today:** `losses.highFrequencyLossStatus`
-and `thermal.status` are `"NotEvaluated"` for every candidate — no model
-exists for either in Phase 1. `winding.resistanceStatus` and
-`losses.copperLossStatus` are `"Evaluated"` for most candidates (real,
-geometry-derived mean-length-per-turn data unlocked real DCR/copper loss),
-`"NotEvaluated"` only for the smaller subset of cores whose upstream
-geometry doesn't support that estimate. `losses.coreLossStatus` is now
-`"Evaluated"` when the material has real Steinmetz coefficients for this
-frequency AND the request supplied `rippleCurrentPeakToPeakA` (needed to
-compute flux-density swing — never approximated from peak flux);
-`"NotEvaluated"` otherwise. See [DATA_FILES.md](DATA_FILES.md). These are
-real data gaps, not silent bugs — the engine reports them explicitly
-rather than inventing a number.
+**Data-gap fields you may still see today:** `thermal.status` is
+`"PreliminaryThermalEstimate"` at best, never a "fully evaluated" value —
+`ThermalStatus` has no such value at all, since the loop always runs on
+`DesignRules.defaultThermalResistanceCPerW` (a Phase 1 default, never
+per-core measured data). `acLossRisk.acLossWattsStatus` is permanently
+`"NotEvaluated"` — the skin-depth heuristic produces a risk *level*, never
+a watts figure. `winding.resistanceStatus` and `losses.copperLossStatus`
+are `"Evaluated"` for most candidates (real, geometry-derived
+mean-length-per-turn data unlocked real DCR/copper loss), `"NotEvaluated"`
+only for the smaller subset of cores whose upstream geometry doesn't
+support that estimate. `losses.coreLossStatus` is `"Evaluated"` when the
+material has real Steinmetz coefficients for this frequency AND the
+request supplied `rippleCurrentPeakToPeakA` (needed to compute
+flux-density swing — never approximated from peak flux); `"NotEvaluated"`
+otherwise. See [DATA_FILES.md](DATA_FILES.md). These are real data gaps,
+not silent bugs — the engine reports them explicitly rather than
+inventing a number, and every candidate's `recommendation.tier` reflects
+them (a `not_evaluated`/preliminary check anywhere caps a candidate at
+`ConditionalPass`, never `Pass` — see FORMULAS.md
+section 12 for why `Pass` is currently unreachable in
+practice).
 
 ---
 
@@ -244,30 +262,43 @@ FastAPI also auto-generates interactive docs at **http://127.0.0.1:8000/docs** �
 
 ## Known Phase 1 Data Gaps
 
-`/inductor-design` is a complete pipeline, and only one result area is
-always `not_evaluated` for lack of any model at all — see
-[DATA_FILES.md](DATA_FILES.md):
-- **Thermal rise** (`thermal.status`) — no thermal-resistance model or data
-  exists yet.
+`/inductor-design` is a complete pipeline; two result areas are always
+capped for lack of real measured/simulated data, by construction, not by
+oversight — see [DATA_FILES.md](DATA_FILES.md) and FORMULAS.md sections 10-11:
+- **Thermal rise** (`thermal.status`) — a real iterative loop runs, but
+  `defaultThermalResistanceCPerW` is always a Phase 1 default constant, so
+  the result caps at `"PreliminaryThermalEstimate"`, never a fully-evaluated
+  value. Reports `"NotEvaluated"` instead when winding DCR geometry is
+  unknown, or when the loop's positive-feedback iteration genuinely
+  diverges (a real possibility for high-current, low-DCR designs).
+- **AC-loss watts** (`acLossRisk.acLossWattsStatus`) — a real qualitative
+  skin-depth risk level (`Low`/`Moderate`/`High`) is computed, but no
+  AC-loss watts model exists, so this status is permanently `"NotEvaluated"`.
 
 The rest are conditionally real, never fabricated:
 - **Core loss** (`losses.coreLossStatus`) — `Evaluated` when the material
   has real Steinmetz coefficients for the request's frequency AND the
   request supplied `rippleCurrentPeakToPeakA`; `not_evaluated` otherwise
-  (17 of 32 materials have coefficients; ripple current is optional on
-  every request).
+  (25 of 81 materials have coefficients; ripple current is optional on
+  every request; run `scripts/audit_material_core_database.py` for the
+  current live count).
 - **DCR / total wire length** (`winding.resistanceStatus`) and **DC
   copper loss** (`losses.copperLossStatus`) — `Evaluated` for most
   candidates via a real, geometry-derived mean-length-per-turn estimate,
   `not_evaluated` only for the subset of cores whose upstream geometry
-  doesn't support it.
+  doesn't support it. DCR now includes lead/routing/connection resistance
+  (`DesignRules` allowances), not just core-winding resistance.
 
-Skin/proximity (high-frequency) loss is not implemented in Phase 1
-regardless of data (`losses.highFrequencyLossStatus`).
+**Recommendation tier** (`recommendation.tier`): `Pass` |
+`ConditionalPass` | `Reject`, replacing the old frontend-only
+"Recommended" UI sugar. `Reject` always mirrors `passed`. No real Phase 1
+request reaches `Pass` today, since `ThermalValidation`
+always sets `isPreliminaryEstimate: true` — see FORMULAS.md section 12.
 
-**Ranking:** passing candidates are ranked by real total loss (copper +
-core, whichever are `Evaluated`) ascending, not by size alone — this is
-the "Optimization" half of the project's stated approach (Option 2:
-Physics-Based Calculation and Optimization). Candidates with no loss data
-at all fall back to area-product-ascending so missing data never silently
-wins or loses a ranking comparison.
+**Ranking:** passing candidates are ranked by tier first, then by real
+known evaluated loss (copper + core, whichever are `Evaluated`,
+`lossSummary.knownPartialLossW`), predicted temperature rise,
+manufacturability margin, saturation margin, current-density margin, area
+product, and finally part number — see FORMULAS.md section 12 for the full
+comparator. A missing number in any tiebreaker ranks as the worst case for
+that dimension, never the best.

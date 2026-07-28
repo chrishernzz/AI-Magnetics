@@ -79,8 +79,36 @@ def _serialize_validation(v) -> dict:
         "limitValue": v.limitValue,
         "unit": v.unit,
         "explanation": v.explanation,
-        "usedDefaultLimit": v.usedDefaultLimit,
+        "usesDefaultAssumption": v.usesDefaultAssumption,
         "status": v.status.name,
+        "isPreliminaryEstimate": v.isPreliminaryEstimate,
+        "mandatory": v.mandatory,
+    }
+
+#precondition: s is a valid SourceInfo object
+#postcondition: returns a serializable source/provenance dictionary - datasheetRevision/Url/dateAccessed are
+#always None in Phase 1 (no such data exists in the current snapshot), never fabricated here.
+def _serialize_source_info(s) -> dict:
+    return {
+        "manufacturer": s.manufacturer,
+        "partNumber": s.partNumber,
+        "materialGrade": s.materialGrade,
+        "datasheetName": s.datasheetName,
+        "datasheetRevision": s.datasheetRevision,
+        "datasheetUrl": s.datasheetUrl,
+        "dateAccessed": s.dateAccessed,
+        "confidence": s.confidence.name,
+        "confidenceNote": s.confidenceNote,
+    }
+
+#precondition: v is a valid EngineVersions object
+#postcondition: returns a serializable versions dictionary
+def _serialize_versions(v) -> dict:
+    return {
+        "calculationEngineVersion": v.calculationEngineVersion,
+        "designRulesVersion": v.designRulesVersion,
+        "coreDatabaseVersion": v.coreDatabaseVersion,
+        "materialDatabaseVersion": v.materialDatabaseVersion,
     }
 
 #precondition: m is a valid material result object and material selection stage has completed
@@ -97,6 +125,7 @@ def _serialize_material(m) -> dict:
         "reason": m.reason,
         "alternatives": m.alternatives,
         "missingDataWarnings": list(m.missingDataWarnings),
+        "source": _serialize_source_info(m.source),
     }
 
 #precondition: c is a valid core-selection object and core search stage has completed
@@ -113,6 +142,10 @@ def _serialize_core(c) -> dict:
         "mltMm": c.mltMm,
         "areaProductCm4": c.areaProductCm4,
         "meetsAreaProduct": c.meetsAreaProduct,
+        "vendor": c.vendor,
+        "coreShape": c.coreShape,
+        "shapeFamily": c.shapeFamily,
+        "source": _serialize_source_info(c.source),
     }
 
 #precondition: turns and gap calculations have completed and t contains calculated winding parameters
@@ -127,6 +160,14 @@ def _serialize_turns_and_gap(t) -> dict:
         "withinTolerance": t.withinTolerance,
         "converged": t.converged,
         "rejectionReasons": list(t.rejectionReasons),
+        "gapMethod": t.gapMethod.name,
+        "gapMinMm": t.gapMinMm,
+        "gapMaxMm": t.gapMaxMm,
+        "inductanceAtMinGapUH": t.inductanceAtMinGapUH,
+        "inductanceAtMaxGapUH": t.inductanceAtMaxGapUH,
+        "inductanceWithinToleranceAcrossGapRange": t.inductanceWithinToleranceAcrossGapRange,
+        "smallGapWarning": t.smallGapWarning,
+        "smallGapWarningReason": t.smallGapWarningReason,
     }
 
 #precondition: winding design stage has completed and w contains winding analysis data
@@ -143,9 +184,25 @@ def _serialize_winding(w) -> dict:
         "totalWireLengthM": w.totalWireLengthM,
         "dcrOhms": w.dcrOhms,
         "missingData": list(w.missingData),
+        "constructionType": w.constructionType.name,
+        "insulatedConductorDiameterMm": w.insulatedConductorDiameterMm,
+        "insulatedConductorAreaMm2": w.insulatedConductorAreaMm2,
+        "physicalDescription": w.physicalDescription,
+        "physicalWindowAreaMm2": w.physicalWindowAreaMm2,
+        "physicalWindowFillFactor": w.physicalWindowFillFactor,
+        "fitsPhysicalWindow": w.fitsPhysicalWindow,
+        "effectiveCurrentDensityAperMm2": w.effectiveCurrentDensityAperMm2,
+        "bundleFitStatus": w.bundleFitStatus.name,
+        "coreWindingLengthM": w.coreWindingLengthM,
+        "leadLengthM": w.leadLengthM,
+        "routingLengthM": w.routingLengthM,
+        "totalLengthM": w.totalLengthM,
+        "connectionResistanceOhms": w.connectionResistanceOhms,
+        "coldDcrOhmsAt20C": w.coldDcrOhmsAt20C,
+        "estimatedHotDcrOhms": w.estimatedHotDcrOhms,
     }
 
-#precondition: loss calculations have completed and l contains copper, core, and hf losses
+#precondition: loss calculations have completed and l contains copper and core losses
 #postcondition: returns a serializable loss dictionary and status enums are converted to strings
 def _serialize_losses(l) -> dict:
     return {
@@ -153,17 +210,65 @@ def _serialize_losses(l) -> dict:
         "copperLossW": l.copperLossW,
         "coreLossStatus": l.coreLossStatus.name,
         "coreLossW": l.coreLossW,
-        "highFrequencyLossStatus": l.highFrequencyLossStatus.name,
-        "highFrequencyLossW": l.highFrequencyLossW,
+        "coreLossMaterialUsed": l.coreLossMaterialUsed,
+        "coreLossCoefficientMinFreqHz": l.coreLossCoefficientMinFreqHz,
+        "coreLossCoefficientMaxFreqHz": l.coreLossCoefficientMaxFreqHz,
+        "coreLossFluxDensitySwingT": l.coreLossFluxDensitySwingT,
+        "coreLossVolumeM3": l.coreLossVolumeM3,
+        "coreLossDensityWPerM3": l.coreLossDensityWPerM3,
         "missingData": list(l.missingData),
     }
 
-#precondition: thermal stage has completed and t contains predicted thermal results
-#postcondition: returns a serializable thermal dictionary and status enum is converted to string
+#precondition: s is a valid SkinDepthRiskResult object
+#postcondition: returns a serializable skin-depth-risk dictionary; acLossWattsStatus is always NotEvaluated in Phase 1 - see SkinDepthRisk.h
+def _serialize_skin_depth_risk(s) -> dict:
+    return {
+        "skinDepthMm": s.skinDepthMm,
+        "strandRadiusMm": s.strandRadiusMm,
+        "radiusToSkinDepthRatio": s.radiusToSkinDepthRatio,
+        "riskLevel": s.riskLevel.name,
+        "reason": s.reason,
+        "acLossWattsStatus": s.acLossWattsStatus.name,
+        "acLossWattsExplanation": s.acLossWattsExplanation,
+    }
+
+#precondition: r is a valid RecommendationClassification object
+#postcondition: returns a serializable recommendation dictionary; tier enum is converted to string
+def _serialize_recommendation(r) -> dict:
+    return {
+        "tier": r.tier.name,
+        "checksEvaluatedCount": r.checksEvaluatedCount,
+        "checksPassedCount": r.checksPassedCount,
+        "checksFailedCount": r.checksFailedCount,
+        "checksNotEvaluatedCount": r.checksNotEvaluatedCount,
+        "missingInfo": list(r.missingInfo),
+        "explanation": r.explanation,
+    }
+
+#precondition: l is a valid LossSummary object
+#postcondition: returns a serializable loss-summary dictionary; isCompleteTotal is always False in Phase 1 - see LossSummary.h
+def _serialize_loss_summary(l) -> dict:
+    return {
+        "knownPartialLossW": l.knownPartialLossW,
+        "isCompleteTotal": l.isCompleteTotal,
+        "label": l.label,
+    }
+
+#precondition: thermal stage has completed and t contains the iterative loop's result
+#postcondition: returns a serializable thermal dictionary; status is PreliminaryThermalEstimate at best -
+#see ThermalEvaluation.h for why Phase 1 never produces a fully-evaluated thermal result
 def _serialize_thermal(t) -> dict:
     return {
         "status": t.status.name,
+        "convergedWindingTempC": t.convergedWindingTempC,
+        "hotDcrOhms": t.hotDcrOhms,
+        "copperLossAtConvergedTempW": t.copperLossAtConvergedTempW,
+        "knownLossW": t.knownLossW,
         "predictedTempRiseC": t.predictedTempRiseC,
+        "predictedHotspotTempC": t.predictedHotspotTempC,
+        "iterationsUsed": t.iterationsUsed,
+        "converged": t.converged,
+        "thermalResistanceCPerWUsed": t.thermalResistanceCPerWUsed,
         "missingDataExplanation": t.missingDataExplanation,
     }
 
@@ -171,6 +276,19 @@ def _serialize_thermal(t) -> dict:
 #postcondition: returns a serializable rejection dictionary and rejection explanation is preserved
 def _serialize_rejection(r) -> dict:
     return {"checkName": r.checkName, "explanation": r.explanation}
+
+#precondition: f is a valid FluxLimitTiers object
+#postcondition: returns a serializable flux-limit-tier dictionary; temperatureAdjustedStatus/coreLossLimitedStatus are always NotEvaluated in Phase 1 - see DesignValidation.h
+def _serialize_flux_limit_tiers(f) -> dict:
+    return {
+        "absoluteSaturationT": f.absoluteSaturationT,
+        "absoluteSaturationIsDefault": f.absoluteSaturationIsDefault,
+        "recommendedOperatingT": f.recommendedOperatingT,
+        "temperatureAdjustedStatus": f.temperatureAdjustedStatus.name,
+        "temperatureAdjustedExplanation": f.temperatureAdjustedExplanation,
+        "coreLossLimitedStatus": f.coreLossLimitedStatus.name,
+        "coreLossLimitedExplanation": f.coreLossLimitedExplanation,
+    }
 
 #precondition: c is a candidate generated by the c++ design engine and all design pipeline stages have produced results
 #postcondition: returns a fully serialized candidate dictionary and all nested objects are recursively serialized
@@ -185,6 +303,12 @@ def _serialize_candidate(c) -> dict:
         "thermal": _serialize_thermal(c.thermal),
         "passed": c.passed,
         "rejectionReasons": [_serialize_rejection(r) for r in c.rejectionReasons],
+        "fluxLimits": _serialize_flux_limit_tiers(c.fluxLimits),
+        "acLossRisk": _serialize_skin_depth_risk(c.acLossRisk),
+        "recommendation": _serialize_recommendation(c.recommendation),
+        "lossSummary": _serialize_loss_summary(c.lossSummary),
+        "manufacturabilityMarginPercent": c.manufacturabilityMarginPercent,
+        "rankingExplanation": c.rankingExplanation,
     }
 
 #precondition: r contains valid design rule values and rule configuration has been loaded
@@ -198,6 +322,29 @@ def _serialize_rules(r) -> dict:
         "maximumFillFactor": r.maximumFillFactor,
         "defaultInductanceTolerancePercent": r.defaultInductanceTolerancePercent,
         "minimumSingleStrandAwg": r.minimumSingleStrandAwg,
+        "maximumRippleCurrentPercent": r.maximumRippleCurrentPercent,
+        "recommendedFluxDerateFactor": r.recommendedFluxDerateFactor,
+        "minManufacturableGapMm": r.minManufacturableGapMm,
+        "gapStepMm": r.gapStepMm,
+        "maxGapFraction": r.maxGapFraction,
+        "gapTolerancePercent": r.gapTolerancePercent,
+        "gapMethod": r.gapMethod.name,
+        "singleBuildInsulationBuildUpMm": r.singleBuildInsulationBuildUpMm,
+        "packingFactor": r.packingFactor,
+        "bobbinWindowDerateFactor": r.bobbinWindowDerateFactor,
+        "marginAllowanceAreaFraction": r.marginAllowanceAreaFraction,
+        "leadExitAllowanceAreaFraction": r.leadExitAllowanceAreaFraction,
+        "currentSharingDerateFactor": r.currentSharingDerateFactor,
+        "totalLeadLengthAllowanceMm": r.totalLeadLengthAllowanceMm,
+        "routingLengthAllowanceMm": r.routingLengthAllowanceMm,
+        "connectionResistanceMilliOhm": r.connectionResistanceMilliOhm,
+        "copperTempCoefficientPerC": r.copperTempCoefficientPerC,
+        "assumedWindingTempCWhenThermalNotEvaluated": r.assumedWindingTempCWhenThermalNotEvaluated,
+        "defaultThermalResistanceCPerW": r.defaultThermalResistanceCPerW,
+        "thermalConvergenceThresholdC": r.thermalConvergenceThresholdC,
+        "maxThermalIterations": r.maxThermalIterations,
+        "skinDepthRiskModerateThreshold": r.skinDepthRiskModerateThreshold,
+        "skinDepthRiskHighThreshold": r.skinDepthRiskHighThreshold,
     }
 
 #precondition: rec is a completed design recommendation and the c++ pipeline executed successfully
@@ -211,6 +358,7 @@ def serialize_recommendation(rec) -> dict:
         "activeRules": _serialize_rules(rec.activeRules),
         "requiredAreaProductCm4": rec.requiredAreaProductCm4,
         "largestAvailableAreaProductCm4": rec.largestAvailableAreaProductCm4,
+        "versions": _serialize_versions(rec.versions),
     }
 
 #precondition: request body matches InductorDesignRequest scheme, required electrical parameters are provided, and c++ design engine is available and initialized

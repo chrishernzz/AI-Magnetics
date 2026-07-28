@@ -51,8 +51,9 @@ def load_real_magnetics_data():
     rather than silently starting an app with no core/material data. Check the
     traceback below to see exactly what failed (missing PyOpenMagnetics install is the most common cause).
     """
+    import hashlib
     import magnetics_cpp
-    from services.magnetics_data import fetch_all, fetch_core_loss_coefficients
+    from services.magnetics_data import fetch_all, fetch_core_loss_coefficients, CORES_FILE, MATERIALS_FILE
 
     materials, cores = fetch_all()
     core_loss_coefficients = fetch_core_loss_coefficients()
@@ -86,6 +87,9 @@ def load_real_magnetics_data():
         "wa" : "Wa",
         "le" : "Le",
         "mlt" : "Mlt",
+        "vendor" : "Vendor",
+        "coreShape" : "CoreShape",
+        "shapeFamily" : "ShapeFamily",
     })
     cpp_core_loss_coefficients = _build_cpp_record(core_loss_coefficients, magnetics_cpp.CoreLossCoefficientData, {
         "materialName" : "MaterialName",
@@ -101,6 +105,14 @@ def load_real_magnetics_data():
     magnetics_cpp.set_material_database(cpp_materials)
     magnetics_cpp.set_core_database(cpp_cores)
     magnetics_cpp.set_core_loss_coefficient_database(cpp_core_loss_coefficients)
+
+    # Real, reproducible version identifiers - a content hash of the exact CSV bytes actually loaded,
+    # not an invented semver for data whose upstream (PyOpenMagnetics/MAS) release version isn't tracked
+    # anywhere in this snapshot mechanism. Changes if and only if the underlying data actually changes.
+    core_db_version = f"{len(cpp_cores)} rows, sha256:{hashlib.sha256(CORES_FILE.read_bytes()).hexdigest()[:12]}"
+    material_db_version = f"{len(cpp_materials)} rows, sha256:{hashlib.sha256(MATERIALS_FILE.read_bytes()).hexdigest()[:12]}"
+    magnetics_cpp.set_engine_versions(core_db_version, material_db_version)
+
     print(f"Loaded real data: {len(cpp_materials)} materials, {len(cpp_cores)} cores, "
           f"{len(cpp_core_loss_coefficients)} core-loss coefficient rows. source: PyOpenMagnetics / MAS")
 

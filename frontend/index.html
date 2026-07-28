@@ -173,6 +173,8 @@
                 </div>
             </fieldset>
 
+            <div id="inputValidationCard" class="input-validation-card" hidden></div>
+
             <div class="button-row">
                 <button id="generateButton" class="primary-button" type="button">
                     Generate Recommendation
@@ -289,12 +291,27 @@
                 <p class="diagnostics-intro">A live sanity check on what you've entered - recalculated as you type.</p>
                 <dl class="diagnostics-list">
                     <div class="diagnostics-row diagnostics-row-highlight">
-                        <dt>Stored Energy</dt>
+                        <dt>Stored Energy
+                            <span class="hint" title="E = 0.5 x L x I^2, using peak current - the energy the core must store without saturating.">?</span>
+                        </dt>
                         <dd id="diagStoredEnergy">–</dd>
+                    </div>
+                    <div class="diagnostics-row" id="diagMinCurrentRow">
+                        <dt>Minimum Inductor Current
+                            <span class="hint" title="Ipeak - Ripple (peak-to-peak), under the same triangular-ripple assumption the backend's CurrentConsistencyValidation check uses. Needs Ripple Current p-p to compute - blank until you enter it.">?</span>
+                        </dt>
+                        <dd id="diagMinCurrent">–</dd>
+                    </div>
+                    <div class="diagnostics-row" id="diagConductionModeRow">
+                        <dt>Conduction Mode
+                            <span class="hint" title="CCM: minimum current stays above zero. CCM Boundary: at or near zero - small load/line variation could push it into DCM. DCM: minimum current would go negative under this ideal formula - this engine only supports CCM, so Generate will reject this combination.">?</span>
+                        </dt>
+                        <dd id="diagConductionMode">–</dd>
                     </div>
                 </dl>
                 <p id="diagCurrentNote" class="diagnostics-note"></p>
                 <p id="diagCoreLossNote" class="diagnostics-note"></p>
+                <p id="diagConductionNote" class="diagnostics-note"></p>
 
                 <div id="topologyDerivedBanner" class="topology-derived-banner" hidden></div>
             </div>
@@ -312,6 +329,8 @@
 
     <div id="feasibility" class="card result-panel" hidden></div>
 
+    <div id="recommendedCandidateCard" class="card recommended-card" hidden></div>
+
     <div class="card candidates-card">
         <div class="candidates-header">
             <div class="card-head">
@@ -327,16 +346,49 @@
                     <span class="card-subtitle">Every evaluated candidate - passing and rejected</span>
                 </div>
             </div>
-            <div id="filterChips" class="filter-chips"></div>
+            <select id="shapeFilter" class="shape-filter" aria-label="Filter by core shape" hidden></select>
         </div>
         <div id="triageStrip" class="triage-strip"></div>
-        <p id="rankingNote" class="ranking-note" hidden>
-            Passing candidates are ranked by <strong>total loss</strong> (Cu Loss + Core Loss, whichever are evaluated) — lowest first, not by core size.
-            A candidate with no loss data at all falls back to smallest-core-first instead, so a missing number never wins or loses a ranking on its own.
-        </p>
-        <div class="table-scroll">
-            <table id="candidateTable" class="candidate-table"></table>
-        </div>
+
+        <details id="passingSection" class="candidates-section" open>
+            <summary>
+                <span class="candidates-section-marker" aria-hidden="true"></span>
+                <span id="passingSectionSummary" class="candidates-section-summary">Passing Candidates</span>
+            </summary>
+            <p id="rankingNote" class="ranking-note" hidden>
+                Passing candidates are ranked by <strong>recommendation tier</strong> first, then by <strong>known partial loss</strong>
+                (DC copper + core loss, whichever are evaluated), predicted temperature rise, manufacturability margin, saturation margin, and current-density margin, in that order.
+                A missing number is treated as the worst case for that tiebreaker, never the best, so it can't accidentally win a ranking.
+            </p>
+            <div id="candidatesEmptyState" class="candidates-empty-state" hidden></div>
+            <div class="table-scroll">
+                <table id="candidateTable" class="candidate-table"></table>
+            </div>
+        </details>
+
+        <details id="rejectedSection" class="candidates-section candidates-section-rejected" hidden>
+            <summary>
+                <span class="candidates-section-marker" aria-hidden="true"></span>
+                <span id="rejectedSectionSummary" class="candidates-section-summary">Rejected Candidates</span>
+            </summary>
+            <div class="table-scroll">
+                <table id="rejectedTable" class="candidate-table candidate-table-rejected"></table>
+            </div>
+        </details>
+    </div>
+
+    <div id="candidateSidePanel" class="side-panel" hidden aria-hidden="true">
+        <div id="sidePanelOverlay" class="side-panel-overlay"></div>
+        <aside class="side-panel-content" role="dialog" aria-modal="true" aria-labelledby="sidePanelTitle">
+            <div class="side-panel-head">
+                <div class="side-panel-head-titles">
+                    <h3 id="sidePanelTitle">–</h3>
+                    <div id="sidePanelSubtitle" class="side-panel-subtitle"></div>
+                </div>
+                <button id="sidePanelClose" class="side-panel-close" type="button" aria-label="Close detail panel">&times;</button>
+            </div>
+            <div id="sidePanelBody" class="side-panel-body"></div>
+        </aside>
     </div>
 
     <script src="/static/app.js"></script>

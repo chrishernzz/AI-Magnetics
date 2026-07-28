@@ -32,3 +32,15 @@ CoreLossCoefficientLookup findCoreLossCoefficients(const std::string& materialNa
 double calculateCoreLossDensity(const CoreLossCoefficientData& coefficients, double fluxDensitySwingT, double switchingFreqHz) {
     return coefficients.k * std::pow(switchingFreqHz, coefficients.alpha) * std::pow(fluxDensitySwingT, coefficients.beta);
 }
+
+//precondition: none
+//postcondition: see header
+bool fluxSwingWithinValidatedRange(const CoreLossCoefficientData& coefficients, double fluxDensitySwingT) {
+    if (coefficients.minFluxSwingT.has_value() && fluxDensitySwingT < *coefficients.minFluxSwingT) {
+        return false;
+    }
+    if (coefficients.maxFluxSwingT.has_value() && fluxDensitySwingT > *coefficients.maxFluxSwingT) {
+        return false;
+    }
+    return true;
+}

@@ -51,13 +51,14 @@ set(CORE_SOURCES
     src/core/winding/WindingDesign.cpp
     src/core/losses/CopperLoss.cpp
     src/core/losses/CoreLoss.cpp
-    src/core/losses/HighFrequencyLosses.cpp
+    src/core/losses/SkinDepthRisk.cpp
     src/core/losses/LossEvaluation.cpp
     src/core/thermal/ThermalEvaluation.cpp
 )
 
 set(VALIDATION_SOURCES
     src/validation/DesignValidation.cpp
+    src/validation/RecommendationStatus.cpp
 )
 
 set(RULES_SOURCES
@@ -85,6 +86,7 @@ set(BACKEND_SERVICE_SOURCES
     src/backend/services/RequirementDerivationService.cpp
     src/backend/services/InductorDesignService.cpp
     src/backend/services/BuckElectricalSolver.cpp
+    src/backend/services/RankingExplanationService.cpp
 )
 
 add_library(
@@ -148,6 +150,8 @@ add_executable(magnetics_engine_tests
     tests/cpp/AreaProductTests.cpp
     tests/cpp/WindingDesignTests.cpp
     tests/cpp/LossTests.cpp
+    tests/cpp/GapToleranceTests.cpp
+    tests/cpp/ThermalTests.cpp
 )
 
 target_link_libraries(
@@ -161,6 +165,14 @@ target_include_directories(
     PRIVATE
     src
 )
+
+# The default build type is Release (see the comment above), which defines
+# NDEBUG and makes every assert() in tests/cpp/*.cpp a silent no-op - the
+# test binary would still build, run, and print "All ... passed" even if
+# every single assertion in it was false. -UNDEBUG here re-enables assert()
+# for this target specifically, without giving up Release optimization for
+# the engine libraries the comment above explains the default is for.
+target_compile_options(magnetics_engine_tests PRIVATE -UNDEBUG)
 
 add_test(NAME EngineTests COMMAND magnetics_engine_tests)
 

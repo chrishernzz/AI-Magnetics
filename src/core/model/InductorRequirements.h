@@ -1,6 +1,8 @@
 #pragma once
 #include <optional>
 #include <string>
+#include "validation/EvaluationStatus.h"
+#include "core/model/ConductionMode.h"
 
 /*
 
@@ -29,6 +31,19 @@ struct OperatingPoint {
     //(LossEvaluation) needs the real ripple swing, not the RMS value, to
     //compute flux-density swing. Never inferred from anything else.
     std::optional<double> rippleCurrentPeakToPeakA;
+
+    //Current-consistency check (spec: peak/RMS/ripple must describe one physically real waveform, never
+    //three independent numbers). Evaluated only when rippleCurrentPeakToPeakA is supplied - that is the
+    //only case where a minimum instantaneous inductor current can be derived at all. See
+    //RequirementDerivationService::derive() for the computation; a physically impossible combination
+    //(negative minimum current, or an out-of-envelope rmsCurrentA) throws std::invalid_argument there
+    //rather than silently proceeding, so this struct only ever carries a self-consistent result.
+    EvaluationStatus currentConsistencyStatus = EvaluationStatus::NotEvaluated;
+    //valid only when currentConsistencyStatus == Evaluated. Triangular-ripple assumption: minInductorCurrentA
+    //= peakCurrentA - rippleCurrentPeakToPeakA.
+    ConductionMode conductionMode = ConductionMode::CCM;
+    double minInductorCurrentA = 0.0;
+    std::string currentConsistencyExplanation;
 };
 
 struct InductorRequirements {

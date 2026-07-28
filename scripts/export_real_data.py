@@ -26,6 +26,26 @@ central-column cross-section (treated as the wire's innermost turn, ignoring
 bobbin wall thickness and winding build-up) - a first-order estimate from
 real geometry, not a guess, but a documented simplification the same way the
 gap formula's fringing-flux omission is documented in FORMULAS.md.
+
+CoreShape/ShapeFamily (added after a real user report - see git log) are
+read from PyOpenMagnetics' functionalDescription.shape: magneticCircuit
+"closed" -> "Toroid", "open" -> "TwoPieceSet" (E-core, ETD, PQ, RM, etc.),
+and shape.family (e.g. "t", "etd", "pq") uppercased for a human-readable
+geometry label. This does NOT change TurnsAndGapDesign.cpp's physics - it
+still applies the same discrete-machined-gap formula to every shape,
+including toroids, which don't get a machined gap in reality (their
+effective permeability is a distributed-gap material property). The label
+is now real; the gap formula is still shape-unaware (see DATA_FILES.md).
+
+The per-vendor cap used to be a single flat counter, which meant whichever
+material family happened to iterate first for a vendor could consume the
+entire quota before other real, qualifying materials from that same vendor
+were ever considered - discovered when a real MPP toroid (Magnetics
+C055439A2X2) was found completely absent from the snapshot even though it
+exists upstream, because Magnetics' 15-core quota was entirely consumed by
+Kool Mu/Edge/XFlux (a different powder family) before MPP was reached. The
+cap is now tracked per (vendor, shape) pair instead, so one shape can't
+starve another from the same vendor.
 """
 
 import csv
@@ -47,8 +67,40 @@ INCLUDE_GAPPED_CORES = False
 MIN_EFFECTIVE_AREA_MM2 = 20.0
 MAX_EFFECTIVE_AREA_MM2 = 3000.0
 MAX_CORES_PER_MATERIAL = 4
-MAX_CORES_PER_VENDOR = 15
-MAX_CORES_TO_LOAD = 60
+# Capped per (vendor, shape) pair, not per vendor alone - see module
+# docstring for why a flat per-vendor cap silently excluded MPP toroids.
+MAX_CORES_PER_VENDOR_SHAPE = 20
+MAX_CORES_TO_LOAD = 220
+
+# Specific manufacturer references that must be included whenever they
+# exist upstream and pass the real material-type/application/gapping/area
+# filters below, regardless of the per-material-name cap. Without this, a
+# real qualifying part can still lose out to an arbitrary earlier same-name
+# sibling purely because of upstream iteration order (discovered from a
+# real user-submitted reference design that used Magnetics C055439A2, an
+# MPP-60 toroid - one of 50 different physical sizes PyOpenMagnetics
+# carries under that exact material name, only 4 of which fit under
+# MAX_CORES_PER_MATERIAL). Add real reference-design part numbers here as
+# they come up - never used to insert a part that doesn't actually exist
+# upstream.
+PRIORITY_CORE_REFERENCES = {"C055439A2X2"}
+
+
+def _core_shape_and_family(functional_description: dict) -> tuple[str, str]:
+    """Real shape classification from PyOpenMagnetics' own geometry record -
+    never inferred from the part number or guessed. Returns ("", "") only
+    when upstream genuinely has no shape data for this core."""
+    shape = functional_description.get("shape") or {}
+    circuit = shape.get("magneticCircuit")
+    if circuit == "closed":
+        core_shape = "Toroid"
+    elif circuit == "open":
+        core_shape = "TwoPieceSet"
+    else:
+        core_shape = ""
+    family = shape.get("family")
+    shape_family = family.upper() if family else ""
+    return core_shape, shape_family
 
 
 def _pick_representative_permeability(material: dict) -> float:
@@ -190,15 +242,28 @@ def fetch_materials(available_core_material_names=None,) -> list:
     return results
 
 
+def _is_priority_reference(core: dict) -> bool:
+    mfr = core.get("manufacturerInfo") or {}
+    ref = mfr.get("reference") or core.get("name")
+    return ref in PRIORITY_CORE_REFERENCES
+
+
 def fetch_cores() -> list[dict]:
     PyOpenMagnetics.load_databases({})
     PyOpenMagnetics.load_cores(None, True, False)
     raw_cores = PyOpenMagnetics.get_available_cores()
 
+    # Priority references go through the filters/caps first so they win
+    # their slot instead of losing to an arbitrary same-name sibling that
+    # happens to come first in PyOpenMagnetics' own iteration order - see
+    # PRIORITY_CORE_REFERENCES above. Everything else keeps its original
+    # relative order.
+    raw_cores = sorted(raw_cores, key=lambda c: 0 if _is_priority_reference(c) else 1)
+
     results = []
 
     per_material_count: dict = {}
-    per_vendor_count: dict = {}
+    per_vendor_shape_count: dict = {}
 
     for c in raw_cores:
         fd = c.get("functionalDescription") or {}
@@ -255,9 +320,12 @@ def fetch_cores() -> list[dict]:
         mfr = c.get("manufacturerInfo") or {}
         vendor_name = mfr.get("name", "Unknown")
 
+        core_shape, shape_family = _core_shape_and_family(fd)
+
+        vendor_shape_key = (vendor_name, core_shape)
         if (
-            per_vendor_count.get(vendor_name, 0)
-            >= MAX_CORES_PER_VENDOR
+            per_vendor_shape_count.get(vendor_shape_key, 0)
+            >= MAX_CORES_PER_VENDOR_SHAPE
         ):
             continue
 
@@ -299,6 +367,8 @@ def fetch_cores() -> list[dict]:
                     rec_freq.get("maximumFrequency") or 0.0
                 )
                 / 1000.0,
+                "CoreShape": core_shape,
+                "ShapeFamily": shape_family,
             }
         )
 
@@ -306,8 +376,8 @@ def fetch_cores() -> list[dict]:
             per_material_count.get(material_name, 0) + 1
         )
 
-        per_vendor_count[vendor_name] = (
-            per_vendor_count.get(vendor_name, 0) + 1
+        per_vendor_shape_count[vendor_shape_key] = (
+            per_vendor_shape_count.get(vendor_shape_key, 0) + 1
         )
 
         if len(results) >= MAX_CORES_TO_LOAD:
@@ -393,6 +463,8 @@ def main():
                 "Vendor",
                 "MaxCurrent_A",
                 "MaxFreq_kHz",
+                "CoreShape",
+                "ShapeFamily",
             ]
         )
 
@@ -411,6 +483,8 @@ def main():
                     c["Vendor"],
                     c["MaxCurrent_A"],
                     c["MaxFreq_kHz"],
+                    c["CoreShape"],
+                    c["ShapeFamily"],
                 ]
             )
 

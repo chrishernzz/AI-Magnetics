@@ -14,6 +14,15 @@ struct CoreData {
 
     //Mean-length-per-turn (mm), estimated from real core column geometry (see scripts/export_real_data.py) - 0.0 means "no data", callers must treat that as missing, not as a real zero-length core.
     double mlt = 0.0;
+
+    //Real vendor/manufacturer name from real_cores.csv's Vendor column - already fetched by magnetics_data.py but previously never threaded through to the C++ layer. Empty string means no vendor recorded.
+    std::string vendor;
+
+    //Real shape classification from PyOpenMagnetics' own geometry record (see scripts/export_real_data.py's _core_shape_and_family) - "Toroid" or "TwoPieceSet". Empty string means no shape data recorded for this core.
+    std::string coreShape;
+
+    //Human-readable geometry family (e.g. "T", "ETD", "PQ", "RM") from the same source as coreShape. Empty string means no shape data recorded.
+    std::string shapeFamily;
 };
 
 class CoreDatabase{

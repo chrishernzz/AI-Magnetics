@@ -4,6 +4,7 @@
 #include "backend/services/InductorDesignService.h"
 #include "backend/services/BuckElectricalSolver.h"
 #include "core/model/TopologyInput.h"
+#include "core/model/ConductionMode.h"
 #include "core/sizing/AreaProduct.h"
 #include "core/sizing/CoreEvaluation.h"
 #include "core/model/DesignRecommendation.h"
@@ -14,13 +15,21 @@
 #include "core/thermal/ThermalEvaluation.h"
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/winding/WindingDesign.h"
+#include "core/winding/WindingConstructionType.h"
 #include "core/losses/CoreLoss.h"
+#include "core/losses/SkinDepthRisk.h"
+#include "core/magnetics/GapMethod.h"
+#include "core/model/Provenance.h"
+#include "core/model/EngineVersions.h"
 #include "data/CoreDatabase.h"
 #include "data/CoreLossCoefficientDatabase.h"
 #include "data/MaterialDatabase.h"
 #include "rules/DesignRules.h"
 #include "validation/EvaluationStatus.h"
 #include "validation/Validation.h"
+#include "validation/DesignValidation.h"
+#include "validation/RecommendationStatus.h"
+#include "core/model/LossSummary.h"
 
 namespace py = pybind11;
 
@@ -58,7 +67,10 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("ae", &CoreData::ae)
         .def_readwrite("wa", &CoreData::wa)
         .def_readwrite("le", &CoreData::le)
-        .def_readwrite("mlt", &CoreData::mlt);
+        .def_readwrite("mlt", &CoreData::mlt)
+        .def_readwrite("vendor", &CoreData::vendor)
+        .def_readwrite("coreShape", &CoreData::coreShape)
+        .def_readwrite("shapeFamily", &CoreData::shapeFamily);
     py::class_<MaterialData>(m, "MaterialData")
         .def(py::init<>())
         .def_readwrite("name", &MaterialData::name)
@@ -79,7 +91,10 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("beta", &CoreLossCoefficientData::beta)
         .def_readwrite("ct0", &CoreLossCoefficientData::ct0)
         .def_readwrite("ct1", &CoreLossCoefficientData::ct1)
-        .def_readwrite("ct2", &CoreLossCoefficientData::ct2);
+        .def_readwrite("ct2", &CoreLossCoefficientData::ct2)
+        .def_readwrite("minFluxSwingT", &CoreLossCoefficientData::minFluxSwingT)
+        .def_readwrite("maxFluxSwingT", &CoreLossCoefficientData::maxFluxSwingT)
+        .def_readwrite("testTemperatureC", &CoreLossCoefficientData::testTemperatureC);
 
     //vector contains valid core records : in-memory core database is replaced with supplied data
     m.def("set_core_database", &CoreDatabase::setData, "Replace the in-memory core database (called once at startup with real data)");
@@ -102,6 +117,19 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .value("NotEvaluated", EvaluationStatus::NotEvaluated)
         .value("Rejected", EvaluationStatus::Rejected);
 
+    py::enum_<GapMethod>(m, "GapMethod")
+        .value("MachinedCenterLeg", GapMethod::MachinedCenterLeg)
+        .value("Spacer", GapMethod::Spacer)
+        .value("Distributed", GapMethod::Distributed)
+        .value("ManufacturerGapped", GapMethod::ManufacturerGapped);
+
+    py::enum_<WindingConstructionType>(m, "WindingConstructionType")
+        .value("SingleRoundWire", WindingConstructionType::SingleRoundWire)
+        .value("ParallelRoundWires", WindingConstructionType::ParallelRoundWires)
+        .value("Foil", WindingConstructionType::Foil)
+        .value("Busbar", WindingConstructionType::Busbar)
+        .value("PCB", WindingConstructionType::PCB);
+
     py::class_<DesignRules>(m, "DesignRules")
         .def(py::init<>())
         .def_readwrite("windowUtilization", &DesignRules::windowUtilization)
@@ -110,11 +138,64 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("minimumSaturationMarginPercent", &DesignRules::minimumSaturationMarginPercent)
         .def_readwrite("maximumFillFactor", &DesignRules::maximumFillFactor)
         .def_readwrite("defaultInductanceTolerancePercent", &DesignRules::defaultInductanceTolerancePercent)
-        .def_readwrite("minimumSingleStrandAwg", &DesignRules::minimumSingleStrandAwg);
+        .def_readwrite("minimumSingleStrandAwg", &DesignRules::minimumSingleStrandAwg)
+        .def_readwrite("maximumRippleCurrentPercent", &DesignRules::maximumRippleCurrentPercent)
+        .def_readwrite("recommendedFluxDerateFactor", &DesignRules::recommendedFluxDerateFactor)
+        .def_readwrite("minManufacturableGapMm", &DesignRules::minManufacturableGapMm)
+        .def_readwrite("gapStepMm", &DesignRules::gapStepMm)
+        .def_readwrite("maxGapFraction", &DesignRules::maxGapFraction)
+        .def_readwrite("gapTolerancePercent", &DesignRules::gapTolerancePercent)
+        .def_readwrite("gapMethod", &DesignRules::gapMethod)
+        .def_readwrite("singleBuildInsulationBuildUpMm", &DesignRules::singleBuildInsulationBuildUpMm)
+        .def_readwrite("packingFactor", &DesignRules::packingFactor)
+        .def_readwrite("bobbinWindowDerateFactor", &DesignRules::bobbinWindowDerateFactor)
+        .def_readwrite("marginAllowanceAreaFraction", &DesignRules::marginAllowanceAreaFraction)
+        .def_readwrite("leadExitAllowanceAreaFraction", &DesignRules::leadExitAllowanceAreaFraction)
+        .def_readwrite("currentSharingDerateFactor", &DesignRules::currentSharingDerateFactor)
+        .def_readwrite("totalLeadLengthAllowanceMm", &DesignRules::totalLeadLengthAllowanceMm)
+        .def_readwrite("routingLengthAllowanceMm", &DesignRules::routingLengthAllowanceMm)
+        .def_readwrite("connectionResistanceMilliOhm", &DesignRules::connectionResistanceMilliOhm)
+        .def_readwrite("copperTempCoefficientPerC", &DesignRules::copperTempCoefficientPerC)
+        .def_readwrite("assumedWindingTempCWhenThermalNotEvaluated", &DesignRules::assumedWindingTempCWhenThermalNotEvaluated)
+        .def_readwrite("defaultThermalResistanceCPerW", &DesignRules::defaultThermalResistanceCPerW)
+        .def_readwrite("thermalConvergenceThresholdC", &DesignRules::thermalConvergenceThresholdC)
+        .def_readwrite("maxThermalIterations", &DesignRules::maxThermalIterations)
+        .def_readwrite("skinDepthRiskModerateThreshold", &DesignRules::skinDepthRiskModerateThreshold)
+        .def_readwrite("skinDepthRiskHighThreshold", &DesignRules::skinDepthRiskHighThreshold);
 
     m.def("design_rules_phase1_default", &DesignRules::phase1Default,
           "Return the named Phase 1 default engineering ruleset (spec section 7) - "
           "the only place Ku/Bmax/J-style constants are defined.");
+
+    py::enum_<DataConfidence>(m, "DataConfidence")
+        .value("Manufacturer", DataConfidence::Manufacturer)
+        .value("Measured", DataConfidence::Measured)
+        .value("Derived", DataConfidence::Derived)
+        .value("Estimated", DataConfidence::Estimated)
+        .value("Phase1Default", DataConfidence::Phase1Default);
+
+    py::class_<SourceInfo>(m, "SourceInfo")
+        .def(py::init<>())
+        .def_readwrite("manufacturer", &SourceInfo::manufacturer)
+        .def_readwrite("partNumber", &SourceInfo::partNumber)
+        .def_readwrite("materialGrade", &SourceInfo::materialGrade)
+        .def_readwrite("datasheetName", &SourceInfo::datasheetName)
+        .def_readwrite("datasheetRevision", &SourceInfo::datasheetRevision)
+        .def_readwrite("datasheetUrl", &SourceInfo::datasheetUrl)
+        .def_readwrite("dateAccessed", &SourceInfo::dateAccessed)
+        .def_readwrite("confidence", &SourceInfo::confidence)
+        .def_readwrite("confidenceNote", &SourceInfo::confidenceNote);
+
+    py::class_<EngineVersions>(m, "EngineVersions")
+        .def(py::init<>())
+        .def_readwrite("calculationEngineVersion", &EngineVersions::calculationEngineVersion)
+        .def_readwrite("designRulesVersion", &EngineVersions::designRulesVersion)
+        .def_readwrite("coreDatabaseVersion", &EngineVersions::coreDatabaseVersion)
+        .def_readwrite("materialDatabaseVersion", &EngineVersions::materialDatabaseVersion);
+
+    m.def("set_engine_versions", &EngineVersionsStore::setDatabaseVersions,
+          "Set the core/material database version strings (real content hashes of the loaded CSVs) - "
+          "called once at FastAPI startup, read by every run's DesignRecommendation.versions afterward.");
 
     py::class_<MaterialCandidate>(m, "MaterialCandidate")
         .def(py::init<>())
@@ -127,7 +208,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("cuLossFactor", &MaterialCandidate::cuLossFactor)
         .def_readwrite("reason", &MaterialCandidate::reason)
         .def_readwrite("alternatives", &MaterialCandidate::alternatives)
-        .def_readwrite("missingDataWarnings", &MaterialCandidate::missingDataWarnings);
+        .def_readwrite("missingDataWarnings", &MaterialCandidate::missingDataWarnings)
+        .def_readwrite("source", &MaterialCandidate::source);
 
     py::class_<CoreCandidate>(m, "CoreCandidate")
         .def(py::init<>())
@@ -140,7 +222,11 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("leMm", &CoreCandidate::leMm)
         .def_readwrite("mltMm", &CoreCandidate::mltMm)
         .def_readwrite("areaProductCm4", &CoreCandidate::areaProductCm4)
-        .def_readwrite("meetsAreaProduct", &CoreCandidate::meetsAreaProduct);
+        .def_readwrite("meetsAreaProduct", &CoreCandidate::meetsAreaProduct)
+        .def_readwrite("vendor", &CoreCandidate::vendor)
+        .def_readwrite("coreShape", &CoreCandidate::coreShape)
+        .def_readwrite("shapeFamily", &CoreCandidate::shapeFamily)
+        .def_readwrite("source", &CoreCandidate::source);
 
     py::class_<TurnsAndGapResult>(m, "TurnsAndGapResult")
         .def(py::init<>())
@@ -151,7 +237,16 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("inductanceErrorPercent", &TurnsAndGapResult::inductanceErrorPercent)
         .def_readwrite("withinTolerance", &TurnsAndGapResult::withinTolerance)
         .def_readwrite("converged", &TurnsAndGapResult::converged)
-        .def_readwrite("rejectionReasons", &TurnsAndGapResult::rejectionReasons);
+        .def_readwrite("rejectionReasons", &TurnsAndGapResult::rejectionReasons)
+        .def_readwrite("gapMethod", &TurnsAndGapResult::gapMethod)
+        .def_readwrite("gapMinMm", &TurnsAndGapResult::gapMinMm)
+        .def_readwrite("gapMaxMm", &TurnsAndGapResult::gapMaxMm)
+        .def_readwrite("inductanceAtMinGapUH", &TurnsAndGapResult::inductanceAtMinGapUH)
+        .def_readwrite("inductanceAtMaxGapUH", &TurnsAndGapResult::inductanceAtMaxGapUH)
+        .def_readwrite("inductanceWithinToleranceAcrossGapRange", &TurnsAndGapResult::inductanceWithinToleranceAcrossGapRange)
+        .def_readwrite("smallGapWarning", &TurnsAndGapResult::smallGapWarning)
+        .def_readwrite("smallGapWarningReason", &TurnsAndGapResult::smallGapWarningReason);
+    m.def("design_turns_and_gap", &designTurnsAndGap, "Run the turns/gap convergence loop directly against a core, target inductance, and tolerance - exposed for tests that need this stage in isolation from full core auto-selection");
 
     py::class_<ValidationResult>(m, "ValidationResult")
         .def(py::init<>())
@@ -161,8 +256,21 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("limitValue", &ValidationResult::limitValue)
         .def_readwrite("unit", &ValidationResult::unit)
         .def_readwrite("explanation", &ValidationResult::explanation)
-        .def_readwrite("usedDefaultLimit", &ValidationResult::usedDefaultLimit)
-        .def_readwrite("status", &ValidationResult::status);
+        .def_readwrite("usesDefaultAssumption", &ValidationResult::usesDefaultAssumption)
+        .def_readwrite("status", &ValidationResult::status)
+        .def_readwrite("isPreliminaryEstimate", &ValidationResult::isPreliminaryEstimate)
+        .def_readwrite("mandatory", &ValidationResult::mandatory);
+
+    py::class_<FluxLimitTiers>(m, "FluxLimitTiers")
+        .def(py::init<>())
+        .def_readwrite("absoluteSaturationT", &FluxLimitTiers::absoluteSaturationT)
+        .def_readwrite("absoluteSaturationIsDefault", &FluxLimitTiers::absoluteSaturationIsDefault)
+        .def_readwrite("recommendedOperatingT", &FluxLimitTiers::recommendedOperatingT)
+        .def_readwrite("temperatureAdjustedStatus", &FluxLimitTiers::temperatureAdjustedStatus)
+        .def_readwrite("temperatureAdjustedExplanation", &FluxLimitTiers::temperatureAdjustedExplanation)
+        .def_readwrite("coreLossLimitedStatus", &FluxLimitTiers::coreLossLimitedStatus)
+        .def_readwrite("coreLossLimitedExplanation", &FluxLimitTiers::coreLossLimitedExplanation);
+    m.def("calculate_flux_limit_tiers", &calculateFluxLimitTiers, "Compute the informational flux-limit tier breakdown for a material candidate");
 
     py::class_<WindingDesignResult>(m, "WindingDesignResult")
         .def(py::init<>())
@@ -175,7 +283,23 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("resistanceStatus", &WindingDesignResult::resistanceStatus)
         .def_readwrite("totalWireLengthM", &WindingDesignResult::totalWireLengthM)
         .def_readwrite("dcrOhms", &WindingDesignResult::dcrOhms)
-        .def_readwrite("missingData", &WindingDesignResult::missingData);
+        .def_readwrite("missingData", &WindingDesignResult::missingData)
+        .def_readwrite("constructionType", &WindingDesignResult::constructionType)
+        .def_readwrite("insulatedConductorDiameterMm", &WindingDesignResult::insulatedConductorDiameterMm)
+        .def_readwrite("insulatedConductorAreaMm2", &WindingDesignResult::insulatedConductorAreaMm2)
+        .def_readwrite("physicalDescription", &WindingDesignResult::physicalDescription)
+        .def_readwrite("physicalWindowAreaMm2", &WindingDesignResult::physicalWindowAreaMm2)
+        .def_readwrite("physicalWindowFillFactor", &WindingDesignResult::physicalWindowFillFactor)
+        .def_readwrite("fitsPhysicalWindow", &WindingDesignResult::fitsPhysicalWindow)
+        .def_readwrite("effectiveCurrentDensityAperMm2", &WindingDesignResult::effectiveCurrentDensityAperMm2)
+        .def_readwrite("bundleFitStatus", &WindingDesignResult::bundleFitStatus)
+        .def_readwrite("coreWindingLengthM", &WindingDesignResult::coreWindingLengthM)
+        .def_readwrite("leadLengthM", &WindingDesignResult::leadLengthM)
+        .def_readwrite("routingLengthM", &WindingDesignResult::routingLengthM)
+        .def_readwrite("totalLengthM", &WindingDesignResult::totalLengthM)
+        .def_readwrite("connectionResistanceOhms", &WindingDesignResult::connectionResistanceOhms)
+        .def_readwrite("coldDcrOhmsAt20C", &WindingDesignResult::coldDcrOhmsAt20C)
+        .def_readwrite("estimatedHotDcrOhms", &WindingDesignResult::estimatedHotDcrOhms);
 
     py::class_<LossEvaluationResult>(m, "LossEvaluationResult")
         .def(py::init<>())
@@ -183,20 +307,84 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("copperLossW", &LossEvaluationResult::copperLossW)
         .def_readwrite("coreLossStatus", &LossEvaluationResult::coreLossStatus)
         .def_readwrite("coreLossW", &LossEvaluationResult::coreLossW)
-        .def_readwrite("highFrequencyLossStatus", &LossEvaluationResult::highFrequencyLossStatus)
-        .def_readwrite("highFrequencyLossW", &LossEvaluationResult::highFrequencyLossW)
+        .def_readwrite("coreLossMaterialUsed", &LossEvaluationResult::coreLossMaterialUsed)
+        .def_readwrite("coreLossCoefficientMinFreqHz", &LossEvaluationResult::coreLossCoefficientMinFreqHz)
+        .def_readwrite("coreLossCoefficientMaxFreqHz", &LossEvaluationResult::coreLossCoefficientMaxFreqHz)
+        .def_readwrite("coreLossFluxDensitySwingT", &LossEvaluationResult::coreLossFluxDensitySwingT)
+        .def_readwrite("coreLossVolumeM3", &LossEvaluationResult::coreLossVolumeM3)
+        .def_readwrite("coreLossDensityWPerM3", &LossEvaluationResult::coreLossDensityWPerM3)
         .def_readwrite("missingData", &LossEvaluationResult::missingData);
+
+    py::enum_<AcLossRiskLevel>(m, "AcLossRiskLevel")
+        .value("Low", AcLossRiskLevel::Low)
+        .value("Moderate", AcLossRiskLevel::Moderate)
+        .value("High", AcLossRiskLevel::High);
+
+    py::class_<SkinDepthRiskResult>(m, "SkinDepthRiskResult")
+        .def(py::init<>())
+        .def_readwrite("skinDepthMm", &SkinDepthRiskResult::skinDepthMm)
+        .def_readwrite("strandRadiusMm", &SkinDepthRiskResult::strandRadiusMm)
+        .def_readwrite("radiusToSkinDepthRatio", &SkinDepthRiskResult::radiusToSkinDepthRatio)
+        .def_readwrite("riskLevel", &SkinDepthRiskResult::riskLevel)
+        .def_readwrite("reason", &SkinDepthRiskResult::reason)
+        .def_readwrite("acLossWattsStatus", &SkinDepthRiskResult::acLossWattsStatus)
+        .def_readwrite("acLossWattsExplanation", &SkinDepthRiskResult::acLossWattsExplanation);
+    m.def("evaluate_skin_depth_risk", &evaluateSkinDepthRisk, "Evaluate the qualitative skin-depth AC-loss risk for a single strand at a given switching frequency");
+
+    py::enum_<ThermalStatus>(m, "ThermalStatus")
+        .value("NotEvaluated", ThermalStatus::NotEvaluated)
+        .value("PreliminaryThermalEstimate", ThermalStatus::PreliminaryThermalEstimate);
+
+    py::class_<ThermalIterationInputs>(m, "ThermalIterationInputs")
+        .def(py::init<>())
+        .def_readwrite("ambientTemperatureC", &ThermalIterationInputs::ambientTemperatureC)
+        .def_readwrite("rmsCurrentA", &ThermalIterationInputs::rmsCurrentA)
+        .def_readwrite("coldDcrOhmsAt20C", &ThermalIterationInputs::coldDcrOhmsAt20C)
+        .def_readwrite("copperLossGeometryKnown", &ThermalIterationInputs::copperLossGeometryKnown)
+        .def_readwrite("coreLossW", &ThermalIterationInputs::coreLossW)
+        .def_readwrite("coreLossKnown", &ThermalIterationInputs::coreLossKnown);
 
     py::class_<ThermalEvaluationResult>(m, "ThermalEvaluationResult")
         .def(py::init<>())
         .def_readwrite("status", &ThermalEvaluationResult::status)
+        .def_readwrite("convergedWindingTempC", &ThermalEvaluationResult::convergedWindingTempC)
+        .def_readwrite("hotDcrOhms", &ThermalEvaluationResult::hotDcrOhms)
+        .def_readwrite("copperLossAtConvergedTempW", &ThermalEvaluationResult::copperLossAtConvergedTempW)
+        .def_readwrite("knownLossW", &ThermalEvaluationResult::knownLossW)
         .def_readwrite("predictedTempRiseC", &ThermalEvaluationResult::predictedTempRiseC)
+        .def_readwrite("predictedHotspotTempC", &ThermalEvaluationResult::predictedHotspotTempC)
+        .def_readwrite("iterationsUsed", &ThermalEvaluationResult::iterationsUsed)
+        .def_readwrite("converged", &ThermalEvaluationResult::converged)
+        .def_readwrite("thermalResistanceCPerWUsed", &ThermalEvaluationResult::thermalResistanceCPerWUsed)
         .def_readwrite("missingDataExplanation", &ThermalEvaluationResult::missingDataExplanation);
+    m.def("evaluate_thermal", &evaluateThermal, "Run the real iterative thermal convergence loop (temp -> hot DCR -> copper loss -> temp rise -> repeat)");
 
     py::class_<RejectionReason>(m, "RejectionReason")
         .def(py::init<>())
         .def_readwrite("checkName", &RejectionReason::checkName)
         .def_readwrite("explanation", &RejectionReason::explanation);
+
+    py::enum_<RecommendationTier>(m, "RecommendationTier")
+        .value("Pass", RecommendationTier::Pass)
+        .value("ConditionalPass", RecommendationTier::ConditionalPass)
+        .value("Reject", RecommendationTier::Reject);
+
+    py::class_<RecommendationClassification>(m, "RecommendationClassification")
+        .def(py::init<>())
+        .def_readwrite("tier", &RecommendationClassification::tier)
+        .def_readwrite("checksEvaluatedCount", &RecommendationClassification::checksEvaluatedCount)
+        .def_readwrite("checksPassedCount", &RecommendationClassification::checksPassedCount)
+        .def_readwrite("checksFailedCount", &RecommendationClassification::checksFailedCount)
+        .def_readwrite("checksNotEvaluatedCount", &RecommendationClassification::checksNotEvaluatedCount)
+        .def_readwrite("missingInfo", &RecommendationClassification::missingInfo)
+        .def_readwrite("explanation", &RecommendationClassification::explanation);
+    m.def("determine_recommendation_status", &determineRecommendationStatus, "Classify a candidate into the 3-tier PASS/CONDITIONAL_PASS/REJECT recommendation status");
+
+    py::class_<LossSummary>(m, "LossSummary")
+        .def(py::init<>())
+        .def_readwrite("knownPartialLossW", &LossSummary::knownPartialLossW)
+        .def_readwrite("isCompleteTotal", &LossSummary::isCompleteTotal)
+        .def_readwrite("label", &LossSummary::label);
 
     py::class_<InductorCandidate>(m, "InductorCandidate")
         .def(py::init<>())
@@ -208,7 +396,13 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("losses", &InductorCandidate::losses)
         .def_readwrite("thermal", &InductorCandidate::thermal)
         .def_readwrite("passed", &InductorCandidate::passed)
-        .def_readwrite("rejectionReasons", &InductorCandidate::rejectionReasons);
+        .def_readwrite("rejectionReasons", &InductorCandidate::rejectionReasons)
+        .def_readwrite("fluxLimits", &InductorCandidate::fluxLimits)
+        .def_readwrite("acLossRisk", &InductorCandidate::acLossRisk)
+        .def_readwrite("recommendation", &InductorCandidate::recommendation)
+        .def_readwrite("lossSummary", &InductorCandidate::lossSummary)
+        .def_readwrite("manufacturabilityMarginPercent", &InductorCandidate::manufacturabilityMarginPercent)
+        .def_readwrite("rankingExplanation", &InductorCandidate::rankingExplanation);
 
     py::class_<DesignRecommendation>(m, "DesignRecommendation")
         .def(py::init<>())
@@ -218,7 +412,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("rejectedCandidates", &DesignRecommendation::rejectedCandidates)
         .def_readwrite("activeRules", &DesignRecommendation::activeRules)
         .def_readwrite("requiredAreaProductCm4", &DesignRecommendation::requiredAreaProductCm4)
-        .def_readwrite("largestAvailableAreaProductCm4", &DesignRecommendation::largestAvailableAreaProductCm4);
+        .def_readwrite("largestAvailableAreaProductCm4", &DesignRecommendation::largestAvailableAreaProductCm4)
+        .def_readwrite("versions", &DesignRecommendation::versions);
 
     py::class_<InductorDesignRequest>(m, "InductorDesignRequest")
         .def(py::init<>())
@@ -259,8 +454,33 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("allowableTempRiseC", &TopologyInput::allowableTempRiseC)
         .def_readwrite("inductanceTolerancePercent", &TopologyInput::inductanceTolerancePercent);
 
+    py::enum_<ConductionMode>(m, "ConductionMode")
+        .value("CCM", ConductionMode::CCM)
+        .value("CCMBoundary", ConductionMode::CCMBoundary)
+        .value("DCMUnsupported", ConductionMode::DCMUnsupported);
+
+    py::class_<BuckOperatingPointResult>(m, "BuckOperatingPointResult")
+        .def(py::init<>())
+        .def_readwrite("vinV", &BuckOperatingPointResult::vinV)
+        .def_readwrite("dutyCycle", &BuckOperatingPointResult::dutyCycle)
+        .def_readwrite("rippleCurrentPeakToPeakA", &BuckOperatingPointResult::rippleCurrentPeakToPeakA)
+        .def_readwrite("peakCurrentA", &BuckOperatingPointResult::peakCurrentA)
+        .def_readwrite("minInductorCurrentA", &BuckOperatingPointResult::minInductorCurrentA);
+
+    py::class_<BuckSolveResult>(m, "BuckSolveResult")
+        .def(py::init<>())
+        .def_readwrite("request", &BuckSolveResult::request)
+        .def_readwrite("atVinMin", &BuckSolveResult::atVinMin)
+        .def_readwrite("atVinMax", &BuckSolveResult::atVinMax)
+        .def_readwrite("worstCaseDutyCycleAt", &BuckSolveResult::worstCaseDutyCycleAt)
+        .def_readwrite("worstCaseRippleAt", &BuckSolveResult::worstCaseRippleAt)
+        .def_readwrite("worstCasePeakAt", &BuckSolveResult::worstCasePeakAt)
+        .def_readwrite("conductionMode", &BuckSolveResult::conductionMode)
+        .def_readwrite("assumptions", &BuckSolveResult::assumptions)
+        .def_readwrite("warnings", &BuckSolveResult::warnings);
+
     m.def("solve_buck_topology", &BuckElectricalSolver::solve,
-          "MODE 1: derive an InductorDesignRequest (inductance, peak current, "
-          "average current + ripple) from Buck converter operating requirements, "
-          "sized at the worst-case Vin_max operating point");
+          "MODE 1: derive a BuckSolveResult (sized InductorDesignRequest, real "
+          "electrical quantities at both Vin_min and Vin_max, CCM/DCM classification, "
+          "and stated Phase 1 assumptions) from Buck converter operating requirements");
 }

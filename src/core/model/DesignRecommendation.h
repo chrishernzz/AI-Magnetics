@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include "core/model/InductorCandidate.h"
+#include "core/model/EngineVersions.h"
 #include "rules/DesignRules.h"
 
 /*
@@ -25,4 +26,7 @@ struct DesignRecommendation {
     //populated only when status == "no_feasible_design" and the failure is an area-product shortfall (spec section 8's structured result).
     double requiredAreaProductCm4 = 0.0;
     double largestAvailableAreaProductCm4 = 0.0;
+
+    //reproducibility metadata for this run - see EngineVersions.h.
+    EngineVersions versions;
 };

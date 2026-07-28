@@ -1,4 +1,5 @@
 #include "DesignValidation.h"
+#include "core/units/UnitConversions.h"
 #include <cmath>
 
 namespace {
@@ -9,8 +10,8 @@ double calculatePeakFluxDensityT(const CoreCandidate& core, const TurnsAndGapRes
     if (turnsAndGap.turns <= 0) {
         return 0.0;
     }
-    double inductanceH = turnsAndGap.calculatedInductanceUH * 1e-6;
-    double aeM2 = core.aeMm2 * 1e-6;
+    double inductanceH = units::uHToH(turnsAndGap.calculatedInductanceUH);
+    double aeM2 = units::mm2ToM2(core.aeMm2);
     return (inductanceH * peakCurrentA) / (static_cast<double>(turnsAndGap.turns) * aeM2);
 }
 
@@ -26,7 +27,52 @@ FluxLimit applicableFluxLimit(const MaterialCandidate& material, const DesignRul
     return {rules.defaultFluxDensityLimitT, true};
 }
 
+std::string conductionModeName(ConductionMode mode) {
+    switch (mode) {
+        case ConductionMode::CCM:
+            return "CCM";
+        case ConductionMode::CCMBoundary:
+            return "CCMBoundary";
+        case ConductionMode::DCMUnsupported:
+            return "DCMUnsupported";
+    }
+    return "unknown";
+}
+
 }  // namespace
+
+//precondition: none
+//postcondition: see header
+ValidationResult CurrentConsistencyValidation(const OperatingPoint& operatingPoint) {
+    ValidationResult result;
+    result.checkName = "CurrentConsistencyValidation";
+    result.unit = "A";
+    result.mandatory = true;
+
+    if (operatingPoint.currentConsistencyStatus != EvaluationStatus::Evaluated) {
+        result.status = EvaluationStatus::NotEvaluated;
+        result.passed = false;
+        result.calculatedValue = 0.0;
+        result.explanation =
+            "not evaluated: no rippleCurrentPeakToPeakA supplied - minimum inductor current, and therefore "
+            "conduction mode, cannot be derived from peak current alone";
+        return result;
+    }
+
+    //A genuine physical contradiction (negative minimum current, or an out-of-envelope rmsCurrentA) already
+    //threw in RequirementDerivationService::derive() before any candidate was evaluated, so this check
+    //always passes for a candidate that reaches it - it exists to surface the real conduction-mode/minimum-
+    //current numbers per candidate, the same way every other check surfaces its own real numbers, not to
+    //re-run a gate that already ran once at the requirements level.
+    result.calculatedValue = operatingPoint.minInductorCurrentA;
+    result.limitValue = 0.0;
+    result.passed = true;
+    result.explanation = "conduction mode " + conductionModeName(operatingPoint.conductionMode) +
+                          ", minimum inductor current " + std::to_string(operatingPoint.minInductorCurrentA) +
+                          " A vs peak " + std::to_string(operatingPoint.peakCurrentA) + " A (" +
+                          operatingPoint.currentConsistencyExplanation + ")";
+    return result;
+}
 
 //precondition: none
 //postcondition: passes only if turns/gap converged and the resulting inductance is within tolerance
@@ -62,7 +108,7 @@ ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCan
 
     result.calculatedValue = bpk;
     result.limitValue = limit.limitT;
-    result.usedDefaultLimit = limit.usedDefault;
+    result.usesDefaultAssumption = limit.usedDefault;
     result.passed = turnsAndGap.converged && bpk <= limit.limitT;
     result.explanation = "peak flux density " + std::to_string(bpk) + " T vs limit " +
                           std::to_string(limit.limitT) + " T (" +
@@ -88,7 +134,7 @@ ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialC
     double marginPercent = limit.limitT > 0.0 ? 100.0 * (limit.limitT - bpk) / limit.limitT : 0.0;
 
     result.calculatedValue = marginPercent;
-    result.usedDefaultLimit = limit.usedDefault;
+    result.usesDefaultAssumption = limit.usedDefault;
     result.passed = turnsAndGap.converged && marginPercent >= rules.minimumSaturationMarginPercent;
     result.explanation = "saturation margin " + std::to_string(marginPercent) + "% vs required " + std::to_string(rules.minimumSaturationMarginPercent) + "% (" +
                           (limit.usedDefault ? "against the Phase 1 default flux limit, not a material fact"
@@ -98,15 +144,20 @@ ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialC
 }
 
 //precondition: none
-//postcondition: passes if fill factor is at or below the maximum
+//postcondition: passes if the realistic physical window fill (insulated conductors, packing factor,
+//bobbin/margin/lead-exit derates - see WindingDesign.h) is at or below the maximum. Gates on
+//physicalWindowFillFactor, not the raw copper-only fillFactor - an intentional behavior change from the
+//Phase 1 stub: a candidate that passed on raw copper fill alone can now fail here.
 ValidationResult WindingFitValidation(const WindingDesignResult& winding, const DesignRules& rules) {
     ValidationResult result;
     result.checkName = "WindingFitValidation";
     result.unit = "fraction";
-    result.calculatedValue = winding.fillFactor;
+    result.calculatedValue = winding.physicalWindowFillFactor;
     result.limitValue = rules.maximumFillFactor;
-    result.passed = winding.fitsWindow;
-    result.explanation = "fill factor " + std::to_string(winding.fillFactor) + " vs maximum " + std::to_string(rules.maximumFillFactor);
+    result.passed = winding.fitsPhysicalWindow;
+    result.explanation = "physical window fill " + std::to_string(winding.physicalWindowFillFactor) + " vs maximum " +
+                          std::to_string(rules.maximumFillFactor) + " (raw copper-only fill was " +
+                          std::to_string(winding.fillFactor) + ")";
     return result;
 }
 
@@ -118,7 +169,7 @@ ValidationResult CurrentDensityValidation(const WindingDesignResult& winding, co
     result.unit = "A/mm^2";
 
     //A/cm^2 -> A/mm^2
-    double allowableAPerMm2 = rules.allowableCurrentDensityAperCm2 / 100.0;  
+    double allowableAPerMm2 = units::aPerCm2ToAPerMm2(rules.allowableCurrentDensityAperCm2);
 
     result.calculatedValue = winding.currentDensityAperMm2;
     result.limitValue = allowableAPerMm2;
@@ -128,14 +179,17 @@ ValidationResult CurrentDensityValidation(const WindingDesignResult& winding, co
 }
 
 //precondition: none
-//postcondition: passes only when thermal.status == Evaluated and the predicted rise is within allowableTempRiseC; otherwise not_evaluated (passed=false, never an assumed pass - spec section 10)
+//postcondition: passes only when thermal.status == PreliminaryThermalEstimate and the predicted rise is within allowableTempRiseC;
+//otherwise not_evaluated (passed=false, never an assumed pass - spec section 10). ThermalStatus has no "fully evaluated" value
+//(see ThermalEvaluation.h), so a passing result here always carries isPreliminaryEstimate=true - the numeric check genuinely
+//ran and passed/failed, but rests on a Phase 1 coarse thermal-resistance constant, never per-core measured/simulated data.
 ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, double allowableTempRiseC) {
     ValidationResult result;
     result.checkName = "ThermalValidation";
     result.unit = "C";
     result.limitValue = allowableTempRiseC;
 
-    if (thermal.status != EvaluationStatus::Evaluated) {
+    if (thermal.status != ThermalStatus::PreliminaryThermalEstimate) {
         result.calculatedValue = 0.0;
         result.passed = false;
         result.status = EvaluationStatus::NotEvaluated;
@@ -145,6 +199,20 @@ ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, doubl
 
     result.calculatedValue = thermal.predictedTempRiseC;
     result.passed = thermal.predictedTempRiseC <= allowableTempRiseC;
-    result.explanation = "predicted temperature rise " + std::to_string(thermal.predictedTempRiseC) + " C vs allowable " + std::to_string(allowableTempRiseC) + " C";
+    result.isPreliminaryEstimate = true;
+    result.explanation = "predicted temperature rise " + std::to_string(thermal.predictedTempRiseC) + " C vs allowable " +
+                          std::to_string(allowableTempRiseC) + " C (Rth=" +
+                          std::to_string(thermal.thermalResistanceCPerWUsed) + " C/W is a Phase 1 default, not per-core measured data)";
     return result;
+}
+
+//precondition: none
+//postcondition: see header
+FluxLimitTiers calculateFluxLimitTiers(const MaterialCandidate& material, const DesignRules& rules) {
+    FluxLimitTiers tiers;
+    FluxLimit limit = applicableFluxLimit(material, rules);
+    tiers.absoluteSaturationT = limit.limitT;
+    tiers.absoluteSaturationIsDefault = limit.usedDefault;
+    tiers.recommendedOperatingT = limit.limitT * rules.recommendedFluxDerateFactor;
+    return tiers;
 }
