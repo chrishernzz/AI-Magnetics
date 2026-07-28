@@ -258,6 +258,15 @@ function updateDirectDiagnosticsLive() {
         if (peakA > 0 && rmsA > 0 && rmsA > peakA) {
             currentNote.textContent = "RMS current is higher than peak current - that can't happen physically, double check these values.";
             currentNote.className = "diagnostics-note diagnostics-note-warn";
+        } else if (rippleRaw !== "" && Number(rippleRaw) === 0 && peakA > 0 && rmsA > 0 && Math.abs(rmsA - peakA) > 1e-6) {
+            // The single most common way to trip the RMS/peak/ripple consistency
+            // check: typing 0 into Ripple Current meaning "I don't have this data,"
+            // when 0 actually asserts "current is perfectly constant" - a much
+            // stronger claim that forces RMS to exactly equal peak. Caught here too
+            // (not just in the blocking input-validation card) since this is the
+            // moment someone's most likely to type 0 without realizing what it means.
+            currentNote.textContent = `Ripple Current is set to 0 (constant/DC current) - that requires RMS to exactly equal Peak (${peakA} A), but RMS is ${rmsA} A. If you don't have real ripple data, leave Ripple Current blank instead - blank skips the check, 0 asserts zero ripple.`;
+            currentNote.className = "diagnostics-note diagnostics-note-warn";
         } else {
             currentNote.textContent = "";
             currentNote.className = "diagnostics-note";
@@ -460,12 +469,33 @@ function validateDirectInputs() {
     if (!(tempRiseC > 0)) errors.push("Allowable temperature rise must be a positive number.");
     if (rippleRaw !== "") {
         const ripple = Number(rippleRaw);
+        const kZeroEpsilonA = 1e-6;
         if (!(ripple >= 0)) {
             errors.push("Ripple current must be zero or a positive number.");
         } else if (peakA > 0 && ripple > peakA) {
             errors.push(
                 "Ripple current (peak-to-peak) cannot exceed peak current - that implies a negative minimum inductor current (discontinuous conduction mode), which this engine does not model."
             );
+        } else if (peakA > 0 && !topologyDerived && rmsA > 0) {
+            // RMS must fall within [minInductorCurrentA, peakCurrentA] for any real
+            // waveform - same check RequirementDerivationService::derive() runs
+            // server-side (CurrentConsistencyValidation). Caught here, before
+            // Generate is even clickable, with an explanation specific to the
+            // most common way to trip it: typing 0 instead of leaving this field
+            // blank. 0 is not "no data" - it's the strong claim "this current is
+            // perfectly constant," which forces RMS to exactly equal peak.
+            const minCurrentA = peakA - ripple;
+            if (rmsA > peakA + kZeroEpsilonA || rmsA < minCurrentA - kZeroEpsilonA) {
+                if (ripple === 0) {
+                    errors.push(
+                        `Ripple Current is set to 0, which claims the current is perfectly constant (DC) - that requires RMS Current to exactly equal Peak Current (${peakA} A), but you entered ${rmsA} A. If you don't have real ripple data, leave Ripple Current blank instead of entering 0 - a blank field skips this check instead of asserting zero ripple.`
+                    );
+                } else {
+                    errors.push(
+                        `Supplied RMS current (${rmsA} A) is physically inconsistent with peak current and ripple - RMS can never fall outside [${minCurrentA.toFixed(3)}, ${peakA}] A for this peak/ripple combination.`
+                    );
+                }
+            }
         }
     }
 
