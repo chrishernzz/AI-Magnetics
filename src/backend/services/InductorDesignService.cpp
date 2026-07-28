@@ -36,9 +36,7 @@ LossSummary buildLossSummary(const LossEvaluationResult& losses) {
         components += components.empty() ? "core" : "+core";
     }
     summary.isCompleteTotal = false;
-    summary.label = components.empty()
-        ? "Known Partial Loss: no loss components evaluated"
-        : "Known Partial Loss (" + components + " - AC/skin-effect loss not modeled)";
+    summary.label = components.empty() ? "Known Partial Loss: no loss components evaluated" : "Known Partial Loss (" + components + " - AC/skin-effect loss not modeled)";
     return summary;
 }
 
@@ -61,14 +59,13 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
         return candidate;
     }
 
-    // Call order: winding (geometry + cold-reference DCR) -> losses (core loss, cold-reference copper loss)
-    // -> thermal (the iterative loop, fed by both) -> overwrite the cold-reference hot-DCR/copper-loss
-    // estimates with the converged result, but ONLY if the loop actually converged - otherwise the honest
-    // cold-reference/sanity-check values computed above remain untouched -> skin-depth risk -> validations.
+    //Call order: winding (geometry + cold-reference DCR) -> losses (core loss, cold-reference copper loss)
+    //-> thermal (the iterative loop, fed by both) -> overwrite the cold-reference hot-DCR/copper-loss
+    //estimates with the converged result, but ONLY if the loop actually converged - otherwise the honest
+    //cold-reference/sanity-check values computed above remain untouched -> skin-depth risk -> validations.
     candidate.winding = designWinding(core, candidate.turnsAndGap.turns, requirements.operatingPoint.rmsCurrentA, rules);
 
-    candidate.losses = evaluateLosses(material, core, candidate.turnsAndGap, candidate.winding, requirements.operatingPoint.rmsCurrentA,
-                                       requirements.operatingPoint.switchingFreqHz, requirements.operatingPoint.rippleCurrentPeakToPeakA);
+    candidate.losses = evaluateLosses(material, core, candidate.turnsAndGap, candidate.winding, requirements.operatingPoint.rmsCurrentA, requirements.operatingPoint.switchingFreqHz, requirements.operatingPoint.rippleCurrentPeakToPeakA);
 
     ThermalIterationInputs thermalInputs;
     thermalInputs.ambientTemperatureC = requirements.ambientTemperatureC;
@@ -98,12 +95,12 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
         ThermalValidation(candidate.thermal, requirements.allowableTempRiseC),
     };
 
-    // A candidate is blocked only by checks that actually ran and failed.
-    // A not_evaluated check (e.g. ThermalValidation with no thermal model
-    // available) is surfaced in candidate.validations either way, but it
-    // is a caveat, not a rejection reason - spec section 10 says a missing
-    // check must never be presented as a pass, not that it must block
-    // every candidate forever until the data exists.
+    //A candidate is blocked only by checks that actually ran and failed.
+    //A not_evaluated check (e.g. ThermalValidation with no thermal model
+    //available) is surfaced in candidate.validations either way, but it
+    //is a warning, not a rejection reason - spec section 10 says a missing
+    //check must never be presented as a pass, not that it must block
+    //every candidate forever until the data exists.
     candidate.passed = true;
     for (const auto& validation : candidate.validations) {
         if (validation.status == EvaluationStatus::Evaluated && !validation.passed) {
@@ -115,13 +112,11 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     candidate.recommendation = determineRecommendationStatus(candidate.passed, candidate.validations, candidate.acLossRisk);
     candidate.lossSummary = buildLossSummary(candidate.losses);
 
-    // Manufacturability margin (spec section 11): a documented simple composite of the two concrete
-    // manufacturability signals this pipeline actually produces - physical-fill headroom against
-    // rules.maximumFillFactor, and a fixed penalty when the calculated gap triggered the
-    // small-gap manufacturability warning (TurnsAndGapDesign.h). Not a validated single-number metric.
-    double fillHeadroomPercent = rules.maximumFillFactor > 0.0
-        ? 100.0 * (rules.maximumFillFactor - candidate.winding.physicalWindowFillFactor) / rules.maximumFillFactor
-        : 0.0;
+    //Manufacturability margin (spec section 11): a documented simple composite of the two concrete
+    //manufacturability signals this pipeline actually produces - physical-fill headroom against
+    //rules.maximumFillFactor, and a fixed penalty when the calculated gap triggered the
+    //small-gap manufacturability warning (TurnsAndGapDesign.h). Not a validated single-number metric.
+    double fillHeadroomPercent = rules.maximumFillFactor > 0.0 ? 100.0 * (rules.maximumFillFactor - candidate.winding.physicalWindowFillFactor) / rules.maximumFillFactor : 0.0;
     double smallGapPenaltyPercent = candidate.turnsAndGap.smallGapWarning ? 25.0 : 0.0;
     candidate.manufacturabilityMarginPercent = fillHeadroomPercent - smallGapPenaltyPercent;
 
@@ -228,6 +223,7 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
     //PeakFluxValidation/SaturationValidation report the real gap per candidate instead).
     bool peakSupplied = requirements.operatingPoint.peakCurrentA.has_value();
     double requiredAreaProductCm4 = 0.0;
+    //if there is a peak current then do the Ap else do not do it and skip the filter
     if (peakSupplied) {
         AreaProductInput apInput;
         apInput.inductanceH = requirements.operatingPoint.inductanceH;

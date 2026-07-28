@@ -6,6 +6,7 @@ namespace {
 
 //Formula for Peak Flux Density: Bpk(T) = L(H) * Ipk(A) / (N * Ae(m^2))
 //precondition: peakCurrentA is a real supplied value (never called when absent - see PeakFluxValidation/SaturationValidation)
+//postcondition: returns the calculated peak flux density in Tesla, or 0.0 if turnsAndGap.turns <= 0 (no real turns to compute with)
 double calculatePeakFluxDensityT(const CoreCandidate& core, const TurnsAndGapResult& turnsAndGap, double peakCurrentA) {
     //base case making sure turns is a real value
     if (turnsAndGap.turns <= 0) {
@@ -13,6 +14,7 @@ double calculatePeakFluxDensityT(const CoreCandidate& core, const TurnsAndGapRes
     }
     double inductanceH = units::uHToH(turnsAndGap.calculatedInductanceUH);
     double aeM2 = units::mm2ToM2(core.aeMm2);
+    //using the formual from above
     return (inductanceH * peakCurrentA) / (static_cast<double>(turnsAndGap.turns) * aeM2);
 }
 
@@ -20,7 +22,6 @@ struct FluxLimit {
     double limitT;
     bool usedDefault;
 };
-
 FluxLimit applicableFluxLimit(const MaterialCandidate& material, const DesignRules& rules) {
     if (material.hasBmaxData) {
         return {material.bmaxT, false};
@@ -28,6 +29,8 @@ FluxLimit applicableFluxLimit(const MaterialCandidate& material, const DesignRul
     return {rules.defaultFluxDensityLimitT, true};
 }
 
+//precondition: none
+//postcondition: returns what mode it is in
 std::string conductionModeName(ConductionMode mode) {
     switch (mode) {
         case ConductionMode::CCM:
@@ -43,9 +46,11 @@ std::string conductionModeName(ConductionMode mode) {
 }  // namespace
 
 //precondition: none
-//postcondition: see header
+//postcondition: passes only if peakCurrentA/rmsCurrentA/rippleCurrentPeakToPeakA describe one physically consistent waveform (spec: current-consistency validation). NotEvaluated whenever peak or ripple is missing, OR when both are present but genuinely contradict each other (implied DCM, or an out-of-envelope rmsCurrentA) - 
+//RequirementDerivationService::derive() never throws on this anymore, it always produces a real OperatingPoint with a clear currentConsistencyExplanation either way, so a design can still be generated from whatever data is actually usable.
 ValidationResult CurrentConsistencyValidation(const OperatingPoint& operatingPoint) {
     ValidationResult result;
+    //set the name, unit, and if it is mandatory
     result.checkName = "CurrentConsistencyValidation";
     result.unit = "A";
     result.mandatory = true;
@@ -78,6 +83,7 @@ ValidationResult CurrentConsistencyValidation(const OperatingPoint& operatingPoi
 //postcondition: passes only if turns/gap converged and the resulting inductance is within tolerance
 ValidationResult InductanceValidation(const TurnsAndGapResult& turnsAndGap, double tolerancePercent) {
     ValidationResult result;
+    //set the name, unit, and the limit tolerance
     result.checkName = "InductanceValidation";
     result.unit = "%";
     result.limitValue = tolerancePercent;
@@ -99,10 +105,12 @@ ValidationResult InductanceValidation(const TurnsAndGapResult& turnsAndGap, doub
 //postcondition: passes if calculated peak flux density is at or below the applicable limit (material-specific if available, else the Phase 1 default). NotEvaluated when peakCurrentA is absent - never substituted from RMS, which would understate the real peak.
 ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, const DesignRules& rules) {
     ValidationResult result;
+    //set the name, unit, and if it is mandatory
     result.checkName = "PeakFluxValidation";
     result.unit = "T";
     result.mandatory = true;
 
+    //if no value then return right away
     if (!peakCurrentA.has_value()) {
         result.status = EvaluationStatus::NotEvaluated;
         result.passed = false;
@@ -121,11 +129,7 @@ ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCan
     result.passed = turnsAndGap.converged && bpk <= limit.limitT;
     result.explanation = "peak flux density " + std::to_string(bpk) + " T vs limit " +
                           std::to_string(limit.limitT) + " T (" +
-                          (limit.usedDefault ? std::string("Phase 1 default - material '") + material.materialFamily +
-                                                   "' has no measured BmaxT"
-                                             : std::string("material-specific value for '") +
-                                                   material.materialFamily + "'") +
-                          ")";
+                          (limit.usedDefault ? std::string("Phase 1 default - material '") + material.materialFamily + "' has no measured BmaxT" : std::string("material-specific value for '") + material.materialFamily + "'") + ")";
     return result;
 }
 
@@ -133,6 +137,7 @@ ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCan
 //postcondition: passes if the margin between the applicable limit and the calculated peak flux density meets rules.minimumSaturationMarginPercent. NotEvaluated when peakCurrentA is absent.
 ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, const DesignRules& rules) {
     ValidationResult result;
+    //set the name, unit, and if it is mandatory
     result.checkName = "SaturationValidation";
     result.unit = "%";
     result.limitValue = rules.minimumSaturationMarginPercent;
@@ -173,9 +178,7 @@ ValidationResult WindingFitValidation(const WindingDesignResult& winding, const 
     result.calculatedValue = winding.physicalWindowFillFactor;
     result.limitValue = rules.maximumFillFactor;
     result.passed = winding.fitsPhysicalWindow;
-    result.explanation = "physical window fill " + std::to_string(winding.physicalWindowFillFactor) + " vs maximum " +
-                          std::to_string(rules.maximumFillFactor) + " (raw copper-only fill was " +
-                          std::to_string(winding.fillFactor) + ")";
+    result.explanation = "physical window fill " + std::to_string(winding.physicalWindowFillFactor) + " vs maximum " + std::to_string(rules.maximumFillFactor) + " (raw copper-only fill was " + std::to_string(winding.fillFactor) + ")";
     return result;
 }
 
