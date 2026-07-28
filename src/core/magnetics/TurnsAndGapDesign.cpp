@@ -21,6 +21,7 @@ int seedTurns(const CoreCandidate& core, double targetInductanceUH) {
     seedCore.wa = core.waMm2;
     seedCore.le = core.leMm;
 
+    //call the function to calculate the turns and it will have the formula 
     TurnsCalculationInput seedInput{targetInductanceUH, seedCore};
     TurnsCalculationResult seedResult = calculateTurns(seedInput);
     return std::max(1, seedResult.turns);
@@ -59,8 +60,7 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetIndu
     //the discrete-gap formula at all - see below.
     if (!isDistributedGapCore && rules.gapMethod != GapMethod::MachinedCenterLeg) {
         result.converged = false;
-        result.rejectionReasons.push_back(
-            "gap method is not implemented in Phase 1 (only MachinedCenterLeg has a validated formula)");
+        result.rejectionReasons.push_back("gap method is not implemented in Phase 1 (only MachinedCenterLeg has a validated formula)");
         return result;
     }
 
@@ -112,13 +112,11 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetIndu
     int turns = seedTurns(core, targetInductanceUH);
 
     //will run up to kMaxIterations times during each iteration it:
-    /*
-    Calculates the required gap for the current turns
-    Rounds teh gap to a manufacturable value
-    Calculates the effective AL with that gap
-    Recalculates the required turns
-    Checks whether the turns stopped changing
-    */
+    //Calculates the required gap for the current turns
+    //Rounds the gap to a manufacturable value
+    //Calculates the effective AL with that gap
+    //Recalculates the required turns
+    //Checks whether the turns stopped changing
     for (int iteration = 0; iteration < kMaxIterations; ++iteration) {
         //given the core, number of turns, and target inductance, what air gap is required?
         double gapCm = calculateRequiredGapCm(turns, aeCm2, leCm, core.mu, targetNh);
@@ -202,7 +200,6 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetIndu
     }
 
     result.converged = false;
-    result.rejectionReasons.push_back("turns/gap did not converge within " + std::to_string(kMaxIterations) +
-                                       " iterations for core '" + core.partNumber + "'");
+    result.rejectionReasons.push_back("turns/gap did not converge within " + std::to_string(kMaxIterations) + " iterations for core '" + core.partNumber + "'");
     return result;
 }

@@ -54,11 +54,8 @@ struct TurnsAndGapResult {
     std::string smallGapWarningReason;
 };
 
-// precondition: core.aeMm2 > 0, core.leMm > 0, core.mu > 0,
-// targetInductanceUH > 0
-// postcondition: returns turns/gap that realize targetInductanceUH on this
-// core within tolerancePercent, or converged=false with rejectionReasons
-// explaining why (gap method not implemented, gap exceeds a practical
-// bound, gap-tolerance sweep pushes inductance out of tolerance at either
-// extreme, or no stable turns count found within the iteration cap).
+//precondition: core.aeMm2 > 0, core.leMm > 0, core.mu > 0, targetInductanceUH > 0
+//postcondition: returns turns/gap that realize targetInductanceUH on this core within tolerancePercent, or converged=false with rejectionReasons
+//explaining why (gap method not implemented, gap exceeds a practical bound, gap-tolerance sweep pushes inductance out of tolerance at either
+//extreme, or no stable turns count found within the iteration cap).
 TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetInductanceUH, double tolerancePercent, const DesignRules& rules);
