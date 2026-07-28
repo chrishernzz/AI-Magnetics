@@ -291,12 +291,27 @@
                 <p class="diagnostics-intro">A live sanity check on what you've entered - recalculated as you type.</p>
                 <dl class="diagnostics-list">
                     <div class="diagnostics-row diagnostics-row-highlight">
-                        <dt>Stored Energy</dt>
+                        <dt>Stored Energy
+                            <span class="hint" title="E = 0.5 x L x I^2, using peak current - the energy the core must store without saturating.">?</span>
+                        </dt>
                         <dd id="diagStoredEnergy">–</dd>
+                    </div>
+                    <div class="diagnostics-row" id="diagMinCurrentRow">
+                        <dt>Minimum Inductor Current
+                            <span class="hint" title="Ipeak - Ripple (peak-to-peak), under the same triangular-ripple assumption the backend's CurrentConsistencyValidation check uses. Needs Ripple Current p-p to compute - blank until you enter it.">?</span>
+                        </dt>
+                        <dd id="diagMinCurrent">–</dd>
+                    </div>
+                    <div class="diagnostics-row" id="diagConductionModeRow">
+                        <dt>Conduction Mode
+                            <span class="hint" title="CCM: minimum current stays above zero. CCM Boundary: at or near zero - small load/line variation could push it into DCM. DCM: minimum current would go negative under this ideal formula - this engine only supports CCM, so Generate will reject this combination.">?</span>
+                        </dt>
+                        <dd id="diagConductionMode">–</dd>
                     </div>
                 </dl>
                 <p id="diagCurrentNote" class="diagnostics-note"></p>
                 <p id="diagCoreLossNote" class="diagnostics-note"></p>
+                <p id="diagConductionNote" class="diagnostics-note"></p>
 
                 <div id="topologyDerivedBanner" class="topology-derived-banner" hidden></div>
             </div>

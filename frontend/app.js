@@ -274,6 +274,51 @@ function updateDirectDiagnosticsLive() {
             coreLossNote.className = "diagnostics-note diagnostics-note-ok";
         }
     }
+
+    // Minimum inductor current / conduction mode - a live preview of exactly
+    // what the backend's CurrentConsistencyValidation computes
+    // (RequirementDerivationService::derive(), same triangular-ripple
+    // assumption and same 1e-6 A zero-epsilon convention as
+    // BuckElectricalSolver's identical DCM check), so a physically
+    // impossible combination is visible here before you ever click Generate,
+    // not just in a rejected request afterward. Blank until ripple is
+    // entered - there's no minimum-current relationship to compute without it.
+    const conductionNote = document.getElementById("diagConductionNote");
+    if (rippleRaw === "" || !(peakA > 0)) {
+        setDiagValue("diagMinCurrent", "–");
+        setDiagValue("diagConductionMode", "–");
+        if (conductionNote) {
+            conductionNote.textContent = "";
+            conductionNote.className = "diagnostics-note";
+        }
+    } else {
+        const ripple = Number(rippleRaw);
+        const minCurrentA = peakA - ripple;
+        const kZeroEpsilonA = 1e-6;
+        setDiagValue("diagMinCurrent", `${minCurrentA.toFixed(3)} A`);
+
+        if (minCurrentA < -kZeroEpsilonA) {
+            setDiagValue("diagConductionMode", "DCM (unsupported)");
+            if (conductionNote) {
+                conductionNote.textContent =
+                    "Ripple exceeds peak current - minimum inductor current would be negative (discontinuous conduction mode). Phase 1 only supports CCM, so Generate will reject this combination.";
+                conductionNote.className = "diagnostics-note diagnostics-note-warn";
+            }
+        } else if (minCurrentA <= kZeroEpsilonA) {
+            setDiagValue("diagConductionMode", "CCM Boundary");
+            if (conductionNote) {
+                conductionNote.textContent =
+                    "Minimum inductor current is at or near zero - this sits right at the CCM/DCM boundary; small load or line variation may push it into DCM.";
+                conductionNote.className = "diagnostics-note diagnostics-note-warn";
+            }
+        } else {
+            setDiagValue("diagConductionMode", "CCM");
+            if (conductionNote) {
+                conductionNote.textContent = "";
+                conductionNote.className = "diagnostics-note";
+            }
+        }
+    }
 }
 
 function setTopologyStatus(message, isError = false) {
