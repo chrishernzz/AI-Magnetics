@@ -127,10 +127,10 @@
                         <input id="inductance" type="number" value="250" min="0" step="1">
                     </div>
                     <div class="field">
-                        <label for="current">Peak Current (A)
-                            <span class="hint" title="Highest instantaneous current. Drives area product, peak flux density and saturation margin - never used to infer RMS.">?</span>
+                        <label for="current">Peak Current (A, optional)
+                            <span class="hint" title="Highest instantaneous current, if known. Drives area product, peak flux density and saturation margin - never used to infer RMS. Leave blank and those checks report not-evaluated instead of guessing a peak from RMS.">?</span>
                         </label>
-                        <input id="current" type="number" value="2" min="0" step="0.1">
+                        <input id="current" type="number" placeholder="if known" min="0" step="0.1">
                     </div>
                     <div class="field">
                         <label for="rmsCurrent">RMS Current (A)
@@ -141,9 +141,9 @@
                     </div>
                     <div class="field">
                         <label for="rippleCurrent">Ripple Current p-p (A, optional)
-                            <span class="hint" title="Peak-to-peak ripple current. Required for a real core-loss number - flux-density swing is computed from it, never approximated from peak flux. Leave blank and core loss reports not-evaluated.">?</span>
+                            <span class="hint" title="Peak-to-peak ripple current, if known. Required for a real core-loss number - flux-density swing is computed from it, never approximated from peak flux. Leave blank and core loss reports not-evaluated.">?</span>
                         </label>
-                        <input id="rippleCurrent" type="number" placeholder="for core loss" min="0" step="0.05">
+                        <input id="rippleCurrent" type="number" placeholder="if known" min="0" step="0.05">
                     </div>
                     <div class="field field-full">
                         <label for="frequency">Switching Frequency (kHz)
@@ -298,20 +298,24 @@
                     </div>
                     <div class="diagnostics-row" id="diagMinCurrentRow">
                         <dt>Minimum Inductor Current
-                            <span class="hint" title="Ipeak - Ripple (peak-to-peak), under the same triangular-ripple assumption the backend's CurrentConsistencyValidation check uses. Needs Ripple Current p-p to compute - blank until you enter it.">?</span>
+                            <span class="hint" title="Ipeak - Ripple (peak-to-peak), under the same triangular-ripple assumption the backend's CurrentConsistencyValidation check uses. Needs both Peak Current and Ripple Current p-p to compute - blank until you enter both.">?</span>
                         </dt>
                         <dd id="diagMinCurrent">–</dd>
                     </div>
                     <div class="diagnostics-row" id="diagConductionModeRow">
                         <dt>Conduction Mode
-                            <span class="hint" title="CCM: minimum current stays above zero. CCM Boundary: at or near zero - small load/line variation could push it into DCM. DCM: minimum current would go negative under this ideal formula - this engine only supports CCM, so Generate will reject this combination.">?</span>
+                            <span class="hint" title="CCM: minimum current stays above zero. CCM Boundary: at or near zero - small load/line variation could push it into DCM. DCM: minimum current would go negative under this ideal formula - this engine only supports CCM, so that check reports not-evaluated for this combination (the rest of the design still generates).">?</span>
                         </dt>
                         <dd id="diagConductionMode">–</dd>
                     </div>
                 </dl>
-                <p id="diagCurrentNote" class="diagnostics-note"></p>
-                <p id="diagCoreLossNote" class="diagnostics-note"></p>
-                <p id="diagConductionNote" class="diagnostics-note"></p>
+
+                <div class="diagnostics-consistency-notes">
+                    <p class="diagnostics-consistency-label">Informational only - never blocks Generate</p>
+                    <p id="diagCurrentNote" class="diagnostics-note"></p>
+                    <p id="diagCoreLossNote" class="diagnostics-note"></p>
+                    <p id="diagConductionNote" class="diagnostics-note"></p>
+                </div>
 
                 <div id="topologyDerivedBanner" class="topology-derived-banner" hidden></div>
             </div>

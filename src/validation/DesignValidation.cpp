@@ -5,6 +5,7 @@
 namespace {
 
 //Formula for Peak Flux Density: Bpk(T) = L(H) * Ipk(A) / (N * Ae(m^2))
+//precondition: peakCurrentA is a real supplied value (never called when absent - see PeakFluxValidation/SaturationValidation)
 double calculatePeakFluxDensityT(const CoreCandidate& core, const TurnsAndGapResult& turnsAndGap, double peakCurrentA) {
     //base case making sure turns is a real value
     if (turnsAndGap.turns <= 0) {
@@ -50,26 +51,25 @@ ValidationResult CurrentConsistencyValidation(const OperatingPoint& operatingPoi
     result.mandatory = true;
 
     if (operatingPoint.currentConsistencyStatus != EvaluationStatus::Evaluated) {
+        //Covers three honest reasons, all reported via the same explanation
+        //RequirementDerivationService::derive() already composed: peak missing, ripple missing, or both
+        //present but genuinely contradictory (implied DCM / RMS outside the real envelope). Never a
+        //rejection reason - see InductorDesignService.cpp's aggregation, which only blocks a candidate on
+        //an Evaluated+failed check.
         result.status = EvaluationStatus::NotEvaluated;
         result.passed = false;
-        result.calculatedValue = 0.0;
-        result.explanation =
-            "not evaluated: no rippleCurrentPeakToPeakA supplied - minimum inductor current, and therefore "
-            "conduction mode, cannot be derived from peak current alone";
+        result.calculatedValue = operatingPoint.minInductorCurrentA;
+        result.explanation = "not evaluated: " + operatingPoint.currentConsistencyExplanation;
         return result;
     }
 
-    //A genuine physical contradiction (negative minimum current, or an out-of-envelope rmsCurrentA) already
-    //threw in RequirementDerivationService::derive() before any candidate was evaluated, so this check
-    //always passes for a candidate that reaches it - it exists to surface the real conduction-mode/minimum-
-    //current numbers per candidate, the same way every other check surfaces its own real numbers, not to
-    //re-run a gate that already ran once at the requirements level.
+    //Peak and ripple were both supplied and are mutually consistent with RMS - a real, clean result.
     result.calculatedValue = operatingPoint.minInductorCurrentA;
     result.limitValue = 0.0;
     result.passed = true;
     result.explanation = "conduction mode " + conductionModeName(operatingPoint.conductionMode) +
                           ", minimum inductor current " + std::to_string(operatingPoint.minInductorCurrentA) +
-                          " A vs peak " + std::to_string(operatingPoint.peakCurrentA) + " A (" +
+                          " A vs peak " + std::to_string(*operatingPoint.peakCurrentA) + " A (" +
                           operatingPoint.currentConsistencyExplanation + ")";
     return result;
 }
@@ -96,14 +96,23 @@ ValidationResult InductanceValidation(const TurnsAndGapResult& turnsAndGap, doub
 }
 
 //precondition: turnsAndGap.converged
-//postcondition: passes if calculated peak flux density is at or below the applicable limit (material-specific if available, else the Phase 1 default)
-ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, double peakCurrentA, const DesignRules& rules) {
+//postcondition: passes if calculated peak flux density is at or below the applicable limit (material-specific if available, else the Phase 1 default). NotEvaluated when peakCurrentA is absent - never substituted from RMS, which would understate the real peak.
+ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, const DesignRules& rules) {
     ValidationResult result;
     result.checkName = "PeakFluxValidation";
     result.unit = "T";
+    result.mandatory = true;
+
+    if (!peakCurrentA.has_value()) {
+        result.status = EvaluationStatus::NotEvaluated;
+        result.passed = false;
+        result.calculatedValue = 0.0;
+        result.explanation = "not evaluated: no peakCurrentA supplied - peak flux density cannot be computed without it (never inferred from RMS current)";
+        return result;
+    }
 
     //call the function from namespace to get the Peak Flux Density value
-    double bpk = calculatePeakFluxDensityT(core, turnsAndGap, peakCurrentA);
+    double bpk = calculatePeakFluxDensityT(core, turnsAndGap, *peakCurrentA);
     FluxLimit limit = applicableFluxLimit(material, rules);
 
     result.calculatedValue = bpk;
@@ -121,14 +130,23 @@ ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCan
 }
 
 //precondition: turnsAndGap.converged
-//postcondition: passes if the margin between the applicable limit and the calculated peak flux density meets rules.minimumSaturationMarginPercent
-ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, double peakCurrentA, const DesignRules& rules) {
+//postcondition: passes if the margin between the applicable limit and the calculated peak flux density meets rules.minimumSaturationMarginPercent. NotEvaluated when peakCurrentA is absent.
+ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, const DesignRules& rules) {
     ValidationResult result;
     result.checkName = "SaturationValidation";
     result.unit = "%";
     result.limitValue = rules.minimumSaturationMarginPercent;
+    result.mandatory = true;
 
-    double bpk = calculatePeakFluxDensityT(core, turnsAndGap, peakCurrentA);
+    if (!peakCurrentA.has_value()) {
+        result.status = EvaluationStatus::NotEvaluated;
+        result.passed = false;
+        result.calculatedValue = 0.0;
+        result.explanation = "not evaluated: no peakCurrentA supplied - saturation margin cannot be computed without it (never inferred from RMS current)";
+        return result;
+    }
+
+    double bpk = calculatePeakFluxDensityT(core, turnsAndGap, *peakCurrentA);
     FluxLimit limit = applicableFluxLimit(material, rules);
 
     double marginPercent = limit.limitT > 0.0 ? 100.0 * (limit.limitT - bpk) / limit.limitT : 0.0;

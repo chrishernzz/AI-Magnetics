@@ -33,6 +33,18 @@ derived assuming a **triangular ripple waveform**
 explanations note this assumption was used. Peak current is never used to
 infer RMS current. If neither is supplied, the request fails with HTTP 422.
 
+`peakCurrentA` is optional. When omitted, the area-product core pre-filter
+is skipped (every frequency/material-compatible core is evaluated directly
+instead) and `PeakFluxValidation`/`SaturationValidation` report
+`NotEvaluated` per candidate rather than ever inferring a peak from
+`rmsCurrentA`. `rippleCurrentPeakToPeakA` is likewise optional; when both
+peak and ripple are supplied but are physically contradictory (an implied
+negative minimum inductor current, or an `rmsCurrentA` outside the real
+envelope), `CurrentConsistencyValidation` reports `NotEvaluated` with an
+explanation instead of rejecting the whole request â€” the only combination
+that still fails with HTTP 422 is `rmsCurrentA` exceeding `peakCurrentA`,
+which is never physically possible for any real waveform.
+
 `inductanceTolerancePercent` defaults to `DesignRules.defaultInductanceTolerancePercent`
 (10%) if omitted. Optional fields not yet consumed by every stage:
 `maximumDcrMilliOhm`, `maximumWidthMm`, `maximumHeightMm`, `maximumLengthMm`,
@@ -241,7 +253,7 @@ FastAPI also auto-generates interactive docs at **http://127.0.0.1:8000/docs** â
 | Field | Type | Example |
 |---|---|---|
 | `inductanceUH` | number | 250 |
-| `peakCurrentA` | number | 5.0 |
+| `peakCurrentA` | number, optional | 5.0 |
 | `rmsCurrentA` | number, optional (see derivation rule) | 3.5 |
 | `switchingFreqKHz` | number | 100 |
 | `ambientTemperatureC` | number | 25 |

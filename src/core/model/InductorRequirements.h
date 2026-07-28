@@ -15,7 +15,8 @@ from the raw request, so there is exactly one place unit conversion and current-
 */
 struct OperatingPoint {
     double inductanceH;
-    double peakCurrentA;
+    //Optional - see InductorDesignRequest::peakCurrentA for why this can never be substituted from RMS.
+    std::optional<double> peakCurrentA;
     double rmsCurrentA;
     double switchingFreqHz;
 
@@ -33,14 +34,18 @@ struct OperatingPoint {
     std::optional<double> rippleCurrentPeakToPeakA;
 
     //Current-consistency check (spec: peak/RMS/ripple must describe one physically real waveform, never
-    //three independent numbers). Evaluated only when rippleCurrentPeakToPeakA is supplied - that is the
-    //only case where a minimum instantaneous inductor current can be derived at all. See
-    //RequirementDerivationService::derive() for the computation; a physically impossible combination
-    //(negative minimum current, or an out-of-envelope rmsCurrentA) throws std::invalid_argument there
-    //rather than silently proceeding, so this struct only ever carries a self-consistent result.
+    //three independent numbers). Evaluated only when BOTH peakCurrentA and rippleCurrentPeakToPeakA are
+    //supplied - those are the only two values a minimum instantaneous inductor current can be derived
+    //from. See RequirementDerivationService::derive() for the computation. A genuine physical
+    //contradiction (implied DCM, or an out-of-envelope rmsCurrentA) never throws and never blocks
+    //design generation - it sets this status to NotEvaluated with currentConsistencyExplanation stating
+    //why, exactly like any other missing-data case. The candidate is still evaluated on everything that
+    //doesn't depend on this (saturation via peak alone, fill/current-density via RMS, core loss from the
+    //literal ripple value regardless of whether it's consistent with peak/RMS).
     EvaluationStatus currentConsistencyStatus = EvaluationStatus::NotEvaluated;
     //valid only when currentConsistencyStatus == Evaluated. Triangular-ripple assumption: minInductorCurrentA
-    //= peakCurrentA - rippleCurrentPeakToPeakA.
+    //= peakCurrentA - rippleCurrentPeakToPeakA. Still populated (when computable) even when status is
+    //NotEvaluated due to a contradiction, so the explanation can cite the real numbers.
     ConductionMode conductionMode = ConductionMode::CCM;
     double minInductorCurrentA = 0.0;
     std::string currentConsistencyExplanation;

@@ -1,4 +1,5 @@
 #pragma once
+#include <optional>
 #include <string>
 #include "core/sizing/CoreEvaluation.h"
 #include "core/sizing/MaterialEvaluation.h"
@@ -18,22 +19,21 @@ via ValidationResult::usesDefaultAssumption - never presented as fact.
 
 */
 //checks that peakCurrentA/rmsCurrentA/rippleCurrentPeakToPeakA describe one physically consistent waveform
-//(spec: current-consistency validation). RequirementDerivationService::derive() already threw
-//std::invalid_argument on a genuine contradiction (negative minimum inductor current, or an out-of-envelope
-//rmsCurrentA), so a candidate reaching this check has already survived that gate - this packages the
-//precomputed OperatingPoint fields into the same ValidationResult shape every other check uses, so the
-//conduction mode / minimum inductor current are visible per-candidate like everything else. NotEvaluated
-//when no ripple was supplied - there is no minimum-current relationship to check without it.
+//(spec: current-consistency validation). NotEvaluated whenever peak or ripple is missing, OR when both are
+//present but genuinely contradict each other (implied DCM, or an out-of-envelope rmsCurrentA) -
+//RequirementDerivationService::derive() never throws on this anymore, it always produces a real
+//OperatingPoint with a clear currentConsistencyExplanation either way, so a design can still be generated
+//from whatever data is actually usable.
 ValidationResult CurrentConsistencyValidation(const OperatingPoint& operatingPoint);
 
 //check turnsAndGap.withinTolerance/converged against tolerancePercent.
 ValidationResult InductanceValidation(const TurnsAndGapResult& turnsAndGap, double tolerancePercent);
 
-//computes peak flux density Bpk = L*Ipk/(N*Ae) and checks it against the applicable flux density limit (material-specific BmaxT if available, otherwise rules.defaultFluxDensityLimitT).
-ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, double peakCurrentA, const DesignRules& rules);
+//computes peak flux density Bpk = L*Ipk/(N*Ae) and checks it against the applicable flux density limit (material-specific BmaxT if available, otherwise rules.defaultFluxDensityLimitT). NotEvaluated when peakCurrentA is absent - never substituted from RMS.
+ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, const DesignRules& rules);
 
-//checks that the margin between the applicable flux density limit and the calculated peak flux density meets rules.minimumSaturationMarginPercent.
-ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, double peakCurrentA, const DesignRules& rules);
+//checks that the margin between the applicable flux density limit and the calculated peak flux density meets rules.minimumSaturationMarginPercent. NotEvaluated when peakCurrentA is absent.
+ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, const DesignRules& rules);
 
 //checks winding.fillFactor against rules.maximumFillFactor.
 ValidationResult WindingFitValidation(const WindingDesignResult& winding, const DesignRules& rules);

@@ -10,7 +10,7 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
 
     //the request supplies inductance in microhenries (uH) but the internal calculations use henries (H) - convert here so downstream stages never have to re-convert
     out.operatingPoint.inductanceH = units::uHToH(request.inductanceUH);
-    //no conversion needed here because the request supplies peak current in amps and the internal calculations use amps (will be used later for check such as peak flux density, core saturation, and energy storage)
+    //no conversion needed here because the request supplies peak current in amps and the internal calculations use amps (will be used later for checks such as peak flux density, core saturation, and energy storage) - optional, carried through as-is (see OperatingPoint::peakCurrentA for what's affected when it's absent)
     out.operatingPoint.peakCurrentA = request.peakCurrentA;
     //the request supplies switching frequency in kilohertz (kHz) but the internal calculations use hertz (Hz) - convert here so downstream stages never have to re-convert
     out.operatingPoint.switchingFreqHz = units::kHzToHz(request.switchingFreqKHz);
@@ -39,50 +39,79 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
     out.operatingPoint.rippleCurrentPeakToPeakA = request.rippleCurrentPeakToPeakA;
 
     //Current-consistency check (spec: peak/RMS/ripple must describe one physically real waveform). Only
-    //possible when ripple is supplied - that is the only case a minimum instantaneous inductor current can
-    //be derived from. A negative minimum current means the supplied peak/ripple pair implies discontinuous
-    //conduction mode, which Phase 1 does not model (mirrors BuckElectricalSolver's identical DCM rejection
-    //for Mode 1 - same physics, same epsilon convention, applied here for the direct-entry Mode 2 path).
-    if (out.operatingPoint.rippleCurrentPeakToPeakA.has_value()) {
+    //possible when BOTH peak and ripple are supplied - those are the only two values a minimum
+    //instantaneous inductor current can be derived from. A genuine contradiction (implied DCM, or an
+    //out-of-envelope rmsCurrentA) never throws and never blocks generation of a design - see
+    //OperatingPoint::currentConsistencyStatus. It sets NotEvaluated with a clear explanation instead,
+    //exactly like any other missing-data case; everything that doesn't depend on this (saturation via
+    //peak alone, fill/current-density via RMS, core loss from the literal ripple value) still runs.
+    if (out.operatingPoint.peakCurrentA.has_value() && out.operatingPoint.rippleCurrentPeakToPeakA.has_value()) {
         constexpr double kCcmZeroEpsilonA = 1e-6;
+        double peak = *out.operatingPoint.peakCurrentA;
         double ripple = *out.operatingPoint.rippleCurrentPeakToPeakA;
-        double minInductorCurrentA = out.operatingPoint.peakCurrentA - ripple;
+        double minInductorCurrentA = peak - ripple;
         out.operatingPoint.minInductorCurrentA = minInductorCurrentA;
-        out.operatingPoint.currentConsistencyStatus = EvaluationStatus::Evaluated;
 
-        if (minInductorCurrentA < -kCcmZeroEpsilonA) {
-            throw std::invalid_argument(
+        bool dcmImplied = minInductorCurrentA < -kCcmZeroEpsilonA;
+        bool rmsOutOfEnvelope = false;
+        if (!dcmImplied && !out.operatingPoint.rmsCurrentDerived) {
+            double rms = out.operatingPoint.rmsCurrentA;
+            rmsOutOfEnvelope = rms > peak + kCcmZeroEpsilonA || rms < minInductorCurrentA - kCcmZeroEpsilonA;
+        }
+
+        if (dcmImplied) {
+            out.operatingPoint.currentConsistencyStatus = EvaluationStatus::NotEvaluated;
+            out.operatingPoint.conductionMode = ConductionMode::DCMUnsupported;
+            out.operatingPoint.currentConsistencyExplanation =
                 "computed minimum inductor current is negative (" + std::to_string(minInductorCurrentA) +
-                " A) given peakCurrentA=" + std::to_string(out.operatingPoint.peakCurrentA) +
-                " A and rippleCurrentPeakToPeakA=" + std::to_string(ripple) +
-                " A - this operating point enters discontinuous conduction mode (DCM), which Phase 1 does "
-                "not support (CCM only)");
+                " A) given peak=" + std::to_string(peak) + " A and ripple=" + std::to_string(ripple) +
+                " A pk-pk - this combination implies discontinuous conduction mode (DCM), which Phase 1 "
+                "does not model (CCM only); conduction mode and core loss from this ripple value are still "
+                "reported, but the consistency check itself is not evaluated";
+        } else if (rmsOutOfEnvelope) {
+            out.operatingPoint.currentConsistencyStatus = EvaluationStatus::NotEvaluated;
+            out.operatingPoint.conductionMode = minInductorCurrentA <= kCcmZeroEpsilonA ? ConductionMode::CCMBoundary : ConductionMode::CCM;
+            out.operatingPoint.currentConsistencyExplanation =
+                "supplied rmsCurrentA (" + std::to_string(out.operatingPoint.rmsCurrentA) +
+                " A) is physically inconsistent with peakCurrentA/rippleCurrentPeakToPeakA - RMS current of "
+                "a real waveform can never fall outside [minInductorCurrentA, peakCurrentA] = [" +
+                std::to_string(minInductorCurrentA) + ", " + std::to_string(peak) +
+                "] A; peak/ripple-derived conduction mode is still reported, but this check is not evaluated";
         } else if (minInductorCurrentA <= kCcmZeroEpsilonA) {
+            out.operatingPoint.currentConsistencyStatus = EvaluationStatus::Evaluated;
             out.operatingPoint.conductionMode = ConductionMode::CCMBoundary;
             out.operatingPoint.currentConsistencyExplanation =
                 "minimum inductor current is at or near zero - this design sits at the CCM/DCM boundary; "
                 "small load or line variation may push it into DCM";
         } else {
+            out.operatingPoint.currentConsistencyStatus = EvaluationStatus::Evaluated;
             out.operatingPoint.conductionMode = ConductionMode::CCM;
             out.operatingPoint.currentConsistencyExplanation =
-                "peak (" + std::to_string(out.operatingPoint.peakCurrentA) + " A), ripple (" + std::to_string(ripple) +
+                "peak (" + std::to_string(peak) + " A), ripple (" + std::to_string(ripple) +
                 " A pk-pk), and minimum (" + std::to_string(minInductorCurrentA) +
                 " A) inductor current are mutually consistent under the triangular-ripple CCM assumption";
         }
+    } else if (!out.operatingPoint.peakCurrentA.has_value() && out.operatingPoint.rippleCurrentPeakToPeakA.has_value()) {
+        out.operatingPoint.currentConsistencyExplanation =
+            "no peakCurrentA supplied - minimum inductor current and conduction mode cannot be derived from ripple alone (core loss is still computed from the ripple value on its own)";
+    } else if (out.operatingPoint.peakCurrentA.has_value() && !out.operatingPoint.rippleCurrentPeakToPeakA.has_value()) {
+        out.operatingPoint.currentConsistencyExplanation =
+            "no rippleCurrentPeakToPeakA supplied - minimum inductor current and conduction mode cannot be derived from peak current alone";
+    } else {
+        out.operatingPoint.currentConsistencyExplanation =
+            "neither peakCurrentA nor rippleCurrentPeakToPeakA supplied";
+    }
 
-        //rmsCurrentA is bounded by [minInductorCurrentA, peakCurrentA] for any real current waveform whose
-        //instantaneous value never leaves that range - a real physical bound, not a fabricated one. Only
-        //checked when rmsCurrentA was supplied directly; a value this function itself derived from the same
-        //ripple/average pair cannot contradict it.
-        if (!out.operatingPoint.rmsCurrentDerived && minInductorCurrentA > -kCcmZeroEpsilonA) {
-            double rms = out.operatingPoint.rmsCurrentA;
-            if (rms > out.operatingPoint.peakCurrentA + kCcmZeroEpsilonA || rms < minInductorCurrentA - kCcmZeroEpsilonA) {
-                throw std::invalid_argument(
-                    "supplied rmsCurrentA (" + std::to_string(rms) +
-                    " A) is physically inconsistent with peakCurrentA/rippleCurrentPeakToPeakA - RMS current "
-                    "of a real waveform can never fall outside [minInductorCurrentA, peakCurrentA] = [" +
-                    std::to_string(minInductorCurrentA) + ", " + std::to_string(out.operatingPoint.peakCurrentA) + "] A");
-            }
+    //Basic RMS-vs-peak sanity check, independent of ripple: RMS of any real waveform can never exceed its
+    //own peak. Kept as a hard rejection (not softened like the ripple-dependent checks above) since it's
+    //an unambiguous contradiction between two directly-entered numbers, not an assumption-dependent one.
+    if (out.operatingPoint.peakCurrentA.has_value() && !out.operatingPoint.rmsCurrentDerived) {
+        double peak = *out.operatingPoint.peakCurrentA;
+        double rms = out.operatingPoint.rmsCurrentA;
+        if (rms > peak + 1e-6) {
+            throw std::invalid_argument("supplied rmsCurrentA (" + std::to_string(rms) +
+                                         " A) cannot exceed peakCurrentA (" + std::to_string(peak) +
+                                         " A) - a real waveform's RMS value never exceeds its own peak");
         }
     }
 

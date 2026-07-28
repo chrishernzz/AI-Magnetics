@@ -25,10 +25,14 @@ router = APIRouter()
 class InductorDesignRequest(BaseModel):
     #required direct inputs (spec section 5)
     inductanceUH: float
-    peakCurrentA: float
     switchingFreqKHz: float
     ambientTemperatureC: float
     allowableTempRiseC: float
+
+    #optional - when omitted, the area-product core pre-filter is skipped and
+    #PeakFluxValidation/SaturationValidation report NotEvaluated (never inferred
+    #from rmsCurrentA - see InductorDesignRequest.h).
+    peakCurrentA: Optional[float] = None
 
     #required in principle, but may be omitted if it can be derived from
     #averageCurrentA + rippleCurrentPeakToPeakA (triangular ripple only -

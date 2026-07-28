@@ -422,6 +422,34 @@ body {
     color: #146334;
 }
 
+/* Separates the live sanity-check numbers above (Stored Energy, Minimum
+   Inductor Current, Conduction Mode) from the notes below that flag a
+   contradiction or missing input - these never block Generate, only the
+   format-only checks in the "Fix before generating" card do, so the red
+   line + label makes clear this section is informational, not a rejection. */
+.diagnostics-consistency-notes {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 2px solid var(--brand-red);
+}
+
+.diagnostics-consistency-label {
+    margin: 0 0 4px;
+    color: var(--ink-soft);
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.diagnostics-consistency-notes .diagnostics-note {
+    margin-top: 8px;
+}
+
+.diagnostics-consistency-notes .diagnostics-note:first-of-type {
+    margin-top: 0;
+}
+
 /* Ripple-current waveform - a small, real chart (not decorative) drawn
    from the same duty-cycle/peak/ripple numbers already shown above it as
    text, the way OpenMagnetics' Waveforms panel shows a live trace next to

@@ -11,7 +11,6 @@ which is the normalized internal requirements struct that will be used throughou
 */
 struct InductorDesignRequest {
     double inductanceUH;
-    double peakCurrentA;
     double switchingFreqKHz;
     double ambientTemperatureC;
     double allowableTempRiseC;
@@ -20,6 +19,15 @@ struct InductorDesignRequest {
       rippleCurrentPeakToPeakA for a triangular ripple waveform - see
       RequirementDerivationService. Peak current is never used to infer this.*/
     std::optional<double> rmsCurrentA;
+
+    //Optional: without it, the Area-Product core pre-filter and
+    //PeakFluxValidation/SaturationValidation cannot run (they need a real
+    //Ipk, never a substitute inferred from RMS - that would understate the
+    //true peak and silently undersize the core). When omitted, every
+    //frequency/material-compatible core is evaluated directly instead of
+    //being pre-filtered, and those two checks report NotEvaluated per
+    //candidate rather than guessing. See RequirementDerivationService.
+    std::optional<double> peakCurrentA;
 
     //If omitted, DesignRules::defaultInductanceTolerancePercent applies.
     std::optional<double> inductanceTolerancePercent;

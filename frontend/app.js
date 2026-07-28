@@ -12,15 +12,22 @@ let topologyDerived = null;
 function buildPayload() {
     const toleranceRaw = document.getElementById("tolerance").value;
     const rippleRaw = document.getElementById("rippleCurrent").value;
+    const peakRaw = document.getElementById("current").value;
 
     const payload = {
         inductanceUH: Number(document.getElementById("inductance").value),
-        peakCurrentA: Number(document.getElementById("current").value),
         switchingFreqKHz: Number(document.getElementById("frequency").value),
         ambientTemperatureC: Number(document.getElementById("ambientTemp").value),
         allowableTempRiseC: Number(document.getElementById("tempRise").value),
     };
 
+    if (peakRaw !== "") {
+        // Optional - omitted entirely (not sent as 0) when left blank, so the
+        // backend skips the area-product pre-filter and reports
+        // PeakFluxValidation/SaturationValidation as not-evaluated instead of
+        // ever inferring a peak from RMS.
+        payload.peakCurrentA = Number(peakRaw);
+    }
     if (toleranceRaw !== "") {
         payload.inductanceTolerancePercent = Number(toleranceRaw);
     }
@@ -255,17 +262,29 @@ function updateDirectDiagnosticsLive() {
 
     const currentNote = document.getElementById("diagCurrentNote");
     if (currentNote) {
+        const ripple = rippleRaw === "" ? null : Number(rippleRaw);
+        const minCurrentA = ripple !== null ? peakA - ripple : null;
+        const kZeroEpsilonA = 1e-6;
+        const rmsOutOfEnvelope =
+            ripple !== null &&
+            peakA > 0 &&
+            rmsA > 0 &&
+            (rmsA > peakA + kZeroEpsilonA || rmsA < minCurrentA - kZeroEpsilonA);
+
         if (peakA > 0 && rmsA > 0 && rmsA > peakA) {
-            currentNote.textContent = "RMS current is higher than peak current - that can't happen physically, double check these values.";
+            currentNote.textContent = "RMS current is higher than peak current - that can't happen physically, double check these values. This blocks Generate.";
             currentNote.className = "diagnostics-note diagnostics-note-warn";
-        } else if (rippleRaw !== "" && Number(rippleRaw) === 0 && peakA > 0 && rmsA > 0 && Math.abs(rmsA - peakA) > 1e-6) {
+        } else if (ripple === 0 && rmsOutOfEnvelope) {
             // The single most common way to trip the RMS/peak/ripple consistency
             // check: typing 0 into Ripple Current meaning "I don't have this data,"
             // when 0 actually asserts "current is perfectly constant" - a much
-            // stronger claim that forces RMS to exactly equal peak. Caught here too
-            // (not just in the blocking input-validation card) since this is the
-            // moment someone's most likely to type 0 without realizing what it means.
-            currentNote.textContent = `Ripple Current is set to 0 (constant/DC current) - that requires RMS to exactly equal Peak (${peakA} A), but RMS is ${rmsA} A. If you don't have real ripple data, leave Ripple Current blank instead - blank skips the check, 0 asserts zero ripple.`;
+            // stronger claim that forces RMS to exactly equal peak. Non-blocking:
+            // the design still generates, with CurrentConsistencyValidation
+            // reporting not-evaluated for this candidate.
+            currentNote.textContent = `Ripple Current is set to 0 (constant/DC current) - that requires RMS to exactly equal Peak (${peakA} A), but RMS is ${rmsA} A. This won't block Generate (the consistency check will report not-evaluated), but if you don't have real ripple data, leave Ripple Current blank instead - blank skips the check, 0 asserts zero ripple.`;
+            currentNote.className = "diagnostics-note diagnostics-note-warn";
+        } else if (rmsOutOfEnvelope) {
+            currentNote.textContent = `Supplied RMS current (${rmsA} A) is physically inconsistent with peak current and ripple - RMS can never fall outside [${minCurrentA.toFixed(3)}, ${peakA}] A for this combination. This won't block Generate; CurrentConsistencyValidation will report not-evaluated for this candidate.`;
             currentNote.className = "diagnostics-note diagnostics-note-warn";
         } else {
             currentNote.textContent = "";
@@ -288,10 +307,11 @@ function updateDirectDiagnosticsLive() {
     // what the backend's CurrentConsistencyValidation computes
     // (RequirementDerivationService::derive(), same triangular-ripple
     // assumption and same 1e-6 A zero-epsilon convention as
-    // BuckElectricalSolver's identical DCM check), so a physically
-    // impossible combination is visible here before you ever click Generate,
-    // not just in a rejected request afterward. Blank until ripple is
-    // entered - there's no minimum-current relationship to compute without it.
+    // BuckElectricalSolver's identical DCM check), so a genuine contradiction
+    // is visible here before you ever click Generate - never blocking, since
+    // the backend degrades this specific check to not-evaluated rather than
+    // rejecting the whole design. Blank until both peak and ripple are
+    // entered - there's no minimum-current relationship to compute without both.
     const conductionNote = document.getElementById("diagConductionNote");
     if (rippleRaw === "" || !(peakA > 0)) {
         setDiagValue("diagMinCurrent", "–");
@@ -310,7 +330,7 @@ function updateDirectDiagnosticsLive() {
             setDiagValue("diagConductionMode", "DCM (unsupported)");
             if (conductionNote) {
                 conductionNote.textContent =
-                    "Ripple exceeds peak current - minimum inductor current would be negative (discontinuous conduction mode). Phase 1 only supports CCM, so Generate will reject this combination.";
+                    "Ripple exceeds peak current - minimum inductor current would be negative (discontinuous conduction mode). Phase 1 only supports CCM, so this won't block Generate, but CurrentConsistencyValidation will report not-evaluated and conduction mode will show DCM (unsupported) for this candidate.";
                 conductionNote.className = "diagnostics-note diagnostics-note-warn";
             }
         } else if (minCurrentA <= kZeroEpsilonA) {
@@ -439,17 +459,24 @@ function checkCurrentSanity() {
 
 // Real client-side checks on the direct-mode fields (the ones Generate
 // actually submits, regardless of whether they were typed directly or
-// auto-filled by a Buck calculation) - catches the same physical
-// contradictions RequirementDerivationService::derive() would otherwise
-// reject only after a full round trip (peak < RMS, ripple implying a
-// negative minimum inductor current/DCM - mirrors the backend's own
-// CurrentConsistencyValidation gate, just surfaced before the request is
-// even sent). Hard-blocks Generate: the button stays disabled while any
-// error is present, not just a warning shown alongside an enabled button.
+// auto-filled by a Buck calculation). Only format-only problems (missing,
+// negative, non-numeric) hard-block Generate here - the button stays
+// disabled while any of those is present. Physical contradictions between
+// peak/ripple/RMS (implied DCM, an out-of-envelope RMS) are NOT blocked
+// here anymore: RequirementDerivationService::derive() degrades a genuine
+// contradiction to NotEvaluated server-side rather than rejecting the whole
+// design, so a candidate can still be generated from whatever data is
+// actually usable. Those cases are surfaced as informational notes in the
+// Diagnostics panel instead - see updateDirectDiagnosticsLive(). The one
+// exception is RMS exceeding peak current, kept as a hard block since it's
+// an unambiguous contradiction between two directly-entered numbers, not an
+// assumption-dependent one - mirrors the one check RequirementDerivationService
+// still throws on.
 function validateDirectInputs() {
     const errors = [];
     const inductanceUH = Number(document.getElementById("inductance").value);
-    const peakA = Number(document.getElementById("current").value);
+    const peakRaw = document.getElementById("current").value;
+    const peakA = Number(peakRaw);
     const rmsA = Number(document.getElementById("rmsCurrent").value);
     const freqKHz = Number(document.getElementById("frequency").value);
     const ambientC = Number(document.getElementById("ambientTemp").value);
@@ -457,46 +484,20 @@ function validateDirectInputs() {
     const rippleRaw = document.getElementById("rippleCurrent").value;
 
     if (!(inductanceUH > 0)) errors.push("Inductance must be a positive number.");
-    if (!(peakA > 0)) errors.push("Peak current must be a positive number.");
+    if (peakRaw !== "" && !(peakA > 0)) {
+        errors.push("Peak current must be a positive number, or left blank if unknown.");
+    }
     if (!topologyDerived) {
         if (!(rmsA > 0)) errors.push("RMS current must be a positive number.");
-        if (peakA > 0 && rmsA > 0 && rmsA > peakA) {
+        if (peakRaw !== "" && peakA > 0 && rmsA > 0 && rmsA > peakA) {
             errors.push("RMS current cannot exceed peak current - a real waveform's RMS value never exceeds its own peak.");
         }
     }
     if (!(freqKHz > 0)) errors.push("Switching frequency must be a positive number.");
     if (!Number.isFinite(ambientC)) errors.push("Ambient temperature must be a number.");
     if (!(tempRiseC > 0)) errors.push("Allowable temperature rise must be a positive number.");
-    if (rippleRaw !== "") {
-        const ripple = Number(rippleRaw);
-        const kZeroEpsilonA = 1e-6;
-        if (!(ripple >= 0)) {
-            errors.push("Ripple current must be zero or a positive number.");
-        } else if (peakA > 0 && ripple > peakA) {
-            errors.push(
-                "Ripple current (peak-to-peak) cannot exceed peak current - that implies a negative minimum inductor current (discontinuous conduction mode), which this engine does not model."
-            );
-        } else if (peakA > 0 && !topologyDerived && rmsA > 0) {
-            // RMS must fall within [minInductorCurrentA, peakCurrentA] for any real
-            // waveform - same check RequirementDerivationService::derive() runs
-            // server-side (CurrentConsistencyValidation). Caught here, before
-            // Generate is even clickable, with an explanation specific to the
-            // most common way to trip it: typing 0 instead of leaving this field
-            // blank. 0 is not "no data" - it's the strong claim "this current is
-            // perfectly constant," which forces RMS to exactly equal peak.
-            const minCurrentA = peakA - ripple;
-            if (rmsA > peakA + kZeroEpsilonA || rmsA < minCurrentA - kZeroEpsilonA) {
-                if (ripple === 0) {
-                    errors.push(
-                        `Ripple Current is set to 0, which claims the current is perfectly constant (DC) - that requires RMS Current to exactly equal Peak Current (${peakA} A), but you entered ${rmsA} A. If you don't have real ripple data, leave Ripple Current blank instead of entering 0 - a blank field skips this check instead of asserting zero ripple.`
-                    );
-                } else {
-                    errors.push(
-                        `Supplied RMS current (${rmsA} A) is physically inconsistent with peak current and ripple - RMS can never fall outside [${minCurrentA.toFixed(3)}, ${peakA}] A for this peak/ripple combination.`
-                    );
-                }
-            }
-        }
+    if (rippleRaw !== "" && !(Number(rippleRaw) >= 0)) {
+        errors.push("Ripple current must be zero or a positive number, or left blank if unknown.");
     }
 
     return { valid: errors.length === 0, errors };
@@ -731,7 +732,7 @@ function renderRecommendedCandidate(result) {
         : "";
 
     const nextSteps = notEvaluated.length
-        ? `Supply ${notEvaluated.map((v) => (v.checkName === "CurrentConsistencyValidation" ? "ripple current" : v.checkName)).join(", ")} for a more complete evaluation before treating this as final.`
+        ? "See “Still not evaluated” above for exactly why each check couldn't run - missing input or a contradiction in what was entered - before treating this as final."
         : "Every mandatory check ran on real data - review the full validation list before committing to this part.";
 
     element.hidden = false;

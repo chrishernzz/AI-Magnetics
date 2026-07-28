@@ -220,19 +220,28 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
         return recommendation;
     }
 
-    //this AreaProduct input will get information from the normalized requirements and the design rules to calculate the required area product for the inductor design
-    AreaProductInput apInput;
-    apInput.inductanceH = requirements.operatingPoint.inductanceH;
-    apInput.peakCurrentA = requirements.operatingPoint.peakCurrentA;
-    apInput.switchingFreqHz = requirements.operatingPoint.switchingFreqHz;
-    apInput.allowableTempRiseC = requirements.allowableTempRiseC;
-    apInput.windowUtilization = rules.windowUtilization;
-    apInput.fluxDensityT = rules.defaultFluxDensityLimitT;
-    apInput.currentDensityAPerCm2 = rules.allowableCurrentDensityAperCm2;
-    //call the function to calculate the required area product for the inductor design based on the input parameters
-    double requiredAreaProductCm4 = calculateAp(apInput);
+    //Area-Product pre-filter needs a real peak current (Ap's stored-energy formula is 0.5*L*Ipk^2) - when
+    //peak wasn't supplied, there is no honest number to feed it, and substituting RMS in Ipk's place would
+    //understate the real peak and silently undersize the core, which this engine never does. In that case
+    //every frequency/material-compatible core is evaluated directly instead (requiredAreaProductCm4 of 0.0
+    //makes findSuitableCores() flag every core as meeting it, which is the correct "no pre-filter" result -
+    //PeakFluxValidation/SaturationValidation report the real gap per candidate instead).
+    bool peakSupplied = requirements.operatingPoint.peakCurrentA.has_value();
+    double requiredAreaProductCm4 = 0.0;
+    if (peakSupplied) {
+        AreaProductInput apInput;
+        apInput.inductanceH = requirements.operatingPoint.inductanceH;
+        apInput.peakCurrentA = *requirements.operatingPoint.peakCurrentA;
+        apInput.switchingFreqHz = requirements.operatingPoint.switchingFreqHz;
+        apInput.allowableTempRiseC = requirements.allowableTempRiseC;
+        apInput.windowUtilization = rules.windowUtilization;
+        apInput.fluxDensityT = rules.defaultFluxDensityLimitT;
+        apInput.currentDensityAPerCm2 = rules.allowableCurrentDensityAperCm2;
+        //call the function to calculate the required area product for the inductor design based on the input parameters
+        requiredAreaProductCm4 = calculateAp(apInput);
+    }
 
-    //CoreCandiate now gets get picked based on if they meet the required area product and if they are compatible with the suitable materials from stage 1   
+    //CoreCandiate now gets get picked based on if they meet the required area product and if they are compatible with the suitable materials from stage 1
     std::vector<CoreCandidate> cores = findSuitableCores(materials, requiredAreaProductCm4);
 
 
@@ -250,10 +259,15 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
         }
     }
 
-    //if there is no core that has a large enough area product to meet the requirements, return a no feasible design recommendation with the required and largest available area product values
+    //if there is no core that has a large enough area product to meet the requirements, return a no feasible design recommendation with the required and largest available area product values.
+    //When peak wasn't supplied, requiredAreaProductCm4 is 0.0 and every material-compatible core trivially
+    //meets it - this branch is then only reachable if there were zero material-compatible cores at all,
+    //which findSuitableCores() would only produce for a materials list with no matching cores in the DB.
     if (feasibleCores.empty()) {
         recommendation.status = "no_feasible_design";
-        recommendation.message = "No core met the area-product requirement.";
+        recommendation.message = peakSupplied
+            ? "No core met the area-product requirement."
+            : "No core found for the compatible materials at this frequency (no peak current was supplied, so no area-product pre-filter was applied - this means the database itself has no matching core, not that one was filtered out).";
         recommendation.requiredAreaProductCm4 = requiredAreaProductCm4;
         recommendation.largestAvailableAreaProductCm4 = largestAvailableAreaProductCm4;
         return recommendation;

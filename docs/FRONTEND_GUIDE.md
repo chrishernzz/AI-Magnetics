@@ -99,10 +99,10 @@ above instead - it fills these in for you.
 **Example:** `250`
 **Why it matters:** Energy stored: `E = 0.5 × L × I²`. Too small → current ripple too high; too large → oversized/expensive.
 
-### 2. Peak Current (A)
-**What it is:** Maximum current through the inductor during operation.
-**Example:** `2.0`
-**Why it matters:** Drives core size (Ap requirement), peak flux density, and saturation margin. Never used to infer RMS current.
+### 2. Peak Current (A, optional)
+**What it is:** Maximum current through the inductor during operation, if known.
+**Example:** `2.0`, or leave blank.
+**Why it matters:** Drives core size (the area-product pre-filter), peak flux density, and saturation margin - never inferred from RMS current, which would understate the real peak and silently undersize the core. Leave it blank and the area-product pre-filter is skipped (every frequency/material-compatible core is evaluated directly instead), and `PeakFluxValidation`/`SaturationValidation` report `not_evaluated` per candidate rather than guessing.
 
 ### 3. RMS Current (A)
 **What it is:** The RMS current through the inductor — a separate quantity from peak current.
