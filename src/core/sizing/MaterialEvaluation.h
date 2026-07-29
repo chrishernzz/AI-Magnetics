@@ -18,10 +18,10 @@ and whether it has Bmax and core loss data. It will also contain any missing dat
 //postcondition: data will be used to carry the material candidate list through the pipeline
 struct MaterialCandidate {
     std::string materialFamily;
-    double muOpt;
+    double muOpt = 0.0;
 
     //true if the material's declared [minFrequencyHz, maxFrequencyHz) range contains the requested switching frequency.
-    bool frequencySuitable;
+    bool frequencySuitable = false;
 
     //hasBmaxData: true when real_materials.csv carries a real (>0.0) saturation flux density for this
     //material - true for most materials in the current snapshot (e.g. 3C90=0.47T), false for the handful
@@ -30,9 +30,13 @@ struct MaterialCandidate {
     //coefficient row for this material, at any frequency (checked against the actual coefficient database,
     //not the unused cuLossFactor field below - see MaterialEvaluation.cpp's hasAnyCoreLossCoefficients()).
     //Both flags exist so downstream stages (and the API response) say so honestly instead of silently
-    //treating missing data as a real value.
-    bool hasBmaxData;
-    bool hasCoreLossData;
+    //treating missing data as a real value. Defaulted to false (not left indeterminate) - a struct with no
+    //in-class initializer here is genuinely uninitialized garbage when default-constructed, a real latent
+    //bug found via a g++-11-specific test failure: a default-constructed MaterialCandidate in a test (never
+    //explicitly setting hasBmaxData) read as true under one compiler/build and false under another, silently
+    //flipping whether LossEvaluation.cpp's saturation check ran at all.
+    bool hasBmaxData = false;
+    bool hasCoreLossData = false;
 
     //bmaxT: real value from real_materials.csv when hasBmaxData is true, 0.0 otherwise.
     //cuLossFactor: always 0.0 - real_materials.csv carries no such column in the current snapshot; core-loss

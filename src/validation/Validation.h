@@ -12,10 +12,14 @@ spec section 10 asks for, instead of a single unexplained bool.
 
 */
 struct ValidationResult {
-    bool passed;
+    //Defaulted (not left indeterminate) - every real construction path sets these explicitly before use, but
+    //a default-constructed instance (e.g. in a test fixture) reading passed/calculatedValue/limitValue before
+    //assignment would otherwise be genuine undefined behavior. See MaterialCandidate::hasBmaxData for a real
+    //case this exact pattern caused (a g++-11-specific test failure from indeterminate garbage).
+    bool passed = false;
     std::string checkName;
-    double calculatedValue;
-    double limitValue;
+    double calculatedValue = 0.0;
+    double limitValue = 0.0;
     std::string unit;
     std::string explanation;
 

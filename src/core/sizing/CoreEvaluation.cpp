@@ -52,16 +52,20 @@ std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate
         candidate.coreShape = core.coreShape;
         candidate.shapeFamily = core.shapeFamily;
         candidate.materialType = core.materialType;
+        candidate.windowWidthMm = core.windowWidthMm;
+        candidate.windowHeightMm = core.windowHeightMm;
         candidate.source.manufacturer = core.vendor.empty() ? std::nullopt : std::optional<std::string>(core.vendor);
         candidate.source.partNumber = core.partNumber;
         candidate.source.materialGrade = core.material;
         candidate.source.datasheetName = "PyOpenMagnetics/MAS export (data/real_cores.csv snapshot)";
-        //datasheetRevision/Url/dateAccessed intentionally left unset - no such data exists in this snapshot.
+        //real for ~99% of cores in the current snapshot - see CoreData::datasheetUrl. datasheetRevision/
+        //dateAccessed remain unset (no such data exists anywhere in the snapshot).
+        candidate.source.datasheetUrl = core.datasheetUrl.empty() ? std::nullopt : std::optional<std::string>(core.datasheetUrl);
         candidate.source.confidence = core.vendor.empty() ? DataConfidence::Estimated : DataConfidence::Manufacturer;
         candidate.source.confidenceNote = core.vendor.empty()
             ? "no vendor recorded for this core in the snapshot"
-            : "geometry and vendor sourced from PyOpenMagnetics/MAS, itself built from real manufacturer "
-              "datasheets - no datasheet revision/URL/date-accessed is tracked in this snapshot";
+            : "geometry, vendor, and datasheet URL sourced from PyOpenMagnetics/MAS, itself built from real "
+              "manufacturer datasheets - datasheet revision/date-accessed are not tracked in this snapshot";
 
         candidates.push_back(std::move(candidate));
     }

@@ -91,17 +91,30 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
         result.physicalDescription = std::to_string(result.parallelStrands) + "x AWG" + std::to_string(selectedAwg) +
             " magnet wire (bare " + std::to_string(bareStrandDiameterMm) + " mm, insulated ~" +
             std::to_string(result.insulatedConductorDiameterMm) + " mm each), wound as a single bundle";
-        result.missingData.push_back(
-            "parallel-strand bundle-vs-narrowest-opening fit is not evaluated - core data has no width/height "
-            "split, only a raw window area (Wa), so there is no linear dimension to check the bundle against");
-    } 
-    else {
+
+        // Real check, only possible for two-piece cores (real window width/height - see
+        // CoreCandidate::windowWidthMm/windowHeightMm). Toroids have no flat width/height at all (radial
+        // window geometry instead), so they - and any two-piece core still missing this data - stay
+        // permanently NotEvaluated here, never assumed to fit.
+        if (core.windowWidthMm > 0.0 && core.windowHeightMm > 0.0) {
+            result.bundleWidthMm = static_cast<double>(result.parallelStrands) * result.insulatedConductorDiameterMm;
+            result.narrowestWindowOpeningMm = std::min(core.windowWidthMm, core.windowHeightMm);
+            result.bundleFitsWindowOpening = result.bundleWidthMm <= result.narrowestWindowOpeningMm;
+            result.bundleFitStatus = EvaluationStatus::Evaluated;
+        } else {
+            result.missingData.push_back(
+                "parallel-strand bundle-vs-narrowest-opening fit is not evaluated - this core has no real "
+                "window width/height (toroid, or a two-piece core missing that data in the current snapshot)");
+        }
+    } else {
         result.physicalDescription = "AWG" + std::to_string(selectedAwg) + " magnet wire (bare " +
             std::to_string(bareStrandDiameterMm) + " mm, insulated ~" + std::to_string(result.insulatedConductorDiameterMm) + " mm), single strand";
     }
 
     // Physical window fill: bobbin-wall derate, then subtract margin/lead-exit clearance (both expressed as
-    // area fractions since core data has no width/height split - see DesignRules.h), then divide the
+    // area fractions in DesignRules.h - real window width/height now exists for two-piece cores, see
+    // CoreCandidate::windowWidthMm/windowHeightMm, but this formula does not yet switch to a literal-mm
+    // margin for them; toroids still have no linear window dimension at all), then divide the
     // insulated-conductor area sum by the achievable packing factor to get the physically occupied area.
     result.physicalWindowAreaMm2 = core.waMm2 * rules.bobbinWindowDerateFactor * (1.0 - rules.marginAllowanceAreaFraction - rules.leadExitAllowanceAreaFraction);
     double physicalCopperAreaMm2 = (static_cast<double>(turns) * result.parallelStrands * result.insulatedConductorAreaMm2) / rules.packingFactor;

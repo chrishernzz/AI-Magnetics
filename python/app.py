@@ -77,6 +77,8 @@ def load_real_magnetics_data():
         "reason" : "Reason",
         "alternatives" : "Alternatives",
         "bmaxT" : "BmaxT",
+        "manufacturer" : "Manufacturer",
+        "datasheetUrl" : "DatasheetUrl",
     })
     cpp_cores = _build_cpp_record(cores, magnetics_cpp.CoreData, {
         "partNumber" : "PartNumber",
@@ -91,6 +93,9 @@ def load_real_magnetics_data():
         "coreShape" : "CoreShape",
         "shapeFamily" : "ShapeFamily",
         "materialType" : "MaterialType",
+        "datasheetUrl" : "DatasheetUrl",
+        "windowWidthMm" : "WindowWidthMm",
+        "windowHeightMm" : "WindowHeightMm",
     })
     cpp_core_loss_coefficients = _build_cpp_record(core_loss_coefficients, magnetics_cpp.CoreLossCoefficientData, {
         "materialName" : "MaterialName",

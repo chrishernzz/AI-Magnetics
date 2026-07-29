@@ -17,16 +17,20 @@ not this function's, to keep the "why did this fail" data available.
 struct CoreCandidate {
     std::string partNumber;
     std::string material;
-    double mu;
+    //Defaulted to 0.0/false (not left indeterminate) - every real construction path sets these explicitly,
+    //but a default-constructed instance (e.g. in a test fixture) would otherwise read genuinely uninitialized
+    //garbage. See MaterialCandidate::hasBmaxData for the real g++-11-specific test failure this exact pattern
+    //caused elsewhere in this codebase.
+    double mu = 0.0;
     // nH/turn^2, ungapped catalog value
-    double al;        
-    double aeMm2;
-    double waMm2;
-    double leMm;
+    double al = 0.0;
+    double aeMm2 = 0.0;
+    double waMm2 = 0.0;
+    double leMm = 0.0;
     // Mean-length-per-turn, mm. 0.0 means no data - see CoreData::mlt.
     double mltMm = 0.0;
-    double areaProductCm4;
-    bool meetsAreaProduct;
+    double areaProductCm4 = 0.0;
+    bool meetsAreaProduct = false;
 
     //real vendor/manufacturer name from real_cores.csv's Vendor column - empty string means no vendor recorded for this core.
     std::string vendor;
@@ -40,8 +44,17 @@ struct CoreCandidate {
     //real material type ("ferrite"/"powder") from real_cores.csv's MaterialType column - see CoreData::materialType. Empty string means unknown, never treated as "powder".
     std::string materialType;
 
-    //provenance for this core's data - see Provenance.h. datasheetRevision/Url/dateAccessed are always unset
-    //in Phase 1 (no real per-core datasheet revision/URL/access-date exists in this snapshot).
+    //real rectangular winding-window dimensions (mm) - see CoreData::windowWidthMm/windowHeightMm. 0.0 means
+    //no linear dimension recorded (always true for toroids - their window is a radial height, not a flat
+    //width/height). Consumed by WindingDesign's BundleFitValidation check (parallel-strand bundle width vs.
+    //narrowest real opening) - the raw fill-factor formula still uses the area-fraction margin/lead-exit
+    //estimates from DesignRules, unchanged.
+    double windowWidthMm = 0.0;
+    double windowHeightMm = 0.0;
+
+    //provenance for this core's data - see Provenance.h. source.datasheetUrl is now real (populated from
+    //CoreData::datasheetUrl) for ~99% of cores in the current snapshot; datasheetRevision/dateAccessed
+    //remain unset (no such data exists anywhere in the snapshot).
     SourceInfo source;
 };
 

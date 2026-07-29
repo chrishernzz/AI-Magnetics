@@ -150,6 +150,8 @@ def _serialize_core(c) -> dict:
         "coreShape": c.coreShape,
         "shapeFamily": c.shapeFamily,
         "materialType": c.materialType,
+        "windowWidthMm": c.windowWidthMm,
+        "windowHeightMm": c.windowHeightMm,
         "source": _serialize_source_info(c.source),
     }
 
@@ -198,6 +200,9 @@ def _serialize_winding(w) -> dict:
         "fitsPhysicalWindow": w.fitsPhysicalWindow,
         "effectiveCurrentDensityAperMm2": w.effectiveCurrentDensityAperMm2,
         "bundleFitStatus": w.bundleFitStatus.name,
+        "bundleWidthMm": w.bundleWidthMm,
+        "narrowestWindowOpeningMm": w.narrowestWindowOpeningMm,
+        "bundleFitsWindowOpening": w.bundleFitsWindowOpening,
         "coreWindingLengthM": w.coreWindingLengthM,
         "leadLengthM": w.leadLengthM,
         "routingLengthM": w.routingLengthM,

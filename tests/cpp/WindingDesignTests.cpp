@@ -28,6 +28,26 @@ CoreCandidate coreWithoutMlt() {
     return core;
 }
 
+//same real E100/60/28-3C90 core, with its real rectangular winding-window dimensions added (data/real_cores.csv's
+//WindowWidthMm/WindowHeightMm - 22.825mm x 93.7mm, verified against the live PyOpenMagnetics record).
+CoreCandidate realCoreWithWindow() {
+    CoreCandidate core = realCore();
+    core.windowWidthMm = 22.825;
+    core.windowHeightMm = 93.7;
+    return core;
+}
+
+//a synthetic two-piece core with a deliberately narrow window (clearly not a real catalog part - used only
+//to force a parallel-strand bundle wider than the opening, exercising the real BundleFitValidation failure
+//path deterministically rather than hunting for a real part that happens to be too small).
+CoreCandidate twoPieceCoreWithNarrowWindow() {
+    CoreCandidate core = realCore();
+    core.partNumber = "SYNTHETIC-narrow-window-test-fixture";
+    core.windowWidthMm = 2.0;
+    core.windowHeightMm = 93.7;
+    return core;
+}
+
 //1. A small RMS current, needing less copper area than AWG18 (rules.minimumSingleStrandAwg) provides, should
 //select a single round strand rather than switching to parallel strands.
 void testSingleStrandSelectedForModerateCurrent() {
@@ -112,6 +132,37 @@ void testEstimatedHotDcrExceedsColdDcr() {
                 result.coldDcrOhmsAt20C, result.estimatedHotDcrOhms);
 }
 
+//7. Regression for a real database audit finding: real winding-window width/height exists for two-piece
+//cores but was never used. A parallel-strand bundle that comfortably fits within the core's real narrowest
+//window opening must report bundleFitStatus=Evaluated and bundleFitsWindowOpening=true.
+void testBundleFitsRealWindowOpening() {
+    CoreCandidate core = realCoreWithWindow();
+    DesignRules rules = DesignRules::phase1Default();
+    WindingDesignResult result = designWinding(core, 20, 60.0, rules);
+    assert(result.parallelStrands > 1);
+    assert(result.bundleFitStatus == EvaluationStatus::Evaluated);
+    assert(result.bundleWidthMm > 0.0);
+    assert(approxEqual(result.narrowestWindowOpeningMm, 22.825, 1e-9));
+    assert(result.bundleFitsWindowOpening);
+    std::printf("testBundleFitsRealWindowOpening: bundleWidth=%.4f mm vs opening=%.4f mm - fits\n",
+                result.bundleWidthMm, result.narrowestWindowOpeningMm);
+}
+
+//8. A parallel-strand bundle wider than the core's narrowest real window opening must report
+//bundleFitStatus=Evaluated and bundleFitsWindowOpening=false - a genuine geometric impossibility, not
+//silently assumed benign.
+void testBundleTooWideForNarrowWindowFailsRealCheck() {
+    CoreCandidate core = twoPieceCoreWithNarrowWindow();
+    DesignRules rules = DesignRules::phase1Default();
+    WindingDesignResult result = designWinding(core, 20, 60.0, rules);
+    assert(result.parallelStrands > 1);
+    assert(result.bundleFitStatus == EvaluationStatus::Evaluated);
+    assert(result.bundleWidthMm > result.narrowestWindowOpeningMm);
+    assert(!result.bundleFitsWindowOpening);
+    std::printf("testBundleTooWideForNarrowWindowFailsRealCheck: bundleWidth=%.4f mm vs opening=%.4f mm - does not fit\n",
+                result.bundleWidthMm, result.narrowestWindowOpeningMm);
+}
+
 }  // namespace
 
 void runWindingDesignTests() {
@@ -121,5 +172,7 @@ void runWindingDesignTests() {
     testColdDcrIncludesLeadRoutingAndConnectionResistance();
     testMissingMltMeansResistanceNotEvaluatedButFillStillComputed();
     testEstimatedHotDcrExceedsColdDcr();
+    testBundleFitsRealWindowOpening();
+    testBundleTooWideForNarrowWindowFailsRealCheck();
     std::printf("All WindingDesignTests passed.\n");
 }

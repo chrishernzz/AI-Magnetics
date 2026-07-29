@@ -71,7 +71,10 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("vendor", &CoreData::vendor)
         .def_readwrite("coreShape", &CoreData::coreShape)
         .def_readwrite("shapeFamily", &CoreData::shapeFamily)
-        .def_readwrite("materialType", &CoreData::materialType);
+        .def_readwrite("materialType", &CoreData::materialType)
+        .def_readwrite("datasheetUrl", &CoreData::datasheetUrl)
+        .def_readwrite("windowWidthMm", &CoreData::windowWidthMm)
+        .def_readwrite("windowHeightMm", &CoreData::windowHeightMm);
     py::class_<MaterialData>(m, "MaterialData")
         .def(py::init<>())
         .def_readwrite("name", &MaterialData::name)
@@ -81,7 +84,9 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("reason", &MaterialData::reason)
         .def_readwrite("alternatives", &MaterialData::alternatives)
         .def_readwrite("bmaxT", &MaterialData::bmaxT)
-        .def_readwrite("cuLossFactor", &MaterialData::cuLossFactor);
+        .def_readwrite("cuLossFactor", &MaterialData::cuLossFactor)
+        .def_readwrite("manufacturer", &MaterialData::manufacturer)
+        .def_readwrite("datasheetUrl", &MaterialData::datasheetUrl);
     py::class_<CoreLossCoefficientData>(m, "CoreLossCoefficientData")
         .def(py::init<>())
         .def_readwrite("materialName", &CoreLossCoefficientData::materialName)
@@ -228,6 +233,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("coreShape", &CoreCandidate::coreShape)
         .def_readwrite("shapeFamily", &CoreCandidate::shapeFamily)
         .def_readwrite("materialType", &CoreCandidate::materialType)
+        .def_readwrite("windowWidthMm", &CoreCandidate::windowWidthMm)
+        .def_readwrite("windowHeightMm", &CoreCandidate::windowHeightMm)
         .def_readwrite("source", &CoreCandidate::source);
 
     py::class_<TurnsAndGapResult>(m, "TurnsAndGapResult")
@@ -295,6 +302,9 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("fitsPhysicalWindow", &WindingDesignResult::fitsPhysicalWindow)
         .def_readwrite("effectiveCurrentDensityAperMm2", &WindingDesignResult::effectiveCurrentDensityAperMm2)
         .def_readwrite("bundleFitStatus", &WindingDesignResult::bundleFitStatus)
+        .def_readwrite("bundleWidthMm", &WindingDesignResult::bundleWidthMm)
+        .def_readwrite("narrowestWindowOpeningMm", &WindingDesignResult::narrowestWindowOpeningMm)
+        .def_readwrite("bundleFitsWindowOpening", &WindingDesignResult::bundleFitsWindowOpening)
         .def_readwrite("coreWindingLengthM", &WindingDesignResult::coreWindingLengthM)
         .def_readwrite("leadLengthM", &WindingDesignResult::leadLengthM)
         .def_readwrite("routingLengthM", &WindingDesignResult::routingLengthM)

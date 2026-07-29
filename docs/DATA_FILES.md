@@ -26,8 +26,8 @@
 `data/real_core_loss_coefficients.csv`
 **Used by:** `python/services/magnetics_data.py`
 **Format:**
-`PartNumber,Material,Mu,AL,Ae,Wa,Le,Mlt,PartCost,Vendor,MaxCurrent_A,MaxFreq_kHz,CoreShape,ShapeFamily,MaterialType`
-for cores, `Name,MuOpt,MinFrequencyHz,MaxFrequencyHz,Reason,Alternatives,BmaxT,MaterialType`
+`PartNumber,Material,Mu,AL,Ae,Wa,Le,Mlt,PartCost,Vendor,MaxCurrent_A,MaxFreq_kHz,CoreShape,ShapeFamily,MaterialType,DatasheetUrl,WindowWidthMm,WindowHeightMm`
+for cores, `Name,MuOpt,MinFrequencyHz,MaxFrequencyHz,Reason,Alternatives,BmaxT,MaterialType,Manufacturer,DatasheetUrl`
 for materials, and `MaterialName,MinFrequencyHz,MaxFrequencyHz,K,Alpha,Beta,Ct0,Ct1,Ct2`
 (one row per frequency range) for the Steinmetz core-loss coefficients.
 **Currently:** 81 materials, 168 cores — real data (Ferroxcube, TDK,
@@ -38,7 +38,23 @@ geometry classifications from PyOpenMagnetics' own shape record - see
 "Core shape is now real" below. `MaterialType` (`ferrite`/`powder`) is
 PyOpenMagnetics' own real material classification - see "Ferrite toroids
 vs. powder toroids" below for why shape alone isn't enough to know which
-gap physics applies.
+gap physics applies. `DatasheetUrl`/`Manufacturer`/`WindowWidthMm`/
+`WindowHeightMm` are covered in "Columns added after a database audit"
+below.
+
+**Why three separate files, not one:** materials:cores is a real
+many-to-one relationship (168 cores share 81 materials) - merging them
+would repeat every material-level fact (MuOpt, BmaxT, Reason, ...) on
+every core row that uses it. materials:core-loss-coefficients is a real
+one-to-many relationship with a variable row count per material (0 to
+several frequency ranges - 56 of the 81 materials have zero, some have
+multiple) - that can't become flat columns on a single row without either
+an arbitrary cap or a non-tabular nested structure. Three normalized
+files, joined in memory at evaluation time by the `Material`/
+`MaterialName` string key (see `MaterialEvaluation.cpp`/
+`CoreEvaluation.cpp`), is the correct relational shape for this data, not
+a workaround.
+
 **Do not hand-edit these files.** To change what's in them, either adjust
 the filters in `scripts/export_real_data.py` and re-run it (needs
 PyOpenMagnetics installed — Linux/macOS/WSL2 only, see
@@ -112,6 +128,49 @@ that script and swap the resulting files in.
   on), not inferred from the part number or shape. A core with an
   empty/unknown `MaterialType` is treated conservatively — it runs the real
   machined-gap formula rather than being assumed powder.
+- **Columns added after a database audit** (checked what PyOpenMagnetics
+  actually carries vs. what this project captured, rather than assuming
+  the previous snapshot was complete):
+  - `DatasheetUrl` (materials and cores) — real manufacturer datasheet
+    PDF links, e.g. TDK/Ferroxcube/Magnetics. Populated for 98.0% of
+    materials and 99.4% of cores in the current snapshot. Previously
+    `SourceInfo.datasheetUrl` (`Provenance.h`) was documented as "no such
+    data exists" — it did, this project just never read it. Surfaced in
+    the API via `core.source.datasheetUrl`/`material.source.datasheetUrl`.
+  - `Manufacturer` (materials) — real manufacturer name (TDK, Ferroxcube,
+    Fair-Rite, Magnetics, Micrometals), 100% populated. Cores already had
+    this via the `Vendor` column; materials didn't.
+  - `WindowWidthMm`/`WindowHeightMm` (cores) — the real rectangular
+    winding-window dimensions, not just its total area (`Wa`). Populated
+    for 100% of two-piece (open-shape) cores; always blank for toroids,
+    which PyOpenMagnetics parameterizes by a radial height instead of a
+    flat width/height — that's a real geometric difference, not missing
+    data. Surfaced in the API (`core.windowWidthMm`/`core.windowHeightMm`)
+    and now genuinely consumed: `WindingDesign.cpp`'s parallel-strand
+    bundle-fit check (`bundleFitStatus`, formerly permanently
+    `NotEvaluated` for every candidate) computes a real result for
+    two-piece cores - the bundle's strands laid side by side
+    (`bundleWidthMm`) checked against the window's narrower real dimension
+    (`narrowestWindowOpeningMm`). A new `BundleFitValidation` check (mandatory,
+    like every other real magnetic/electrical check this engine runs)
+    gates on this, so a candidate whose bundle genuinely cannot fit
+    through a real core's window is now rejected rather than silently
+    passing on total-area alone. Toroids and any two-piece core still
+    missing the dimension data stay `NotEvaluated`, same as before. The
+    model is conservative and explicitly documented as such (single row,
+    no twisting/multi-row arrangement) since no real winding-pattern data
+    exists to do better - `WindingDesign.cpp`'s area-fraction margin/
+    lead-exit formula itself is unchanged, this is an additional real
+    geometric check alongside it, not a replacement.
+  - **Deliberately not added:** distributor cost. Real pricing exists
+    upstream for only 15.2% of cores (vs. the `PartCost` column's current
+    universal `0.0`), and no check in this project consumes cost today —
+    adding a column that would still read empty/zero for 85% of parts,
+    for data nothing uses yet, wasn't judged worth the added surface area
+    in this pass. `thermalResistance` was also checked and confirmed
+    genuinely absent (0% populated) across all 10,318 cores upstream —
+    not something this project failed to capture, it doesn't exist
+    anywhere in the source for any part.
 
 ---
 

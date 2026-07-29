@@ -16,6 +16,12 @@ struct MaterialData {
     //property, and fall back to DesignRules::defaultFluxDensityLimitT / report core loss as not_evaluated accordingly.
     double bmaxT = 0.0;
     double cuLossFactor = 0.0;
+
+    //Real manufacturer name and datasheet URL from real_materials.csv's Manufacturer/DatasheetUrl columns
+    //(PyOpenMagnetics' own manufacturerInfo - populated for 100% of materials in the current snapshot).
+    //Empty string means genuinely not recorded, never a placeholder.
+    std::string manufacturer;
+    std::string datasheetUrl;
 };
 
 class MaterialDatabase {
