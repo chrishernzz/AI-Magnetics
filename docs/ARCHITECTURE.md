@@ -156,8 +156,14 @@ InductorDesignService::run() (C++):
      with requiredAreaProductCm4 / largestAvailableAreaProductCm4, not a
      silent oversized substitute
   5. For each feasible core: designTurnsAndGap() (iterates turns and gap
-     together), then DesignValidation's six checks, designWinding(),
-     evaluateLosses(), evaluateThermal()
+     together - when peakCurrentA is known, the starting turns count is
+     raised, never lowered, above the plain inductance-matching minimum
+     whenever needed to respect the material's saturation margin, so a real
+     gapped design isn't missed just because the naive minimum-turns point
+     saturates - see TurnsAndGapResult::turnsRaisedForSaturationMargin),
+     then DesignValidation's checks (including PeakFluxValidation/
+     SaturationValidation, which still independently verify the result),
+     designWinding(), evaluateLosses(), evaluateThermal()
   6. Passing candidates ranked by real total loss (copper + core, whichever
      are Evaluated) ascending - the actual "Optimization" half of Option 2
      (Physics-Based Calculation and Optimization), not just a size sort.

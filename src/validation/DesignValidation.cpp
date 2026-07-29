@@ -1,4 +1,5 @@
 #include "DesignValidation.h"
+#include "core/sizing/FluxLimit.h"
 #include "core/units/UnitConversions.h"
 #include <cmath>
 
@@ -16,19 +17,6 @@ double calculatePeakFluxDensityT(const CoreCandidate& core, const TurnsAndGapRes
     double aeM2 = units::mm2ToM2(core.aeMm2);
     //using the formual from above
     return (inductanceH * peakCurrentA) / (static_cast<double>(turnsAndGap.turns) * aeM2);
-}
-
-struct FluxLimit {
-    double limitT;
-    bool usedDefault;
-};
-//precondition: FluxLimit struct is passed to get limit and usedDefault
-//postcondition: returns if there is Bmax in the database, if there is then return the value and false meaning that you are not using default Flux
-FluxLimit applicableFluxLimit(const MaterialCandidate& material, const DesignRules& rules) {
-    if (material.hasBmaxData) {
-        return {material.bmaxT, false};
-    }
-    return {rules.defaultFluxDensityLimitT, true};
 }
 
 //precondition: none

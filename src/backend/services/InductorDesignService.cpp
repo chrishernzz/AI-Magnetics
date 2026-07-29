@@ -50,7 +50,8 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     candidate.fluxLimits = calculateFluxLimitTiers(material, rules);
 
     double targetInductanceUH = units::hToUH(requirements.operatingPoint.inductanceH);
-    candidate.turnsAndGap = designTurnsAndGap(core, targetInductanceUH, requirements.inductanceTolerancePercent, rules);
+    candidate.turnsAndGap = designTurnsAndGap(core, material, targetInductanceUH, requirements.inductanceTolerancePercent,
+                                               requirements.operatingPoint.peakCurrentA, rules);
 
     if (!candidate.turnsAndGap.converged) {
         candidate.passed = false;

@@ -1,6 +1,7 @@
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/magnetics/GapDesign.h"
 #include "core/magnetics/TurnsCalculation.h"
+#include "core/sizing/FluxLimit.h"
 #include "core/units/UnitConversions.h"
 #include <algorithm>
 #include <cmath>
@@ -27,6 +28,26 @@ int seedTurns(const CoreCandidate& core, double targetInductanceUH) {
     return std::max(1, seedResult.turns);
 }
 
+//precondition: targetInductanceUH > 0, peakCurrentA > 0, core.aeMm2 > 0, appliedFluxLimitT > 0
+//postcondition: returns the minimum integer turns count N such that Bpk = L*Ipk/(N*Ae) is at or below
+//the margin-derated flux limit (appliedFluxLimitT * (1 - rules.minimumSaturationMarginPercent/100)) - i.e.
+//a turns count that, if realized, satisfies SaturationValidation's margin check against the SAME limit
+//PeakFluxValidation/SaturationValidation apply downstream (see applicableFluxLimit in FluxLimit.h), not a
+//separate, potentially-inconsistent threshold. Rounds up (ceil), never down, so integer rounding never
+//leaves Bpk fractionally above the derated limit. Returns 0 (a sentinel, never a real turns count) if the
+//derated limit is non-positive - callers must treat 0 as "no flux-aware floor available."
+int minimumTurnsForSaturationMargin(const CoreCandidate& core, double targetInductanceUH, double peakCurrentA,
+                                     double appliedFluxLimitT, const DesignRules& rules) {
+    double deratedLimitT = appliedFluxLimitT * (1.0 - rules.minimumSaturationMarginPercent / 100.0);
+    if (deratedLimitT <= 0.0) {
+        return 0;
+    }
+    double inductanceH = units::uHToH(targetInductanceUH);
+    double aeM2 = units::mm2ToM2(core.aeMm2);
+    double nMinRaw = (inductanceH * peakCurrentA) / (aeM2 * deratedLimitT);
+    return std::max(1, static_cast<int>(std::ceil(nMinRaw)));
+}
+
 //precondition: turns > 0, gapMm >= 0
 //postcondition: returns the inductance (uH) this core would produce at this turns count and gap - reused for
 //the nominal result and both gap-tolerance sweep extremes so all three go through the exact same formula.
@@ -43,7 +64,9 @@ double inductanceAtGapUH(int turns, double gapMm, double aeCm2, double leCm, dou
 //precondition: core.aeMm2 > 0, core.leMm > 0, core.mu > 0, targetInductanceUH > 0
 //postcondition: iterates turns and gap together until the integer turns count stabilizes (2-4 iterations typical for ferrite gap ranges), then sweeps gap +-rules.gapTolerancePercent
 //to check inductance stays within tolerancePercent at both extremes, or returns converged=false with a rejection reason.
-TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetInductanceUH, double tolerancePercent, const DesignRules& rules) {
+TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCandidate& material,
+                                     double targetInductanceUH, double tolerancePercent,
+                                     const std::optional<double>& peakCurrentA, const DesignRules& rules) {
     TurnsAndGapResult result;
 
     //Real powder toroid materials (MPP/Kool Mu/High Flux/Sendust, etc.) achieve their working permeability
@@ -79,7 +102,11 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetIndu
     //material's distributed permeability. Reporting a nonzero "gap" here would imply a machinable dimension
     //that does not physically exist on this part. No gap-tolerance sweep either - there is no gap dimension
     //for mechanical tolerance to act on; AL manufacturing tolerance is a different, real concern this Phase
-    //1 dataset does not carry data for (see DATA_FILES.md).
+    //1 dataset does not carry data for (see DATA_FILES.md). material/peakCurrentA are intentionally never
+    //consulted in this branch either - the flux-aware turns floor below (see the real-gap-formula path)
+    //needs a gap to trade against turns for a given target inductance, and powder toroids have none: their
+    //catalog AL is fixed, so N=sqrt(L/AL) is uniquely determined with zero design freedom. If a powder
+    //toroid fails saturation, the only real fix is a different, lower-permeability part - out of scope here.
     if (isDistributedGapCore) {
         int turns = std::max(1, seedTurns(core, targetInductanceUH));
         double actualNh = static_cast<double>(turns) * turns * core.al;
@@ -116,6 +143,35 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetIndu
     double maxGapMm = rules.maxGapFraction * core.leMm;
 
     int turns = seedTurns(core, targetInductanceUH);
+
+    //Flux-aware turns floor: the plain inductance-matching seed above is the MINIMUM possible turns count
+    //for this target L (it comes from the core's ungapped/maximum AL) - it has no awareness of peak current
+    //or flux density, so on many real ferrite cores it converges directly to a zero-gap, minimum-turns
+    //design that PeakFluxValidation/SaturationValidation then reject downstream with no retry (a real user
+    //report: E100/60/28-3C90 at 3000uH/5A peak converged at turns=20/gapMm=0.0, Bpk=1.03T vs Bmax=0.47T,
+    //when a real ~49-turn/~0.6mm-gap design exists on the SAME core and passes). When a real peak current is
+    //known, raise the starting turns to whatever this exact core/target/limit combination requires to
+    //already respect rules.minimumSaturationMarginPercent - Bpk = L*Ipk/(N*Ae) inverted for N. This only
+    //ever RAISES the seed (max(), never lowered) - a core where the inductance-matching seed already had
+    //enough margin is completely unaffected, and the RMS-only flow (peakCurrentA absent) is untouched.
+    //PeakFluxValidation/SaturationValidation still run their own independent check on whatever (turns, gap)
+    //this loop actually converges to below - this never substitutes for those checks, it only gives the
+    //solver a turns count worth trying.
+    if (peakCurrentA.has_value() && *peakCurrentA > 0.0) {
+        FluxLimit limit = applicableFluxLimit(material, rules);
+        int fluxAwareMinTurns = minimumTurnsForSaturationMargin(core, targetInductanceUH, *peakCurrentA, limit.limitT, rules);
+        if (fluxAwareMinTurns > turns) {
+            result.turnsRaisedForSaturationMargin = true;
+            result.turnsRaisedForSaturationMarginReason =
+                "seed turns raised from " + std::to_string(turns) + " (inductance-matching minimum, ungapped AL) to " +
+                std::to_string(fluxAwareMinTurns) + " turns to respect the " +
+                std::to_string(rules.minimumSaturationMarginPercent) + "% saturation margin at peak current " +
+                std::to_string(*peakCurrentA) + " A against the applicable " + std::to_string(limit.limitT) +
+                " T flux limit (" + (limit.usedDefault ? "Phase 1 default" : "material-specific") +
+                ") - PeakFluxValidation/SaturationValidation still verify this independently below";
+            turns = fluxAwareMinTurns;
+        }
+    }
 
     //will run up to kMaxIterations times during each iteration it:
     //Calculates the required gap for the current turns

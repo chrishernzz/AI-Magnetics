@@ -45,6 +45,7 @@ set(CORE_SOURCES
     src/core/sizing/AreaProduct.cpp
     src/core/sizing/MaterialEvaluation.cpp
     src/core/sizing/CoreEvaluation.cpp
+    src/core/sizing/FluxLimit.cpp
     src/core/magnetics/GapDesign.cpp
     src/core/magnetics/TurnsCalculation.cpp
     src/core/magnetics/TurnsAndGapDesign.cpp

@@ -131,23 +131,35 @@ def test_case5_vout_at_or_above_vin_min_is_rejected():
         assert "vinMinV" in str(e)
 
 
-def test_case6_saturation_failure_rejects_every_candidate():
-    """Case 6: a target inductance/current combination that saturates every
-    real candidate core - found by probing the live engine (470uH, 40A peak,
-    28A rms, 80kHz against the real database rejects all 3 area-product-feasible
-    cores on SaturationValidation). Re-probed after the CoreShape database fix
-    (60->168 cores) added real MPP-toroid coverage - the original 12A-peak
-    trigger now has a real passing candidate (C055439A2X2, the exact MPP-60
-    toroid this fix was built to surface), so it no longer demonstrates a
-    saturation rejection; 40A peak still genuinely rejects every candidate."""
+def test_case6_flux_aware_seed_finds_real_design_that_used_to_saturate():
+    """Case 6: originally documented that 470uH/40A peak/28A rms/80kHz saturated
+    every area-product-feasible candidate on SaturationValidation. That was a real
+    methodology bug, not physics: the turns/gap solver always seeded from the
+    core's ungapped (minimum-turns) AL with zero awareness of peak current, so it
+    converged on a needlessly-high-flux design and never tried the real, physically
+    valid higher-turns/bigger-gap alternative that a proper gapped-ferrite power
+    inductor design would use. Re-probed after the flux-aware-seed fix (turns/gap
+    now start from whichever is larger: the inductance-matching minimum, or the
+    minimum turns that respects the saturation margin) - this exact scenario now
+    produces a real passing candidate (E100/60/28-3C90, turns raised from the old
+    minimum-turns value to a saturation-safe one), proving the fix works through
+    the full Python binding path, not just the C++ unit test
+    (testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore in GapToleranceTests.cpp)."""
     result = magnetics_cpp.run_inductor_design(
         _design_request(inductanceUH=470.0, peakCurrentA=40.0, rmsCurrentA=28.0, switchingFreqKHz=80.0)
     )
-    assert result.status == "no_feasible_design"
-    assert len(result.rejectedCandidates) > 0
-    assert all(
-        any(r.checkName == "SaturationValidation" for r in c.rejectionReasons) for c in result.rejectedCandidates
-    )
+    assert result.status == "ok"
+    assert len(result.candidates) >= 1
+
+    candidate = result.candidates[0]
+    assert candidate.core.partNumber == "E100/60/28-3C90"
+    assert candidate.turnsAndGap.turnsRaisedForSaturationMargin
+    assert candidate.turnsAndGap.gapMm > 0.0
+
+    peak_flux = next(v for v in candidate.validations if v.checkName == "PeakFluxValidation")
+    saturation = next(v for v in candidate.validations if v.checkName == "SaturationValidation")
+    assert peak_flux.passed
+    assert saturation.passed
 
 
 def test_case7_gap_tolerance_sweep_fails_even_when_nominal_passes():
@@ -157,7 +169,10 @@ def test_case7_gap_tolerance_sweep_fails_even_when_nominal_passes():
     exact real E100/60/28-3C90 catalog-geometry scenario already verified at the
     engine level in tests/cpp/GapToleranceTests.cpp's
     testGapToleranceCanFailEvenWhenNominalPasses, reproduced here through the
-    Python binding to confirm it holds end-to-end, not just in the C++ unit test."""
+    Python binding to confirm it holds end-to-end, not just in the C++ unit test.
+    peakCurrentA=None (the real material has no relevant Bmax data plugged in
+    here either) means the flux-aware seed never activates - this stays a pure
+    inductance/gap-tolerance check, unaffected by that fix."""
     core = magnetics_cpp.CoreCandidate()
     core.partNumber = "E100/60/28-3C90"
     core.material = "3C90"
@@ -170,8 +185,9 @@ def test_case7_gap_tolerance_sweep_fails_even_when_nominal_passes():
     core.areaProductCm4 = 0.0
     core.meetsAreaProduct = True
 
+    material = magnetics_cpp.MaterialCandidate()
     rules = magnetics_cpp.design_rules_phase1_default()
-    result = magnetics_cpp.design_turns_and_gap(core, 2.0, 0.5, rules)
+    result = magnetics_cpp.design_turns_and_gap(core, material, 2.0, 0.5, None, rules)
 
     assert result.converged
     assert result.withinTolerance  # the nominal design itself is precise

@@ -175,6 +175,8 @@ def _serialize_turns_and_gap(t) -> dict:
         "inductanceWithinToleranceAcrossGapRange": t.inductanceWithinToleranceAcrossGapRange,
         "smallGapWarning": t.smallGapWarning,
         "smallGapWarningReason": t.smallGapWarningReason,
+        "turnsRaisedForSaturationMargin": t.turnsRaisedForSaturationMargin,
+        "turnsRaisedForSaturationMarginReason": t.turnsRaisedForSaturationMarginReason,
     }
 
 #precondition: winding design stage has completed and w contains winding analysis data
