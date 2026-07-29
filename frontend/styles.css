@@ -1396,14 +1396,6 @@ summary {
     color: #fff;
 }
 
-.op-mode-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 10px;
-}
-
 .op-mode-summary {
     color: var(--ink);
     font-size: 0.9rem;

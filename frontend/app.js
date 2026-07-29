@@ -697,13 +697,18 @@ function operatingPointModeInfo(confidence) {
     return base;
 }
 
+// Collapsed by default, same disclosure pattern as the "Active Rules &
+// Assumptions" strip directly above it (<details class="rules-strip">) -
+// a one-line chip summary always visible, full detail one click away.
 function renderOperatingPointConfidence(result) {
     const card = document.getElementById("operatingPointCard");
+    const summaryLine = document.getElementById("operatingPointSummaryLine");
     const body = document.getElementById("operatingPointBody");
-    if (!card || !body) return;
+    if (!card || !summaryLine || !body) return;
     const confidence = result.operatingPointConfidence;
     if (!confidence || result.status !== "ok") {
         card.hidden = true;
+        summaryLine.innerHTML = "";
         body.innerHTML = "";
         return;
     }
@@ -716,11 +721,11 @@ function renderOperatingPointConfidence(result) {
     }[confidence.peakCurrentProvenance] || confidence.peakCurrentProvenance;
 
     card.hidden = false;
+    summaryLine.innerHTML = `
+        <span class="chip chip-mode">${info.label}</span>
+        <span class="chip ${info.confidenceClass}">Confidence: ${info.confidence}</span>
+    `;
     body.innerHTML = `
-        <div class="op-mode-head">
-            <span class="chip chip-mode">${info.label}</span>
-            <span class="chip ${info.confidenceClass}">Confidence: ${info.confidence}</span>
-        </div>
         <p class="op-mode-summary">${confidence.summary}</p>
         <p class="op-mode-provenance">Peak current: <strong>${provenanceLabel}</strong></p>
         <ul class="op-mode-points">${info.points.map((p) => `<li>${p}</li>`).join("")}</ul>
@@ -1052,7 +1057,6 @@ function renderCandidateDetail(candidate) {
     const notEvalCount = candidate.validations.filter((v) => v.status === "NotEvaluated").length;
     const passCount = candidate.validations.length - failCount - notEvalCount;
     const usesDefaultAssumption = candidate.validations.some((v) => v.usesDefaultAssumption);
-    const preliminaryChecks = candidate.validations.filter((v) => v.isPreliminaryEstimate);
 
     // KPIs first, always - the numbers an engineer actually judges a
     // candidate by, in one scannable strip, before any narrative text.
@@ -1083,24 +1087,23 @@ function renderCandidateDetail(candidate) {
         <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong> &nbsp; ${acLossRiskChip(candidate.acLossRisk)}</p>
     `;
 
-    // One-line status, not a restatement of any check - the list below is
-    // the single place every check (and, for a failure, its real reason)
-    // is actually explained. Tier comes from the real backend classification -
-    // only "Recommended" ever renders a chip here (see recommendationTierChip);
-    // the real fact behind an unshown tier (some checks rest on a Phase 1
-    // default assumption rather than measured data) is spelled out in words
-    // instead, without naming the tier.
+    // One-line status for a rejection only - the pass/conditional-pass case
+    // used to restate "N of M checks passed, K not evaluated" here too, but
+    // that's now the Validation Coverage block right below (same facts, more
+    // detail); repeating it here was the same sentence twice. Tier comes
+    // from the real backend classification - only "Recommended" ever
+    // renders a chip here (see recommendationTierChip), so this stays empty
+    // whenever tier isn't Pass (currently always, since Pass is
+    // structurally unreachable - see RecommendationStatus.h).
     const tierChip = recommendationTierChip(candidate.recommendation.tier);
-    const statusSummarySentence = `${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated` : ""}${preliminaryChecks.length ? `, ${preliminaryChecks.length} check${preliminaryChecks.length > 1 ? "s" : ""} based on a Phase 1 default assumption` : ""}`;
     const statusLine = candidate.rejectionReasons.length
         ? `<div class="detail-status detail-status-fail">
             <div class="detail-status-chips"><span class="chip chip-fail">REJECTED</span></div>
             <div class="detail-status-sub">${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>
         </div>`
-        : `<div class="detail-status detail-status-pass">
-            <div class="detail-status-chips">${tierChip ? tierChip + " " : ""}${completenessChip(candidate)}</div>
-            <div class="detail-status-sub">${statusSummarySentence}</div>
-        </div>`;
+        : tierChip
+        ? `<div class="detail-status detail-status-pass"><div class="detail-status-chips">${tierChip}</div></div>`
+        : "";
 
     // No rankingLine/recommendation.explanation paragraph here - that exact
     // sentence already appears once, in the Recommended Candidate card's
