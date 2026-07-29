@@ -1,9 +1,11 @@
 #include <cassert>
 #include <cmath>
 #include <cstdio>
+#include <optional>
 #include "TestHelpers.h"
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "rules/DesignRules.h"
+#include "validation/DesignValidation.h"
 
 namespace {
 
@@ -32,7 +34,7 @@ void testZeroGapWhenUngappedAlSuffices() {
     // ungapped AL*N^2 at N=10 is ~758486 nH - target well below that needs no gap.
     double targetUH = 500.0;  // 500000 nH, still below 758486 nH at N=10 - but seedTurns will pick a
                                // consistent N where ungapped AL already covers the target.
-    TurnsAndGapResult result = designTurnsAndGap(core, targetUH, 10.0, rules);
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 10.0, std::nullopt, rules);
     assert(result.converged);
     assert(approxEqual(result.gapMm, 0.0, 1e-9));
     std::printf("testZeroGapWhenUngappedAlSuffices: turns=%d gapMm=%.4f (0 as expected)\n", result.turns, result.gapMm);
@@ -47,7 +49,7 @@ void testNegativeMathematicalGapClampedToZero() {
     // A very small target inductance at the seeded turns count all but guarantees the raw
     // calculateRequiredGapCm() result is negative (ungapped AL alone already overshoots it).
     double targetUH = 5.0;
-    TurnsAndGapResult result = designTurnsAndGap(core, targetUH, 20.0, rules);
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 20.0, std::nullopt, rules);
     assert(result.converged);
     assert(result.gapMm >= 0.0);
     std::printf("testNegativeMathematicalGapClampedToZero: gapMm=%.4f (never negative)\n", result.gapMm);
@@ -60,12 +62,12 @@ void testSmallGapTriggersManufacturabilityWarningNotRejection() {
     CoreCandidate core = realCore();
     DesignRules rules = DesignRules::phase1Default();
     double targetUH = 2.0;  // requires a real, small, nonzero gap on this core
-    TurnsAndGapResult probe = designTurnsAndGap(core, targetUH, 20.0, rules);
+    TurnsAndGapResult probe = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 20.0, std::nullopt, rules);
     assert(probe.converged);
     assert(probe.gapMm > 0.0);
 
     rules.minManufacturableGapMm = probe.gapMm * 10.0;  // deliberately above the real computed gap
-    TurnsAndGapResult result = designTurnsAndGap(core, targetUH, 20.0, rules);
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 20.0, std::nullopt, rules);
     assert(result.converged);            // still a valid design...
     assert(result.smallGapWarning);      // ...just flagged as hard to manufacture
     assert(!result.smallGapWarningReason.empty());
@@ -79,7 +81,7 @@ void testGapIsRoundedToStepIncrement() {
     CoreCandidate core = realCore();
     DesignRules rules = DesignRules::phase1Default();
     double targetUH = 3.0;
-    TurnsAndGapResult result = designTurnsAndGap(core, targetUH, 20.0, rules);
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 20.0, std::nullopt, rules);
     assert(result.converged);
     double stepsFromZero = result.gapMm / rules.gapStepMm;
     double nearestInt = std::round(stepsFromZero);
@@ -95,7 +97,7 @@ void testExcessiveGapIsRejected() {
     DesignRules rules = DesignRules::phase1Default();
     double targetUH = 0.0001;  // absurdly small target inductance forces an absurdly small effective length,
                                 // i.e. an enormous gap requirement, on any real core geometry.
-    TurnsAndGapResult result = designTurnsAndGap(core, targetUH, 10.0, rules);
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 10.0, std::nullopt, rules);
     assert(!result.converged);
     assert(!result.rejectionReasons.empty());
     std::printf("testExcessiveGapIsRejected: %s\n", result.rejectionReasons.front().c_str());
@@ -116,7 +118,7 @@ void testConvergenceIsRobustEvenNearThePracticalGapBoundary() {
     DesignRules rules = DesignRules::phase1Default();
     // Near the smallest inductance this core can still reach without tripping the excessive-gap rejection.
     double targetUH = 0.01;
-    TurnsAndGapResult result = designTurnsAndGap(core, targetUH, 20.0, rules);
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 20.0, std::nullopt, rules);
     // Either outcome (converged close to the boundary, or cleanly rejected for exceeding the practical
     // gap bound) is a real, honest result - what this test guards is that the iteration terminates in one
     // of these two ways rather than needing the iteration cap to force a stop.
@@ -134,7 +136,7 @@ void testGapToleranceCanFailEvenWhenNominalPasses() {
     double targetUH = 2.0;               // a target requiring a real, non-negligible gap on this core
     double tightTolerancePercent = 0.5;  // far tighter than the +-10% gap tolerance sweep can guarantee
 
-    TurnsAndGapResult result = designTurnsAndGap(core, targetUH, tightTolerancePercent, rules);
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, tightTolerancePercent, std::nullopt, rules);
     assert(result.converged);
     assert(result.withinTolerance);  // the nominal design itself is precise (iterative solver converges tightly)
     assert(!result.inductanceWithinToleranceAcrossGapRange);  // but the realistic gap tolerance sweep fails it
@@ -148,7 +150,7 @@ void testNonMachinedCenterLegGapMethodIsRejected() {
     CoreCandidate core = realCore();
     DesignRules rules = DesignRules::phase1Default();
     rules.gapMethod = GapMethod::Spacer;
-    TurnsAndGapResult result = designTurnsAndGap(core, 2.0, 10.0, rules);
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, 2.0, 10.0, std::nullopt, rules);
     assert(!result.converged);
     assert(!result.rejectionReasons.empty());
     std::printf("testNonMachinedCenterLegGapMethodIsRejected: %s\n", result.rejectionReasons.front().c_str());
@@ -197,13 +199,13 @@ void testFerriteToroidGetsRealMachinedGapNotDistributed() {
     //at 3000uH (Roger's exact reported scenario) this core's real ungapped AL already reaches the target via
     //turns alone (a legitimate real ferrite-toroid design outcome) - gapMethod must still say
     //MachinedCenterLeg, not Distributed, since the formula that decided this WAS the real one.
-    TurnsAndGapResult atReportedTarget = designTurnsAndGap(core, 3000.0, 10.0, rules);
+    TurnsAndGapResult atReportedTarget = designTurnsAndGap(core, MaterialCandidate{}, 3000.0, 10.0, std::nullopt, rules);
     assert(atReportedTarget.gapMethod == GapMethod::MachinedCenterLeg);
 
     //at a low target inductance this same core genuinely needs a nonzero gap - proves the real
     //MachinedCenterLeg formula is actually running (not silently short-circuited to always 0), and that a
     //ferrite toroid CAN get a real nonzero gapMm when the target calls for one.
-    TurnsAndGapResult atLowTarget = designTurnsAndGap(core, 0.5, 10.0, rules);
+    TurnsAndGapResult atLowTarget = designTurnsAndGap(core, MaterialCandidate{}, 0.5, 10.0, std::nullopt, rules);
     assert(atLowTarget.gapMethod == GapMethod::MachinedCenterLeg);
     assert(atLowTarget.gapMm > 0.0);
 
@@ -217,7 +219,7 @@ void testUnknownMaterialTypeIsNeverAssumedPowder() {
     CoreCandidate core = realFerriteToroid();
     core.materialType = "";  // simulates a CSV row with no MaterialType data
     DesignRules rules = DesignRules::phase1Default();
-    TurnsAndGapResult result = designTurnsAndGap(core, 3000.0, 10.0, rules);
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, 3000.0, 10.0, std::nullopt, rules);
     assert(result.gapMethod == GapMethod::MachinedCenterLeg);
     std::printf("testUnknownMaterialTypeIsNeverAssumedPowder: gapMethod=MachinedCenterLeg (unknown MaterialType never treated as powder)\n");
 }
@@ -227,12 +229,74 @@ void testUnknownMaterialTypeIsNeverAssumedPowder() {
 void testGenuinePowderToroidStillReportsDistributedGap() {
     CoreCandidate core = realPowderToroid();
     DesignRules rules = DesignRules::phase1Default();
-    TurnsAndGapResult result = designTurnsAndGap(core, 3000.0, 10.0, rules);
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, 3000.0, 10.0, std::nullopt, rules);
     assert(result.converged);
     assert(result.gapMethod == GapMethod::Distributed);
     assert(approxEqual(result.gapMm, 0.0, 1e-9));
     std::printf("testGenuinePowderToroidStillReportsDistributedGap: turns=%d gapMethod=Distributed gapMm=0.0000 (unchanged)\n",
                 result.turns);
+}
+
+//real 3C90 material - hasBmaxData=true, bmaxT=0.47T (matches real_materials.csv), reused so these tests
+//exercise the exact material/limit combination a real user report was filed against.
+MaterialCandidate material3C90() {
+    MaterialCandidate material;
+    material.materialFamily = "3C90";
+    material.hasBmaxData = true;
+    material.bmaxT = 0.47;
+    return material;
+}
+
+//11. Regression for a real reported methodology gap: at 3000uH/5A peak on E100/60/28-3C90, the
+//inductance-matching-only seed (turns=20, gapMm=0.0) produces Bpk~1.03T against a 0.47T limit - a
+//physically real, satisfiable design exists on this SAME core at higher turns (hand-verified: N~49,
+//gapMm~0.6mm). This proves the flux-aware seed finds it instead of the solver settling on the
+//unreachable minimum-turns point.
+void testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore() {
+    CoreCandidate core = realCore();  // E100/60/28-3C90
+    MaterialCandidate material = material3C90();
+    DesignRules rules = DesignRules::phase1Default();
+    double targetUH = 3000.0;
+    double peakCurrentA = 5.0;
+
+    TurnsAndGapResult result = designTurnsAndGap(core, material, targetUH, 10.0, peakCurrentA, rules);
+
+    assert(result.converged);
+    assert(result.turns >= 44 && result.turns <= 55);  // ~49 expected, not the old turns=20
+    assert(result.gapMm > 0.0);                        // real, nonzero, machined gap - not gapMm=0.0
+    assert(result.gapMm < 5.0);                         // physically reasonable, far under maxGapFraction bound
+    assert(result.withinTolerance);
+    assert(result.turnsRaisedForSaturationMargin);
+    assert(!result.turnsRaisedForSaturationMarginReason.empty());
+
+    // The point of this fix: PeakFluxValidation/SaturationValidation, run independently exactly as they
+    // are in production, must now actually PASS on the converged design.
+    ValidationResult peakFlux = PeakFluxValidation(core, material, result, peakCurrentA, rules);
+    ValidationResult saturation = SaturationValidation(core, material, result, peakCurrentA, rules);
+    assert(peakFlux.passed);
+    assert(saturation.passed);
+
+    std::printf("testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore: turns=%d gapMm=%.4f Bpk=%.4f margin=%.2f%%\n",
+                result.turns, result.gapMm, peakFlux.calculatedValue, saturation.calculatedValue);
+}
+
+//12. peakCurrentA absent must be byte-for-byte unchanged from before this fix - the RMS-only "Roger" test
+//case (3000uH/5A RMS/100kHz, no peak current) must still converge to the old minimum-turns/zero-gap
+//result and must never raise turns, since there is zero flux data to seed from.
+void testNoPeakCurrentLeavesTurnsSeedUnchanged() {
+    CoreCandidate core = realCore();
+    MaterialCandidate material = material3C90();
+    DesignRules rules = DesignRules::phase1Default();
+
+    TurnsAndGapResult result = designTurnsAndGap(core, material, 3000.0, 10.0, std::nullopt, rules);
+
+    assert(result.converged);
+    assert(result.turns == 20);  // unchanged minimum-turns-only result
+    assert(approxEqual(result.gapMm, 0.0, 1e-9));
+    assert(!result.turnsRaisedForSaturationMargin);
+    assert(result.turnsRaisedForSaturationMarginReason.empty());
+    std::printf("testNoPeakCurrentLeavesTurnsSeedUnchanged: turns=%d gapMm=%.4f (unchanged, no peak current)\n",
+                result.turns, result.gapMm);
 }
 
 }  // namespace
@@ -249,5 +313,7 @@ void runGapToleranceTests() {
     testFerriteToroidGetsRealMachinedGapNotDistributed();
     testUnknownMaterialTypeIsNeverAssumedPowder();
     testGenuinePowderToroidStillReportsDistributedGap();
+    testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore();
+    testNoPeakCurrentLeavesTurnsSeedUnchanged();
     std::printf("All GapToleranceTests passed.\n");
 }

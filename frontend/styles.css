@@ -183,14 +183,6 @@ body {
     color: var(--brand-black);
 }
 
-.rules-versions-line {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--line);
-    font-size: 0.78rem;
-    color: var(--ink-soft);
-}
-
 .card {
     background: var(--paper);
     border: 1px solid var(--line);
@@ -942,6 +934,108 @@ button:hover {
     color: #15803d;
 }
 
+/* Pass/conditional-pass status has two lines: the tier + completeness
+   chips up top, then the plain-language sentence explaining that count
+   as a sub-header directly underneath - not crammed onto the same line
+   as the chips, which read as one run-on sentence before. */
+.detail-status-chips {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.detail-status-sub {
+    margin-top: 4px;
+    color: var(--ink-soft);
+    font-weight: 400;
+    font-size: 0.82rem;
+}
+
+/* Validation Coverage - compact Evaluated/Not-Evaluated summary
+   (renderValidationCoverage()), sitting between the status line and the
+   full Validation Checks list below it. */
+.coverage-block {
+    margin: 14px 0;
+    padding: 12px 14px;
+    background: var(--paper-sunk);
+    border-radius: 8px;
+}
+
+.coverage-block-full {
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.coverage-block-title {
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--brand-black);
+    margin-bottom: 8px;
+}
+
+.coverage-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+@media (max-width: 480px) {
+    .coverage-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+.coverage-col-label {
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+}
+
+.coverage-col ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.coverage-col li {
+    font-size: 0.8rem;
+    color: var(--ink);
+    line-height: 1.4;
+}
+
+.coverage-col-not-eval .coverage-col-label {
+    color: #b45309;
+}
+
+.coverage-needs {
+    color: #b45309;
+    font-size: 0.75rem;
+}
+
+/* Design-improvement suggestion (candidate.designNarrative, real rule-based
+   backend text from RankingExplanationService.cpp - never a generic
+   "increase turns" guess when the real blocker is missing data). */
+.detail-next-step {
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    background: #fff8ec;
+    border-left: 3px solid #b45309;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--ink);
+    line-height: 1.5;
+}
+
+.detail-next-step strong {
+    color: var(--brand-black);
+}
+
 /* Validation checks - the single place every check is explained, each one
    exactly once: a status chip, the check name, its actual value against
    its limit (labeled, not a bare ratio), and - only for a check that
@@ -1294,6 +1388,55 @@ summary {
     font-weight: 600;
 }
 
+/* Operating Point Mode card (renderOperatingPointConfidence()) - which of
+   the 4 input modes this run actually used, real backend classification
+   from OperatingPointConfidenceService.cpp, not a UI guess. */
+.chip-mode {
+    background: var(--brand-black);
+    color: #fff;
+}
+
+.op-mode-summary {
+    color: var(--ink);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 6px;
+}
+
+.op-mode-provenance {
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+}
+
+.op-mode-provenance strong {
+    color: var(--brand-black);
+}
+
+.op-mode-points {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+}
+
+.op-mode-points li {
+    position: relative;
+    padding-left: 16px;
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.op-mode-points li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--brand-red);
+}
+
 /* Slide-in candidate detail panel - replaces the old inline accordion row,
    which stacked KPIs, status, every validation check, sources, hardware
    validation, and warnings into one long block under the table row. The
@@ -1642,4 +1785,60 @@ summary {
     color: var(--ink-soft);
     text-transform: none;
     letter-spacing: normal;
+}
+
+/* Sources / Missing-data warnings lists - previously plain browser <ul>
+   bullets (no list-style/spacing/card treatment at all) inside a
+   .detail-group, the one genuinely unstyled spot in the candidate detail
+   panel. Same card-row language as .validation-row so these two lists
+   read as part of the same panel instead of a leftover default. */
+.detail-group-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 4px 0 0;
+    padding: 0;
+}
+
+.detail-group-list li {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    color: var(--ink);
+    line-height: 1.5;
+}
+
+.detail-group-list-label {
+    font-weight: 700;
+    color: var(--brand-black);
+    margin-right: 2px;
+}
+
+.detail-group-list-note {
+    color: var(--ink-soft);
+}
+
+.source-confidence-chip {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--paper-sunk);
+    color: var(--ink-soft);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* Missing-data warnings get the same amber left-edge as a validation
+   check that needs attention (.validation-row-warn), not a neutral line -
+   these are exactly the reasons a check reported NotEvaluated. */
+.detail-group-list-warn li {
+    background: #fff8ec;
+    border-left-color: #b45309;
+    color: var(--ink);
 }

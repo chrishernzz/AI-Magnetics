@@ -1,7 +1,9 @@
 #pragma once
+#include <optional>
 #include <string>
 #include <vector>
 #include "core/sizing/CoreEvaluation.h"
+#include "core/sizing/MaterialEvaluation.h"
 #include "core/magnetics/GapMethod.h"
 #include "rules/DesignRules.h"
 
@@ -52,10 +54,23 @@ struct TurnsAndGapResult {
     //rejection, since it's a manufacturability caveat rather than a physical impossibility.
     bool smallGapWarning = false;
     std::string smallGapWarningReason;
+
+    //true when peakCurrentA was supplied and the flux-aware seed (minimumTurnsForSaturationMargin, see .cpp)
+    //exceeded the plain inductance-matching seed turns, raising the starting turns count specifically to
+    //respect rules.minimumSaturationMarginPercent before iterating turns/gap. Always false when peakCurrentA
+    //is absent (that flow is completely unchanged - see designTurnsAndGap()'s peakCurrentA parameter).
+    //Never a promise that the resulting design actually passes PeakFluxValidation/SaturationValidation -
+    //those still run independently against whatever (turns, gap) the solver converges to.
+    bool turnsRaisedForSaturationMargin = false;
+    std::string turnsRaisedForSaturationMarginReason;
 };
 
-//precondition: core.aeMm2 > 0, core.leMm > 0, core.mu > 0, targetInductanceUH > 0
-//postcondition: returns turns/gap that realize targetInductanceUH on this core within tolerancePercent, or converged=false with rejectionReasons
-//explaining why (gap method not implemented, gap exceeds a practical bound, gap-tolerance sweep pushes inductance out of tolerance at either
-//extreme, or no stable turns count found within the iteration cap).
-TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetInductanceUH, double tolerancePercent, const DesignRules& rules);
+// precondition: core.aeMm2 > 0, core.leMm > 0, core.mu > 0, targetInductanceUH > 0
+// postcondition: returns turns/gap that realize targetInductanceUH on this core within tolerancePercent,
+// or converged=false with rejectionReasons explaining why. When peakCurrentA is supplied, the starting
+// turns count is raised (never lowered) above the plain inductance-matching minimum when needed to
+// respect rules.minimumSaturationMarginPercent - see TurnsAndGapResult::turnsRaisedForSaturationMargin.
+// When peakCurrentA is std::nullopt, behavior is byte-for-byte identical to before this parameter existed.
+TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCandidate& material,
+                                     double targetInductanceUH, double tolerancePercent,
+                                     const std::optional<double>& peakCurrentA, const DesignRules& rules);

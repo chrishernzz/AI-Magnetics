@@ -156,8 +156,14 @@ InductorDesignService::run() (C++):
      with requiredAreaProductCm4 / largestAvailableAreaProductCm4, not a
      silent oversized substitute
   5. For each feasible core: designTurnsAndGap() (iterates turns and gap
-     together), then DesignValidation's six checks, designWinding(),
-     evaluateLosses(), evaluateThermal()
+     together - when peakCurrentA is known, the starting turns count is
+     raised, never lowered, above the plain inductance-matching minimum
+     whenever needed to respect the material's saturation margin, so a real
+     gapped design isn't missed just because the naive minimum-turns point
+     saturates - see TurnsAndGapResult::turnsRaisedForSaturationMargin),
+     then DesignValidation's checks (including PeakFluxValidation/
+     SaturationValidation, which still independently verify the result),
+     designWinding(), evaluateLosses(), evaluateThermal()
   6. Passing candidates ranked by real total loss (copper + core, whichever
      are Evaluated) ascending - the actual "Optimization" half of Option 2
      (Physics-Based Calculation and Optimization), not just a size sort.
@@ -172,6 +178,63 @@ Frontend renders candidates, rejected candidates (with rejection reasons and
 missing-data warnings), and the active DesignRules - no field is a hidden
 assumption.
 ```
+
+---
+
+## Recommendation Confidence, Bottleneck Analysis, and Ranking Highlights
+
+Five additive fields on top of the existing pipeline (nothing about the turns/gap solver,
+validation checks, or the primary candidate sort changes) - added to make the engine's existing
+honesty mechanisms visible, not to add new ones.
+
+**Mode 2 peak-current derivation** (`RequirementDerivationService.cpp`): when RMS current and
+ripple current are both supplied but peak current is not, the engine now derives a real peak
+current from them - `Iavg = sqrt(Irms^2 - ripple^2/12)`, `peak = Iavg + ripple/2` - the algebraic
+inverse of the same triangular-ripple formula already used elsewhere in this file for the
+average+ripple → RMS direction, not a new assumption. `OperatingPoint::peakCurrentDerived`/
+`peakCurrentAssumption` (mirroring `rmsCurrentDerived`/`rmsCurrentAssumption`) make sure this is
+always labeled as derived, never presented as a directly measured value. When the derivation is
+mathematically impossible for a triangular waveform (`Irms^2 < ripple^2/12`), it never throws -
+`peakCurrentA` simply stays absent, matching this file's existing soften-don't-crash policy.
+
+**`OperatingPointConfidence`** (`core/model/OperatingPointConfidence.h`,
+`OperatingPointConfidenceService`): classifies what a request originally supplied - `RmsOnly` /
+`RmsPlusRipple` / `RmsPlusPeak` / `FullOperatingPoint` - and separately, where the peak current now
+in use came from (`NotSupplied` / `Derived` / `DirectlySupplied`). Computed once per request from
+the inputs alone, attached to `DesignRecommendation` (the same "one blob per run" pattern as
+`activeRules`/`versions`). Critically, `inputMode` classifies the *original* request, so a
+successful Mode 2 derivation is never misreported as a directly-supplied peak.
+
+**`BottleneckAnalysis`** (`core/model/BottleneckAnalysis.h`, `BottleneckAnalysisService`):
+identifies the single check most responsible for a candidate's current standing - the failed check
+closest to passing (rejected candidates), the mandatory check that couldn't run at all because
+required data wasn't supplied (a data-completeness gap, always reported ahead of margin headroom -
+"we don't know" outranks "it has margin on what we could check"), or the evaluated check with the
+smallest normalized margin (`margin / limitValue`, since raw margins across checks have
+incommensurable units - %, T, °C, mm, A/mm²). `CurrentConsistencyValidation` is excluded from
+every margin comparison (diagnostic, not a physical gate - it cannot fail).
+
+**`suggestImprovement()`** (`RankingExplanationService.cpp`): a rule-based mapping from
+`candidate.bottleneck` to a short engineering suggestion, stored in the new
+`InductorCandidate::designNarrative` field (distinct from `rankingExplanation`, which answers "why
+did this rank here," not "what would improve it"). When the bottleneck is specifically missing
+peak current, always returns the exact phrase `"supply peak current to evaluate saturation risk"` -
+never a generic guess when the real blocker is a missing input.
+
+**`RankingHighlights`** (`core/model/RankingHighlights.h`, `RankingHighlightsService`): among the
+already-sorted, already-passing `recommendation.candidates` list, identifies the best-in-category
+core (by `partNumber`, not list index - an index would silently break under any future re-sort or
+pagination) for thermal rise, known partial loss, saturation margin, and area product. Purely
+additive - `candidateRanksAhead()`'s own sort order and tier logic are untouched.
+
+**A fact this round surfaced rather than fixed**: `RecommendationTier::Pass` (the top tier) is
+already *structurally unreachable* in Phase 1 - `ThermalValidation` sets `isPreliminaryEstimate=true`
+on every result it ever produces, since no fully-validated thermal model exists yet, and `Pass`
+requires every mandatory check to rest on measured (never preliminary/default) data. This is
+documented directly in `RecommendationStatus.h` and is a correct, honest constraint - every real
+candidate this engine produces today is capped at `ConditionalPass` at best, which is exactly why
+`OperatingPointConfidence`/`BottleneckAnalysis` exist: to make clear *why* a candidate is capped
+there, not to pretend the cap doesn't exist.
 
 ---
 

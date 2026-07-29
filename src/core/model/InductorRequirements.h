@@ -16,9 +16,18 @@ from the raw request, so there is exactly one place unit conversion and current-
 struct OperatingPoint {
     double inductanceH;
     //Optional - see InductorDesignRequest::peakCurrentA for why this can never be substituted from RMS.
+    //May still end up populated even when the request didn't supply it directly - see peakCurrentDerived.
     std::optional<double> peakCurrentA;
     double rmsCurrentA;
     double switchingFreqHz;
+
+    //true if peakCurrentA was derived from rmsCurrentA + rippleCurrentPeakToPeakA (triangular-ripple
+    //identity: Iavg = sqrt(Irms^2 - ripple^2/12), peak = Iavg + ripple/2 - the algebraic inverse of the
+    //same triangular-ripple formula rmsCurrentAssumption below already uses) rather than supplied
+    //directly. Callers must surface peakCurrentAssumption whenever this is true - a derived peak is real
+    //math, not a default, but it is still not a directly measured value and must never be presented as one.
+    bool peakCurrentDerived = false;
+    std::string peakCurrentAssumption;
 
     //true if rmsCurrentA was derived from averageCurrentA + ripple rather
     //than supplied directly - callers must surface rmsCurrentAssumption

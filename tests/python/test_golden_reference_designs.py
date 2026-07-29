@@ -131,23 +131,35 @@ def test_case5_vout_at_or_above_vin_min_is_rejected():
         assert "vinMinV" in str(e)
 
 
-def test_case6_saturation_failure_rejects_every_candidate():
-    """Case 6: a target inductance/current combination that saturates every
-    real candidate core - found by probing the live engine (470uH, 40A peak,
-    28A rms, 80kHz against the real database rejects all 3 area-product-feasible
-    cores on SaturationValidation). Re-probed after the CoreShape database fix
-    (60->168 cores) added real MPP-toroid coverage - the original 12A-peak
-    trigger now has a real passing candidate (C055439A2X2, the exact MPP-60
-    toroid this fix was built to surface), so it no longer demonstrates a
-    saturation rejection; 40A peak still genuinely rejects every candidate."""
+def test_case6_flux_aware_seed_finds_real_design_that_used_to_saturate():
+    """Case 6: originally documented that 470uH/40A peak/28A rms/80kHz saturated
+    every area-product-feasible candidate on SaturationValidation. That was a real
+    methodology bug, not physics: the turns/gap solver always seeded from the
+    core's ungapped (minimum-turns) AL with zero awareness of peak current, so it
+    converged on a needlessly-high-flux design and never tried the real, physically
+    valid higher-turns/bigger-gap alternative that a proper gapped-ferrite power
+    inductor design would use. Re-probed after the flux-aware-seed fix (turns/gap
+    now start from whichever is larger: the inductance-matching minimum, or the
+    minimum turns that respects the saturation margin) - this exact scenario now
+    produces a real passing candidate (E100/60/28-3C90, turns raised from the old
+    minimum-turns value to a saturation-safe one), proving the fix works through
+    the full Python binding path, not just the C++ unit test
+    (testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore in GapToleranceTests.cpp)."""
     result = magnetics_cpp.run_inductor_design(
         _design_request(inductanceUH=470.0, peakCurrentA=40.0, rmsCurrentA=28.0, switchingFreqKHz=80.0)
     )
-    assert result.status == "no_feasible_design"
-    assert len(result.rejectedCandidates) > 0
-    assert all(
-        any(r.checkName == "SaturationValidation" for r in c.rejectionReasons) for c in result.rejectedCandidates
-    )
+    assert result.status == "ok"
+    assert len(result.candidates) >= 1
+
+    candidate = result.candidates[0]
+    assert candidate.core.partNumber == "E100/60/28-3C90"
+    assert candidate.turnsAndGap.turnsRaisedForSaturationMargin
+    assert candidate.turnsAndGap.gapMm > 0.0
+
+    peak_flux = next(v for v in candidate.validations if v.checkName == "PeakFluxValidation")
+    saturation = next(v for v in candidate.validations if v.checkName == "SaturationValidation")
+    assert peak_flux.passed
+    assert saturation.passed
 
 
 def test_case7_gap_tolerance_sweep_fails_even_when_nominal_passes():
@@ -157,7 +169,10 @@ def test_case7_gap_tolerance_sweep_fails_even_when_nominal_passes():
     exact real E100/60/28-3C90 catalog-geometry scenario already verified at the
     engine level in tests/cpp/GapToleranceTests.cpp's
     testGapToleranceCanFailEvenWhenNominalPasses, reproduced here through the
-    Python binding to confirm it holds end-to-end, not just in the C++ unit test."""
+    Python binding to confirm it holds end-to-end, not just in the C++ unit test.
+    peakCurrentA=None (the real material has no relevant Bmax data plugged in
+    here either) means the flux-aware seed never activates - this stays a pure
+    inductance/gap-tolerance check, unaffected by that fix."""
     core = magnetics_cpp.CoreCandidate()
     core.partNumber = "E100/60/28-3C90"
     core.material = "3C90"
@@ -170,8 +185,9 @@ def test_case7_gap_tolerance_sweep_fails_even_when_nominal_passes():
     core.areaProductCm4 = 0.0
     core.meetsAreaProduct = True
 
+    material = magnetics_cpp.MaterialCandidate()
     rules = magnetics_cpp.design_rules_phase1_default()
-    result = magnetics_cpp.design_turns_and_gap(core, 2.0, 0.5, rules)
+    result = magnetics_cpp.design_turns_and_gap(core, material, 2.0, 0.5, None, rules)
 
     assert result.converged
     assert result.withinTolerance  # the nominal design itself is precise
@@ -321,3 +337,50 @@ def test_case13_mpp_toroid_c055439a2x2_reachable_after_database_fix():
     assert candidate.core.coreShape == "Toroid"
     assert candidate.core.shapeFamily == "T"
     assert candidate.core.vendor == "Magnetics"
+
+
+def test_case14_mode2_rms_plus_ripple_derives_peak_and_evaluates_saturation():
+    """Case 14 (recommendation-confidence round): RMS + ripple supplied, peak current NOT supplied
+    (3000uH, 5A RMS, 2A pk-pk ripple, 100kHz) - probed live: every one of the 33 area-product-feasible
+    candidates gets a real, derived peak current and SaturationValidation actually evaluates against
+    it, proving the Mode 2 peak derivation (RequirementDerivationService.cpp) works end-to-end through
+    the full Python binding path, not just the C++ unit tests. operatingPointConfidence must honestly
+    report RmsPlusRipple/Derived - never RmsPlusPeak, which would misrepresent a derived value as a
+    directly-measured one."""
+    result = magnetics_cpp.run_inductor_design(
+        _design_request(inductanceUH=3000.0, rmsCurrentA=5.0, rippleCurrentPeakToPeakA=2.0,
+                         switchingFreqKHz=100.0, ambientTemperatureC=25.0, allowableTempRiseC=40.0,
+                         peakCurrentA=None)
+    )
+    assert result.operatingPointConfidence.inputMode.name == "RmsPlusRipple"
+    assert result.operatingPointConfidence.peakCurrentProvenance.name == "Derived"
+    assert "derived" in result.operatingPointConfidence.summary.lower()
+
+    all_candidates = list(result.candidates) + list(result.rejectedCandidates)
+    assert all_candidates, "expected at least one area-product-feasible candidate for this real request"
+    saturation_evaluated = [
+        c for c in all_candidates
+        if any(v.checkName == "SaturationValidation" and v.status.name == "Evaluated" for v in c.validations)
+    ]
+    assert saturation_evaluated, "SaturationValidation should genuinely evaluate against the derived peak current"
+
+
+def test_case15_rms_only_reports_missing_peak_as_the_bottleneck():
+    """Case 15 (recommendation-confidence round): a genuinely RMS-only request (3000uH, 5A RMS,
+    100kHz, no peak, no ripple - the original "Roger" reproduction case) - probed live: 45 of 157
+    candidates report bottleneck.reason == NotEvaluatedCheck with limitingCheckName ==
+    "SaturationValidation", and designNarrative is the exact required phrase, never a generic
+    "increase turns" guess when the real blocker is missing data."""
+    result = magnetics_cpp.run_inductor_design(
+        _design_request(inductanceUH=3000.0, rmsCurrentA=5.0, switchingFreqKHz=100.0,
+                         ambientTemperatureC=25.0, allowableTempRiseC=40.0, peakCurrentA=None)
+    )
+    assert result.status == "ok"
+
+    all_candidates = list(result.candidates) + list(result.rejectedCandidates)
+    not_evaluated_candidates = [c for c in all_candidates if c.bottleneck.reason.name == "NotEvaluatedCheck"]
+    assert not_evaluated_candidates, "expected at least one candidate whose bottleneck is missing peak current"
+
+    sample = not_evaluated_candidates[0]
+    assert sample.bottleneck.limitingCheckName == "SaturationValidation"
+    assert sample.designNarrative == "supply peak current to evaluate saturation risk"

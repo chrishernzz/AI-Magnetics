@@ -5,6 +5,7 @@
 #include "core/losses/LossEvaluation.h"
 #include "core/sizing/MaterialEvaluation.h"
 #include "core/model/RejectionReason.h"
+#include "core/model/BottleneckAnalysis.h"
 #include "core/thermal/ThermalEvaluation.h"
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/winding/WindingDesign.h"
@@ -56,4 +57,15 @@ struct InductorCandidate {
 
     //human-readable per-candidate ranking explanation - see RankingExplanationService.h.
     std::string rankingExplanation;
+
+    //the single check most responsible for this candidate's current standing - see
+    //BottleneckAnalysis.h/BottleneckAnalysisService.h.
+    BottleneckAnalysis bottleneck;
+
+    //rule-based engineering suggestion tied directly to `bottleneck` - see
+    //RankingExplanationService.h's suggestImprovement(). Distinct from rankingExplanation ("where this
+    //candidate landed in the ranking, and why") - this answers "what would improve it," a different
+    //question for a different audience. Empty for the early turns/gap-non-convergence return, same as
+    //rankingExplanation.
+    std::string designNarrative;
 };

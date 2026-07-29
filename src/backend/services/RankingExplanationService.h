@@ -16,3 +16,10 @@ populated (see InductorDesignService.cpp).
 //precondition: candidate.recommendation, candidate.lossSummary, and candidate.manufacturabilityMarginPercent have already been computed
 //postcondition: returns a human-readable sentence combining the tier classification with the concrete numbers that drove it
 std::string explainRanking(const InductorCandidate& candidate);
+
+//precondition: candidate.bottleneck has already been computed (see BottleneckAnalysisService.h)
+//postcondition: rule-based engineering suggestion tied directly to candidate.bottleneck - no search, no
+//new solver run, never a fabricated specific numeric alternative. When the bottleneck is missing peak
+//current specifically, always returns the exact phrase "supply peak current to evaluate saturation
+//risk" rather than a generic guess. Never returns an empty string.
+std::string suggestImprovement(const InductorCandidate& candidate);
