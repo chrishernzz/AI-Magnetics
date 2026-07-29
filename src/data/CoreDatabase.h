@@ -31,6 +31,18 @@ struct CoreData {
     //need the same real machined-gap formula as a two-piece core. Empty string means no material-type data
     //recorded; callers must treat that as unknown, never as "powder".
     std::string materialType;
+
+    //Real datasheet URL from real_cores.csv's DatasheetUrl column (PyOpenMagnetics' own manufacturerInfo -
+    //populated for ~99% of cores in the current snapshot). Empty string means genuinely not recorded for
+    //this part, never a placeholder link.
+    std::string datasheetUrl;
+
+    //Real rectangular winding-window dimensions (mm) from real_cores.csv's WindowWidthMm/WindowHeightMm
+    //columns - populated for two-piece (open-shape) cores, always 0.0 for toroids (their window is
+    //described by a radial height instead, not a flat width/height - not a missing-data bug). 0.0 means
+    //"no linear dimension recorded", the same convention as mlt above - never a real zero-size window.
+    double windowWidthMm = 0.0;
+    double windowHeightMm = 0.0;
 };
 
 class CoreDatabase{

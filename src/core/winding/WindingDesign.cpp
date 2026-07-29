@@ -92,16 +92,18 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
             " magnet wire (bare " + std::to_string(bareStrandDiameterMm) + " mm, insulated ~" +
             std::to_string(result.insulatedConductorDiameterMm) + " mm each), wound as a single bundle";
         result.missingData.push_back(
-            "parallel-strand bundle-vs-narrowest-opening fit is not evaluated - core data has no width/height "
-            "split, only a raw window area (Wa), so there is no linear dimension to check the bundle against");
-    } 
-    else {
+            "parallel-strand bundle-vs-narrowest-opening fit is not evaluated - real window width/height exists "
+            "for two-piece cores (core.windowWidthMm/windowHeightMm) but this check does not yet use it, and no "
+            "such linear dimension exists at all for toroids (radial window geometry, not a flat width/height)");
+    } else {
         result.physicalDescription = "AWG" + std::to_string(selectedAwg) + " magnet wire (bare " +
             std::to_string(bareStrandDiameterMm) + " mm, insulated ~" + std::to_string(result.insulatedConductorDiameterMm) + " mm), single strand";
     }
 
     // Physical window fill: bobbin-wall derate, then subtract margin/lead-exit clearance (both expressed as
-    // area fractions since core data has no width/height split - see DesignRules.h), then divide the
+    // area fractions in DesignRules.h - real window width/height now exists for two-piece cores, see
+    // CoreCandidate::windowWidthMm/windowHeightMm, but this formula does not yet switch to a literal-mm
+    // margin for them; toroids still have no linear window dimension at all), then divide the
     // insulated-conductor area sum by the achievable packing factor to get the physically occupied area.
     result.physicalWindowAreaMm2 = core.waMm2 * rules.bobbinWindowDerateFactor * (1.0 - rules.marginAllowanceAreaFraction - rules.leadExitAllowanceAreaFraction);
     double physicalCopperAreaMm2 = (static_cast<double>(turns) * result.parallelStrands * result.insulatedConductorAreaMm2) / rules.packingFactor;

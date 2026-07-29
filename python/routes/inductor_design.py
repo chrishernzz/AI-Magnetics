@@ -150,6 +150,8 @@ def _serialize_core(c) -> dict:
         "coreShape": c.coreShape,
         "shapeFamily": c.shapeFamily,
         "materialType": c.materialType,
+        "windowWidthMm": c.windowWidthMm,
+        "windowHeightMm": c.windowHeightMm,
         "source": _serialize_source_info(c.source),
     }
 

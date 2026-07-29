@@ -48,13 +48,16 @@ std::vector<MaterialCandidate> findSuitableMaterials(const OperatingPoint& opera
             candidate.missingDataWarnings.push_back("no validated Steinmetz core-loss coefficients for material '" + material.name + "' - core loss will be reported as not evaluated regardless of ripple current");
         }
 
-        //no manufacturer/part-number column exists for materials in real_materials.csv - only left unset,
-        //never fabricated. datasheetRevision/Url/dateAccessed are always unset (no such data exists).
+        //real for materials - see MaterialData::manufacturer/datasheetUrl (populated for 100% of materials
+        //in the current snapshot). datasheetRevision/dateAccessed remain unset (no such data exists).
+        candidate.source.manufacturer = material.manufacturer.empty() ? std::nullopt : std::optional<std::string>(material.manufacturer);
+        candidate.source.datasheetUrl = material.datasheetUrl.empty() ? std::nullopt : std::optional<std::string>(material.datasheetUrl);
         candidate.source.datasheetName = "PyOpenMagnetics/MAS export (data/real_materials.csv snapshot)";
         candidate.source.confidence = (candidate.hasBmaxData && candidate.hasCoreLossData) ? DataConfidence::Manufacturer : DataConfidence::Estimated;
         candidate.source.confidenceNote = (candidate.hasBmaxData && candidate.hasCoreLossData)
-            ? "saturation flux density and core-loss coefficients sourced from PyOpenMagnetics/MAS, itself built "
-              "from real manufacturer datasheets - no datasheet revision/URL/date-accessed is tracked in this snapshot"
+            ? "saturation flux density, core-loss coefficients, manufacturer, and datasheet URL sourced from "
+              "PyOpenMagnetics/MAS, itself built from real manufacturer datasheets - datasheet revision/"
+              "date-accessed are not tracked in this snapshot"
             : "one or more of saturation flux density / core-loss coefficients is missing for this material in "
               "the current snapshot - see missingDataWarnings";
 

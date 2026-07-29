@@ -44,6 +44,27 @@ effective permeability is a distributed-gap material property (no
 discrete machined gap exists) or needs the real machined-gap formula -
 see DATA_FILES.md.
 
+DatasheetUrl/Manufacturer (materials) and DatasheetUrl (cores) - added
+after auditing what PyOpenMagnetics actually carries vs. what this script
+previously captured: real datasheet URLs exist for 95.1% of cores and
+98.0% of materials upstream, and every material has a real manufacturer
+name, none of which were being read before (SourceInfo.datasheetUrl was
+always left std::nullopt, documented as "no such data exists" - it did,
+this script just never asked for it). Read straight from
+manufacturerInfo.datasheetUrl/name - "" (not a guess) when genuinely
+absent for a specific part.
+
+WindowWidthMm/WindowHeightMm (cores) - real rectangular winding-window
+dimensions, not just the window's total area (Wa). PyOpenMagnetics has
+these for 100% of two-piece (open-shape) cores; toroids have no flat
+width/height (their window is described by radialHeight instead), so
+this is genuinely "" for them, not a missing-data bug. Closes part of the
+gap WindingDesign.cpp's honesty-ledger comments describe ("core data has
+no width/height split, only a raw window area") for two-piece cores -
+not yet consumed by the physical-fill formula itself, which still uses
+the area-fraction margin/lead-exit estimates; that's a separate decision
+for whether/how to use a real linear dimension there.
+
 The per-vendor cap used to be a single flat counter, which meant whichever
 material family happened to iterate first for a vendor could consume the
 entire quota before other real, qualifying materials from that same vendor
@@ -228,6 +249,8 @@ def fetch_materials(available_core_material_names=None,) -> list:
         if min_freq is None or max_freq is None:
             continue
 
+        mat_mfr = m.get("manufacturerInfo") or {}
+
         results.append(
             {
                 "Name": m.get("name", "Unknown"),
@@ -238,11 +261,13 @@ def fetch_materials(available_core_material_names=None,) -> list:
                     f"{m.get('material', 'unknown')} material, "
                     f"family {m.get('family', '?')} "
                     f"(source: "
-                    f"{(m.get('manufacturerInfo') or {}).get('name', 'unknown')})"
+                    f"{mat_mfr.get('name', 'unknown')})"
                 ),
                 "Alternatives": "None",
                 "BmaxT": _pick_saturation_flux_density_t(m),
                 "MaterialType": m.get("material", ""),
+                "Manufacturer": mat_mfr.get("name", ""),
+                "DatasheetUrl": mat_mfr.get("datasheetUrl", "") or "",
                 "SteinmetzRanges": _steinmetz_ranges(m),
             }
         )
@@ -358,6 +383,16 @@ def fetch_cores() -> list[dict]:
         )
         mlt_mm = _core_mlt_mm(central_column) if central_column else 0.0
 
+        # Real rectangular winding-window width/height (two-piece cores only -
+        # PyOpenMagnetics parameterizes a toroid's window by radialHeight
+        # instead, since it has no flat width/height). "" (not 0.0) means no
+        # such dimension exists for this core's shape - never a real zero.
+        window0 = windows[0] if windows else {}
+        window_width_mm = window0.get("width")
+        window_height_mm = window0.get("height")
+        window_width_mm = window_width_mm * 1000.0 if window_width_mm is not None else ""
+        window_height_mm = window_height_mm * 1000.0 if window_height_mm is not None else ""
+
         results.append(
             {
                 "PartNumber": part_number,
@@ -378,6 +413,9 @@ def fetch_cores() -> list[dict]:
                 "CoreShape": core_shape,
                 "ShapeFamily": shape_family,
                 "MaterialType": mat.get("material", ""),
+                "DatasheetUrl": mfr.get("datasheetUrl", "") or "",
+                "WindowWidthMm": window_width_mm,
+                "WindowHeightMm": window_height_mm,
             }
         )
 
@@ -436,6 +474,8 @@ def main():
                 "Alternatives",
                 "BmaxT",
                 "MaterialType",
+                "Manufacturer",
+                "DatasheetUrl",
             ]
         )
 
@@ -450,6 +490,8 @@ def main():
                     m["Alternatives"],
                     m["BmaxT"],
                     m["MaterialType"],
+                    m["Manufacturer"],
+                    m["DatasheetUrl"],
                 ]
             )
 
@@ -477,6 +519,9 @@ def main():
                 "CoreShape",
                 "ShapeFamily",
                 "MaterialType",
+                "DatasheetUrl",
+                "WindowWidthMm",
+                "WindowHeightMm",
             ]
         )
 
@@ -498,6 +543,9 @@ def main():
                     c["CoreShape"],
                     c["ShapeFamily"],
                     c["MaterialType"],
+                    c["DatasheetUrl"],
+                    c["WindowWidthMm"],
+                    c["WindowHeightMm"],
                 ]
             )
 

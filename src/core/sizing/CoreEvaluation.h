@@ -40,8 +40,16 @@ struct CoreCandidate {
     //real material type ("ferrite"/"powder") from real_cores.csv's MaterialType column - see CoreData::materialType. Empty string means unknown, never treated as "powder".
     std::string materialType;
 
-    //provenance for this core's data - see Provenance.h. datasheetRevision/Url/dateAccessed are always unset
-    //in Phase 1 (no real per-core datasheet revision/URL/access-date exists in this snapshot).
+    //real rectangular winding-window dimensions (mm) - see CoreData::windowWidthMm/windowHeightMm. 0.0 means
+    //no linear dimension recorded (always true for toroids - their window is a radial height, not a flat
+    //width/height). Not yet consumed by WindingDesign's fill-factor formula, which still uses the
+    //area-fraction margin/lead-exit estimates from DesignRules.
+    double windowWidthMm = 0.0;
+    double windowHeightMm = 0.0;
+
+    //provenance for this core's data - see Provenance.h. source.datasheetUrl is now real (populated from
+    //CoreData::datasheetUrl) for ~99% of cores in the current snapshot; datasheetRevision/dateAccessed
+    //remain unset (no such data exists anywhere in the snapshot).
     SourceInfo source;
 };
 

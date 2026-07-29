@@ -90,6 +90,8 @@ def fetch_materials(available_core_material_names: set[str] | None = None) -> li
                 "Reason": r["Reason"],
                 "Alternatives": r["Alternatives"],
                 "BmaxT": float(r["BmaxT"]),
+                "Manufacturer": r.get("Manufacturer", ""),
+                "DatasheetUrl": r.get("DatasheetUrl", ""),
             }
         )
 
@@ -117,6 +119,12 @@ def fetch_cores() -> list[dict]:
     whether a toroid's permeability is a distributed-gap material property
     (powder) or needs the real machined-gap formula (ferrite toroids, e.g.
     N87, do not get distributed gapping) - see TurnsAndGapDesign.cpp.
+
+    DatasheetUrl is real (~99% populated in this snapshot). WindowWidthMm/
+    WindowHeightMm are the real rectangular winding-window dimensions,
+    populated only for two-piece cores (100% coverage there) - toroids have
+    no flat width/height (radial geometry instead), so these are genuinely
+    blank ("0.0" here) for them, not missing data.
     """
     rows = _read_csv(CORES_FILE)
 
@@ -140,6 +148,9 @@ def fetch_cores() -> list[dict]:
                 "CoreShape": r.get("CoreShape", ""),
                 "ShapeFamily": r.get("ShapeFamily", ""),
                 "MaterialType": r.get("MaterialType", ""),
+                "DatasheetUrl": r.get("DatasheetUrl", ""),
+                "WindowWidthMm": float(r["WindowWidthMm"]) if r.get("WindowWidthMm") else 0.0,
+                "WindowHeightMm": float(r["WindowHeightMm"]) if r.get("WindowHeightMm") else 0.0,
             }
         )
 
