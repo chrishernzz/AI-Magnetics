@@ -942,6 +942,24 @@ button:hover {
     color: #15803d;
 }
 
+/* Pass/conditional-pass status has two lines: the tier + completeness
+   chips up top, then the plain-language sentence explaining that count
+   as a sub-header directly underneath - not crammed onto the same line
+   as the chips, which read as one run-on sentence before. */
+.detail-status-chips {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.detail-status-sub {
+    margin-top: 4px;
+    color: var(--ink-soft);
+    font-weight: 400;
+    font-size: 0.82rem;
+}
+
 /* Validation checks - the single place every check is explained, each one
    exactly once: a status chip, the check name, its actual value against
    its limit (labeled, not a bare ratio), and - only for a check that
@@ -1642,4 +1660,60 @@ summary {
     color: var(--ink-soft);
     text-transform: none;
     letter-spacing: normal;
+}
+
+/* Sources / Missing-data warnings lists - previously plain browser <ul>
+   bullets (no list-style/spacing/card treatment at all) inside a
+   .detail-group, the one genuinely unstyled spot in the candidate detail
+   panel. Same card-row language as .validation-row so these two lists
+   read as part of the same panel instead of a leftover default. */
+.detail-group-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 4px 0 0;
+    padding: 0;
+}
+
+.detail-group-list li {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    color: var(--ink);
+    line-height: 1.5;
+}
+
+.detail-group-list-label {
+    font-weight: 700;
+    color: var(--brand-black);
+    margin-right: 2px;
+}
+
+.detail-group-list-note {
+    color: var(--ink-soft);
+}
+
+.source-confidence-chip {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--paper-sunk);
+    color: var(--ink-soft);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+/* Missing-data warnings get the same amber left-edge as a validation
+   check that needs attention (.validation-row-warn), not a neutral line -
+   these are exactly the reasons a check reported NotEvaluated. */
+.detail-group-list-warn li {
+    background: #fff8ec;
+    border-left-color: #b45309;
+    color: var(--ink);
 }

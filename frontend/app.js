@@ -903,11 +903,11 @@ function renderSourcesDetail(candidate) {
             const label = i === 0 ? "Material" : "Core";
             const manufacturer = s.manufacturer || "not sourced";
             const confidence = s.confidence || "Estimated";
-            const note = s.note ? ` — ${s.note}` : "";
-            return `<li><strong>${label}:</strong> ${manufacturer} (${confidence})${note}</li>`;
+            const note = s.note ? `<span class="detail-group-list-note"> — ${s.note}</span>` : "";
+            return `<li><span class="detail-group-list-label">${label}</span> ${manufacturer} <span class="source-confidence-chip">${confidence}</span>${note}</li>`;
         })
         .join("");
-    return `<details class="detail-group"><summary>Sources</summary><ul>${rows}</ul></details>`;
+    return `<details class="detail-group"><summary>Sources</summary><ul class="detail-group-list">${rows}</ul></details>`;
 }
 
 // AC-loss risk chip (spec section 8) - qualitative skin-depth heuristic, never a
@@ -967,9 +967,13 @@ function renderCandidateDetail(candidate) {
     // default assumption rather than measured data) is spelled out in words
     // instead, without naming the tier.
     const tierChip = recommendationTierChip(candidate.recommendation.tier);
+    const statusSummarySentence = `${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated` : ""}${preliminaryChecks.length ? `, ${preliminaryChecks.length} check${preliminaryChecks.length > 1 ? "s" : ""} based on a Phase 1 default assumption` : ""}`;
     const statusLine = candidate.rejectionReasons.length
         ? `<div class="detail-status detail-status-fail">Rejected — ${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>`
-        : `<div class="detail-status detail-status-pass">${tierChip ? tierChip + " — " : ""}${completenessChip(candidate)} — ${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated` : ""}${preliminaryChecks.length ? `, ${preliminaryChecks.length} check${preliminaryChecks.length > 1 ? "s" : ""} based on a Phase 1 default assumption` : ""}</div>`;
+        : `<div class="detail-status detail-status-pass">
+            <div class="detail-status-chips">${tierChip ? tierChip + " " : ""}${completenessChip(candidate)}</div>
+            <div class="detail-status-sub">${statusSummarySentence}</div>
+        </div>`;
 
     // No rankingLine/recommendation.explanation paragraph here - that exact
     // sentence already appears once, in the Recommended Candidate card's
@@ -995,7 +999,7 @@ function renderCandidateDetail(candidate) {
         ${renderSourcesDetail(candidate)}
         ${
             warnings.length
-                ? `<details class="detail-group"><summary>Missing-data warnings <span class="detail-group-count">(${warnings.length})</span></summary><ul>${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
+                ? `<details class="detail-group"><summary>Missing-data warnings <span class="detail-group-count">(${warnings.length})</span></summary><ul class="detail-group-list detail-group-list-warn">${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
                 : ""
         }
     `;
