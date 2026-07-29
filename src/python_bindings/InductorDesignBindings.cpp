@@ -30,6 +30,9 @@
 #include "validation/DesignValidation.h"
 #include "validation/RecommendationStatus.h"
 #include "core/model/LossSummary.h"
+#include "core/model/OperatingPointConfidence.h"
+#include "core/model/BottleneckAnalysis.h"
+#include "core/model/RankingHighlights.h"
 
 namespace py = pybind11;
 
@@ -400,6 +403,45 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("isCompleteTotal", &LossSummary::isCompleteTotal)
         .def_readwrite("label", &LossSummary::label);
 
+    py::enum_<OperatingPointInputMode>(m, "OperatingPointInputMode")
+        .value("RmsOnly", OperatingPointInputMode::RmsOnly)
+        .value("RmsPlusRipple", OperatingPointInputMode::RmsPlusRipple)
+        .value("RmsPlusPeak", OperatingPointInputMode::RmsPlusPeak)
+        .value("FullOperatingPoint", OperatingPointInputMode::FullOperatingPoint);
+
+    py::enum_<PeakCurrentProvenance>(m, "PeakCurrentProvenance")
+        .value("NotSupplied", PeakCurrentProvenance::NotSupplied)
+        .value("Derived", PeakCurrentProvenance::Derived)
+        .value("DirectlySupplied", PeakCurrentProvenance::DirectlySupplied);
+
+    py::class_<OperatingPointConfidence>(m, "OperatingPointConfidence")
+        .def(py::init<>())
+        .def_readwrite("inputMode", &OperatingPointConfidence::inputMode)
+        .def_readwrite("peakCurrentProvenance", &OperatingPointConfidence::peakCurrentProvenance)
+        .def_readwrite("summary", &OperatingPointConfidence::summary);
+
+    py::enum_<BottleneckReason>(m, "BottleneckReason")
+        .value("FailedCheck", BottleneckReason::FailedCheck)
+        .value("NotEvaluatedCheck", BottleneckReason::NotEvaluatedCheck)
+        .value("MarginHeadroom", BottleneckReason::MarginHeadroom)
+        .value("None_", BottleneckReason::None);
+
+    py::class_<BottleneckAnalysis>(m, "BottleneckAnalysis")
+        .def(py::init<>())
+        .def_readwrite("reason", &BottleneckAnalysis::reason)
+        .def_readwrite("limitingCheckName", &BottleneckAnalysis::limitingCheckName)
+        .def_readwrite("explanation", &BottleneckAnalysis::explanation)
+        .def_readwrite("marginValue", &BottleneckAnalysis::marginValue)
+        .def_readwrite("marginValueApplicable", &BottleneckAnalysis::marginValueApplicable);
+
+    py::class_<RankingHighlights>(m, "RankingHighlights")
+        .def(py::init<>())
+        .def_readwrite("hasCandidates", &RankingHighlights::hasCandidates)
+        .def_readwrite("thermalBestPartNumber", &RankingHighlights::thermalBestPartNumber)
+        .def_readwrite("lowestLossPartNumber", &RankingHighlights::lowestLossPartNumber)
+        .def_readwrite("highestSaturationMarginPartNumber", &RankingHighlights::highestSaturationMarginPartNumber)
+        .def_readwrite("smallestCorePartNumber", &RankingHighlights::smallestCorePartNumber);
+
     py::class_<InductorCandidate>(m, "InductorCandidate")
         .def(py::init<>())
         .def_readwrite("material", &InductorCandidate::material)
@@ -416,7 +458,9 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("recommendation", &InductorCandidate::recommendation)
         .def_readwrite("lossSummary", &InductorCandidate::lossSummary)
         .def_readwrite("manufacturabilityMarginPercent", &InductorCandidate::manufacturabilityMarginPercent)
-        .def_readwrite("rankingExplanation", &InductorCandidate::rankingExplanation);
+        .def_readwrite("rankingExplanation", &InductorCandidate::rankingExplanation)
+        .def_readwrite("bottleneck", &InductorCandidate::bottleneck)
+        .def_readwrite("designNarrative", &InductorCandidate::designNarrative);
 
     py::class_<DesignRecommendation>(m, "DesignRecommendation")
         .def(py::init<>())
@@ -427,7 +471,9 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("activeRules", &DesignRecommendation::activeRules)
         .def_readwrite("requiredAreaProductCm4", &DesignRecommendation::requiredAreaProductCm4)
         .def_readwrite("largestAvailableAreaProductCm4", &DesignRecommendation::largestAvailableAreaProductCm4)
-        .def_readwrite("versions", &DesignRecommendation::versions);
+        .def_readwrite("versions", &DesignRecommendation::versions)
+        .def_readwrite("operatingPointConfidence", &DesignRecommendation::operatingPointConfidence)
+        .def_readwrite("rankingHighlights", &DesignRecommendation::rankingHighlights);
 
     py::class_<InductorDesignRequest>(m, "InductorDesignRequest")
         .def(py::init<>())

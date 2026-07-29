@@ -45,9 +45,44 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
     //OperatingPoint::currentConsistencyStatus. It sets NotEvaluated with a clear explanation instead,
     //exactly like any other missing-data case; everything that doesn't depend on this (saturation via
     //peak alone, fill/current-density via RMS, core loss from the literal ripple value) still runs.
+    constexpr double kCcmZeroEpsilonA = 1e-6;
+
+    //Mode 2 peak derivation: peak current is absent but rmsCurrentA (however it was obtained above) and
+    //rippleCurrentPeakToPeakA are both known. Irms^2 = Iavg^2 + ripple^2/12 (the same triangular-ripple
+    //formula already trusted above for the average+ripple -> RMS direction) can be run backwards:
+    //Iavg = sqrt(Irms^2 - ripple^2/12), peak = Iavg + ripple/2 - a real algebraic derivation, not a new
+    //assumption, and provably never less than rmsCurrentA (Irms^2 = Iavg^2 + ripple^2/12 <= (Iavg +
+    //ripple/2)^2 = peak^2 for any Iavg >= 0), so this can never trip the rms > peak sanity check below.
+    //Only attempted when Irms^2 >= ripple^2/12 - otherwise the supplied RMS/ripple combination is itself
+    //inconsistent with a triangular waveform, and no exception is thrown (matches this file's
+    //soften-don't-crash policy for ripple-dependent checks) - peakCurrentA simply stays absent.
+    if (!out.operatingPoint.peakCurrentA.has_value() && out.operatingPoint.rippleCurrentPeakToPeakA.has_value()) {
+        double irms = out.operatingPoint.rmsCurrentA;
+        double ripple = *out.operatingPoint.rippleCurrentPeakToPeakA;
+        double rippleTermSquared = (ripple * ripple) / 12.0;
+
+        if (irms * irms >= rippleTermSquared) {
+            double iavgDerived = std::sqrt(irms * irms - rippleTermSquared);
+            double peakDerived = iavgDerived + ripple / 2.0;
+            out.operatingPoint.peakCurrentA = peakDerived;
+            out.operatingPoint.peakCurrentDerived = true;
+            out.operatingPoint.peakCurrentAssumption =
+                "peakCurrentA derived from rmsCurrentA and rippleCurrentPeakToPeakA assuming a triangular "
+                "ripple waveform (Iavg = sqrt(Irms^2 - ripple^2/12), peak = Iavg + ripple/2) - derived from "
+                "the supplied RMS and ripple values, not an independent cross-check against them, and not a "
+                "directly measured value. Supply peakCurrentA directly if the real waveform is not triangular.";
+        } else {
+            out.operatingPoint.currentConsistencyExplanation =
+                "no peakCurrentA supplied, and it cannot be derived from rmsCurrentA (" + std::to_string(irms) +
+                " A) and rippleCurrentPeakToPeakA (" + std::to_string(ripple) +
+                " A pk-pk) - Irms^2 (" + std::to_string(irms * irms) + ") is below ripple^2/12 (" +
+                std::to_string(rippleTermSquared) +
+                "), which is physically impossible for a triangular ripple waveform with this RMS/ripple "
+                "combination; core loss is still computed from the ripple value on its own";
+        }
+    }
+
     if (out.operatingPoint.peakCurrentA.has_value() && out.operatingPoint.rippleCurrentPeakToPeakA.has_value()) {
-        constexpr double kCcmZeroEpsilonA = 1e-6;
-        //deference the values to get the real values
         double peak = *out.operatingPoint.peakCurrentA;
         double ripple = *out.operatingPoint.rippleCurrentPeakToPeakA;
         double minInductorCurrentA = peak - ripple;
@@ -66,7 +101,9 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
             out.operatingPoint.conductionMode = ConductionMode::DCMUnsupported;
             out.operatingPoint.currentConsistencyExplanation =
                 "computed minimum inductor current is negative (" + std::to_string(minInductorCurrentA) +
-                " A) given peak=" + std::to_string(peak) + " A and ripple=" + std::to_string(ripple) +
+                " A) given peak=" + std::to_string(peak) + " A" +
+                (out.operatingPoint.peakCurrentDerived ? " (derived from rmsCurrentA and ripple)" : "") +
+                " and ripple=" + std::to_string(ripple) +
                 " A pk-pk - this combination implies discontinuous conduction mode (DCM), which Phase 1 "
                 "does not model (CCM only); conduction mode and core loss from this ripple value are still "
                 "reported, but the consistency check itself is not evaluated";
@@ -87,8 +124,18 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
             out.operatingPoint.currentConsistencyExplanation =
                 "minimum inductor current is at or near zero - this design sits at the CCM/DCM boundary; "
                 "small load or line variation may push it into DCM";
-        } 
-        else {
+        } else if (out.operatingPoint.peakCurrentDerived) {
+            //peak was derived FROM this same rms/ripple pair above, so this branch is confirming the
+            //derivation's own internal self-consistency (it is provably always self-consistent - see the
+            //derivation comment above), not an independent cross-check against a separately-measured peak.
+            out.operatingPoint.currentConsistencyStatus = EvaluationStatus::Evaluated;
+            out.operatingPoint.conductionMode = ConductionMode::CCM;
+            out.operatingPoint.currentConsistencyExplanation =
+                "peak current (" + std::to_string(peak) + " A) was derived from rmsCurrentA and ripple (" +
+                std::to_string(ripple) + " A pk-pk), not independently measured - minimum inductor current (" +
+                std::to_string(minInductorCurrentA) + " A) reflects that same derivation, under the "
+                "triangular-ripple CCM assumption";
+        } else {
             out.operatingPoint.currentConsistencyStatus = EvaluationStatus::Evaluated;
             out.operatingPoint.conductionMode = ConductionMode::CCM;
             out.operatingPoint.currentConsistencyExplanation =

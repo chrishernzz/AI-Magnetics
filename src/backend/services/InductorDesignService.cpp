@@ -17,6 +17,10 @@
 #include "RequirementDerivationService.h"
 #include "core/units/UnitConversions.h"
 #include "backend/services/RankingExplanationService.h"
+#include "backend/services/OperatingPointConfidenceService.h"
+#include "backend/services/CandidateRankingHelpers.h"
+#include "backend/services/BottleneckAnalysisService.h"
+#include "backend/services/RankingHighlightsService.h"
 
 //lets us reuse the function throughout the file without having to prefix it with the namespace
 namespace {
@@ -60,6 +64,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
         for (const auto& reason : candidate.turnsAndGap.rejectionReasons) {
             candidate.rejectionReasons.push_back({"TurnsAndGapDesign", reason});
         }
+        candidate.bottleneck = analyzeBottleneck(candidate);
         return candidate;
     }
 
@@ -125,43 +130,11 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     double smallGapPenaltyPercent = candidate.turnsAndGap.smallGapWarning ? 25.0 : 0.0;
     candidate.manufacturabilityMarginPercent = fillHeadroomPercent - smallGapPenaltyPercent;
 
+    candidate.bottleneck = analyzeBottleneck(candidate);
     candidate.rankingExplanation = explainRanking(candidate);
+    candidate.designNarrative = suggestImprovement(candidate);
 
     return candidate;
-}
-
-//precondition: candidate.validations was built with InductanceValidation/PeakFluxValidation/SaturationValidation/
-//WindingFitValidation/CurrentDensityValidation/BundleFitValidation/ThermalValidation, in that order (see evaluateCandidate())
-//postcondition: returns a pointer to the named check, or nullptr if not found (defensive - never crashes on a mismatch)
-const ValidationResult* findValidation(const InductorCandidate& candidate, const char* checkName) {
-    for (const auto& v : candidate.validations) {
-        if (v.checkName == checkName) {
-            return &v;
-        }
-    }
-    return nullptr;
-}
-
-//precondition: none
-//postcondition: lower-is-better ranking value for predicted temperature rise; a not_evaluated thermal result
-//ranks as the worst possible (never as if it were a benign 0C rise).
-double thermalRiseForRanking(const InductorCandidate& candidate) {
-    const ValidationResult* v = findValidation(candidate, "ThermalValidation");
-    if (v == nullptr || v->status != EvaluationStatus::Evaluated) {
-        return std::numeric_limits<double>::max();
-    }
-    return v->calculatedValue;
-}
-
-//precondition: none
-//postcondition: higher-is-better ranking value (limit - actual) for the named check; a not_evaluated check
-//ranks as the worst possible (never as if it had unlimited margin).
-double marginForRanking(const InductorCandidate& candidate, const char* checkName, bool actualIsTheMargin) {
-    const ValidationResult* v = findValidation(candidate, checkName);
-    if (v == nullptr || v->status != EvaluationStatus::Evaluated) {
-        return -std::numeric_limits<double>::max();
-    }
-    return actualIsTheMargin ? v->calculatedValue : (v->limitValue - v->calculatedValue);
 }
 
 //precondition: recommendation.candidates only ever contains passed==true candidates (see run()'s split below),
@@ -213,6 +186,7 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
 
     //what the inductor MUST have, so it goes to the derivation to get the correct information
     InductorRequirements requirements = RequirementDerivationService::derive(request, rules);
+    recommendation.operatingPointConfidence = classifyOperatingPointConfidence(requirements.operatingPoint);
 
     //this will loop through the material database and grab the materials that are within the range of the frequency
     std::vector<MaterialCandidate> materials = findSuitableMaterials(requirements.operatingPoint);
@@ -301,6 +275,7 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
     //manufacturability margin, saturation margin, current-density margin, area product, and finally part
     //number as a deterministic final tiebreak - see candidateRanksAhead() above for the full comparator.
     std::stable_sort(recommendation.candidates.begin(), recommendation.candidates.end(), candidateRanksAhead);
+    recommendation.rankingHighlights = computeRankingHighlights(recommendation.candidates);
 
     if (recommendation.candidates.empty()) {
         recommendation.status = "no_feasible_design";

@@ -88,6 +88,10 @@ set(BACKEND_SERVICE_SOURCES
     src/backend/services/InductorDesignService.cpp
     src/backend/services/BuckElectricalSolver.cpp
     src/backend/services/RankingExplanationService.cpp
+    src/backend/services/OperatingPointConfidenceService.cpp
+    src/backend/services/CandidateRankingHelpers.cpp
+    src/backend/services/BottleneckAnalysisService.cpp
+    src/backend/services/RankingHighlightsService.cpp
 )
 
 add_library(
@@ -153,12 +157,18 @@ add_executable(magnetics_engine_tests
     tests/cpp/LossTests.cpp
     tests/cpp/GapToleranceTests.cpp
     tests/cpp/ThermalTests.cpp
+    tests/cpp/RequirementDerivationServiceTests.cpp
+    tests/cpp/OperatingPointConfidenceServiceTests.cpp
+    tests/cpp/BottleneckAnalysisTests.cpp
+    tests/cpp/RankingExplanationTests.cpp
+    tests/cpp/RankingHighlightsTests.cpp
 )
 
 target_link_libraries(
     magnetics_engine_tests
     PRIVATE
     magnetics_engine
+    magnetics_services
 )
 
 target_include_directories(

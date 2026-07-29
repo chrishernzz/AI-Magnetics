@@ -337,3 +337,50 @@ def test_case13_mpp_toroid_c055439a2x2_reachable_after_database_fix():
     assert candidate.core.coreShape == "Toroid"
     assert candidate.core.shapeFamily == "T"
     assert candidate.core.vendor == "Magnetics"
+
+
+def test_case14_mode2_rms_plus_ripple_derives_peak_and_evaluates_saturation():
+    """Case 14 (recommendation-confidence round): RMS + ripple supplied, peak current NOT supplied
+    (3000uH, 5A RMS, 2A pk-pk ripple, 100kHz) - probed live: every one of the 33 area-product-feasible
+    candidates gets a real, derived peak current and SaturationValidation actually evaluates against
+    it, proving the Mode 2 peak derivation (RequirementDerivationService.cpp) works end-to-end through
+    the full Python binding path, not just the C++ unit tests. operatingPointConfidence must honestly
+    report RmsPlusRipple/Derived - never RmsPlusPeak, which would misrepresent a derived value as a
+    directly-measured one."""
+    result = magnetics_cpp.run_inductor_design(
+        _design_request(inductanceUH=3000.0, rmsCurrentA=5.0, rippleCurrentPeakToPeakA=2.0,
+                         switchingFreqKHz=100.0, ambientTemperatureC=25.0, allowableTempRiseC=40.0,
+                         peakCurrentA=None)
+    )
+    assert result.operatingPointConfidence.inputMode.name == "RmsPlusRipple"
+    assert result.operatingPointConfidence.peakCurrentProvenance.name == "Derived"
+    assert "derived" in result.operatingPointConfidence.summary.lower()
+
+    all_candidates = list(result.candidates) + list(result.rejectedCandidates)
+    assert all_candidates, "expected at least one area-product-feasible candidate for this real request"
+    saturation_evaluated = [
+        c for c in all_candidates
+        if any(v.checkName == "SaturationValidation" and v.status.name == "Evaluated" for v in c.validations)
+    ]
+    assert saturation_evaluated, "SaturationValidation should genuinely evaluate against the derived peak current"
+
+
+def test_case15_rms_only_reports_missing_peak_as_the_bottleneck():
+    """Case 15 (recommendation-confidence round): a genuinely RMS-only request (3000uH, 5A RMS,
+    100kHz, no peak, no ripple - the original "Roger" reproduction case) - probed live: 45 of 157
+    candidates report bottleneck.reason == NotEvaluatedCheck with limitingCheckName ==
+    "SaturationValidation", and designNarrative is the exact required phrase, never a generic
+    "increase turns" guess when the real blocker is missing data."""
+    result = magnetics_cpp.run_inductor_design(
+        _design_request(inductanceUH=3000.0, rmsCurrentA=5.0, switchingFreqKHz=100.0,
+                         ambientTemperatureC=25.0, allowableTempRiseC=40.0, peakCurrentA=None)
+    )
+    assert result.status == "ok"
+
+    all_candidates = list(result.candidates) + list(result.rejectedCandidates)
+    not_evaluated_candidates = [c for c in all_candidates if c.bottleneck.reason.name == "NotEvaluatedCheck"]
+    assert not_evaluated_candidates, "expected at least one candidate whose bottleneck is missing peak current"
+
+    sample = not_evaluated_candidates[0]
+    assert sample.bottleneck.limitingCheckName == "SaturationValidation"
+    assert sample.designNarrative == "supply peak current to evaluate saturation risk"

@@ -10,6 +10,11 @@ void runValidationTests();
 void runWindingDesignTests();
 void runLossTests();
 void runThermalTests();
+void runRequirementDerivationServiceTests();
+void runOperatingPointConfidenceServiceTests();
+void runBottleneckAnalysisTests();
+void runRankingExplanationTests();
+void runRankingHighlightsTests();
 
 int main() {
     //run all tests in sequence (in order). If every assert in every test passes, prints the final sucess line
@@ -22,6 +27,11 @@ int main() {
     runWindingDesignTests();
     runLossTests();
     runThermalTests();
+    runRequirementDerivationServiceTests();
+    runOperatingPointConfidenceServiceTests();
+    runBottleneckAnalysisTests();
+    runRankingExplanationTests();
+    runRankingHighlightsTests();
 
     std::printf("All EngineTests passed.\n");
     return 0;

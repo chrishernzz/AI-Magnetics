@@ -3,6 +3,8 @@
 #include <vector>
 #include "core/model/InductorCandidate.h"
 #include "core/model/EngineVersions.h"
+#include "core/model/OperatingPointConfidence.h"
+#include "core/model/RankingHighlights.h"
 #include "rules/DesignRules.h"
 
 /*
@@ -29,4 +31,13 @@ struct DesignRecommendation {
 
     //reproducibility metadata for this run - see EngineVersions.h.
     EngineVersions versions;
+
+    //which optional current inputs this request supplied, and where the peak current value in use
+    //actually came from - see OperatingPointConfidence.h. Computed once from the inputs alone, not
+    //per-candidate.
+    OperatingPointConfidence operatingPointConfidence;
+
+    //best-in-category pointers (by core partNumber) among `candidates` - see RankingHighlights.h. Does
+    //not change candidates' own sort order.
+    RankingHighlights rankingHighlights;
 };
