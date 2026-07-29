@@ -51,6 +51,7 @@ std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate
         candidate.vendor = core.vendor;
         candidate.coreShape = core.coreShape;
         candidate.shapeFamily = core.shapeFamily;
+        candidate.materialType = core.materialType;
         candidate.source.manufacturer = core.vendor.empty() ? std::nullopt : std::optional<std::string>(core.vendor);
         candidate.source.partNumber = core.partNumber;
         candidate.source.materialGrade = core.material;

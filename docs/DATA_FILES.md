@@ -26,8 +26,8 @@
 `data/real_core_loss_coefficients.csv`
 **Used by:** `python/services/magnetics_data.py`
 **Format:**
-`PartNumber,Material,Mu,AL,Ae,Wa,Le,Mlt,PartCost,Vendor,MaxCurrent_A,MaxFreq_kHz,CoreShape,ShapeFamily`
-for cores, `Name,MuOpt,MinFrequencyHz,MaxFrequencyHz,Reason,Alternatives,BmaxT`
+`PartNumber,Material,Mu,AL,Ae,Wa,Le,Mlt,PartCost,Vendor,MaxCurrent_A,MaxFreq_kHz,CoreShape,ShapeFamily,MaterialType`
+for cores, `Name,MuOpt,MinFrequencyHz,MaxFrequencyHz,Reason,Alternatives,BmaxT,MaterialType`
 for materials, and `MaterialName,MinFrequencyHz,MaxFrequencyHz,K,Alpha,Beta,Ct0,Ct1,Ct2`
 (one row per frequency range) for the Steinmetz core-loss coefficients.
 **Currently:** 81 materials, 168 cores — real data (Ferroxcube, TDK,
@@ -35,7 +35,10 @@ Magnetics, Fair-Rite, Micrometals), filtered to power-application materials
 and ungapped cores, spread across vendors. `CoreShape` (`Toroid`/
 `TwoPieceSet`) and `ShapeFamily` (e.g. `T`, `ETD`, `PQ`, `RM`) are real
 geometry classifications from PyOpenMagnetics' own shape record - see
-"Core shape is now real" below.
+"Core shape is now real" below. `MaterialType` (`ferrite`/`powder`) is
+PyOpenMagnetics' own real material classification - see "Ferrite toroids
+vs. powder toroids" below for why shape alone isn't enough to know which
+gap physics applies.
 **Do not hand-edit these files.** To change what's in them, either adjust
 the filters in `scripts/export_real_data.py` and re-run it (needs
 PyOpenMagnetics installed — Linux/macOS/WSL2 only, see
@@ -91,20 +94,24 @@ that script and swap the resulting files in.
   explicitly prioritized so it survives the per-material cap too — see
   `scripts/export_real_data.py`'s module docstring and
   `PRIORITY_CORE_REFERENCES`.
-- **What this does NOT fix:** `TurnsAndGapDesign.cpp` still applies the
-  same discrete-machined-gap physics model (`GapDesign.cpp`) to every
-  candidate uniformly, including toroids. Real toroids don't get a
-  machined air gap the way E-cores do — their effective permeability is a
-  distributed-gap material property, not a mechanical gap length. The
-  engine still returns a `gapMm` for these (nearly always ~0.00mm since
-  the fitted permeability needs little gap), which is numerically harmless
-  here but doesn't model the real physics of a toroidal core. The shape is
-  now correctly labeled; no shape-aware gap-physics branch exists yet.
-
-Closing these gaps means re-running `scripts/export_real_data.py` with those
-fields actually populated, or adding real per-part datasheet values by
-hand — neither is done in Phase 1; the engine reports the gap honestly
-(`not_evaluated` + a `missingData` explanation) instead of guessing.
+- **Ferrite toroids vs. powder toroids (`MaterialType` column):**
+  `TurnsAndGapDesign.cpp` treats a toroid as distributed-gap (no discrete
+  machined air gap, permeability baked into the catalog `AL`) only when
+  `CoreShape == "Toroid" AND MaterialType == "powder"`. This was originally
+  keyed off `CoreShape` alone, which was wrong — the catalog also carries
+  real **ferrite** toroids (TDK/EPCOS N-series and T35/T65, Fair-Rite's
+  67/77/79/80 grades, Ferroxcube 3C94), which get their permeability from
+  the ferrite chemistry itself, not particle-level gapping, and need the
+  same real machined-gap formula (`GapDesign.cpp`) as a two-piece core. A
+  real user report (a passing N87 toroid candidate reporting
+  `gapMethod: Distributed, gapMm: 0.0`) caught this — confirmed against 10
+  ferrite material families across 75 toroid rows that were being
+  mis-classified. `MaterialType` (`ferrite`/`powder`) is PyOpenMagnetics'
+  own real classification (`material.material` upstream — the same field
+  `ALLOWED_MATERIAL_TYPES` in `scripts/export_real_data.py` already filters
+  on), not inferred from the part number or shape. A core with an
+  empty/unknown `MaterialType` is treated conservatively — it runs the real
+  machined-gap formula rather than being assumed powder.
 
 ---
 

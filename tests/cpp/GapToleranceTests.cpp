@@ -154,6 +154,87 @@ void testNonMachinedCenterLegGapMethodIsRejected() {
     std::printf("testNonMachinedCenterLegGapMethodIsRejected: %s\n", result.rejectionReasons.front().c_str());
 }
 
+//real TDK B64290L0022X087 (N87) - a genuine ferrite toroid from real_cores.csv, MaterialType="ferrite".
+CoreCandidate realFerriteToroid() {
+    CoreCandidate core;
+    core.partNumber = "B64290L0022X087 (N87)";
+    core.material = "N87";
+    core.mu = 2208.0;
+    core.al = 2532.7058823529405;
+    core.aeMm2 = 97.49999999999997;
+    core.waMm2 = 530.9291584566752;
+    core.leMm = 106.81415022205296;
+    core.mltMm = 40.599999999999994;
+    core.coreShape = "Toroid";
+    core.materialType = "ferrite";
+    return core;
+}
+
+//real Magnetics 0055074A2 (MPP 26) - a genuine powder toroid from real_cores.csv, MaterialType="powder".
+CoreCandidate realPowderToroid() {
+    CoreCandidate core;
+    core.partNumber = "0055074A2";
+    core.material = "MPP 26";
+    core.mu = 26.0;
+    core.al = 77.29783551501919;
+    core.aeMm2 = 371.9987499999999;
+    core.waMm2 = 933.1950966439273;
+    core.leMm = 157.2379451057476;
+    core.mltMm = 77.57;
+    core.coreShape = "Toroid";
+    core.materialType = "powder";
+    return core;
+}
+
+//8. Regression for a real user report: a ferrite toroid (N87) was passing with gapMethod=Distributed,
+//gapMm=0.0 purely because it's shaped "Toroid" - wrong, since N87's permeability comes from the ferrite
+//chemistry, not particle-level distributed gapping, and it needs the exact same machined-gap formula as a
+//two-piece core. isDistributedGapCore must key off MaterialType=="powder", not CoreShape alone.
+void testFerriteToroidGetsRealMachinedGapNotDistributed() {
+    CoreCandidate core = realFerriteToroid();
+    DesignRules rules = DesignRules::phase1Default();
+
+    //at 3000uH (Roger's exact reported scenario) this core's real ungapped AL already reaches the target via
+    //turns alone (a legitimate real ferrite-toroid design outcome) - gapMethod must still say
+    //MachinedCenterLeg, not Distributed, since the formula that decided this WAS the real one.
+    TurnsAndGapResult atReportedTarget = designTurnsAndGap(core, 3000.0, 10.0, rules);
+    assert(atReportedTarget.gapMethod == GapMethod::MachinedCenterLeg);
+
+    //at a low target inductance this same core genuinely needs a nonzero gap - proves the real
+    //MachinedCenterLeg formula is actually running (not silently short-circuited to always 0), and that a
+    //ferrite toroid CAN get a real nonzero gapMm when the target calls for one.
+    TurnsAndGapResult atLowTarget = designTurnsAndGap(core, 0.5, 10.0, rules);
+    assert(atLowTarget.gapMethod == GapMethod::MachinedCenterLeg);
+    assert(atLowTarget.gapMm > 0.0);
+
+    std::printf("testFerriteToroidGetsRealMachinedGapNotDistributed: at 3000uH gapMm=%.4f; at 0.5uH gapMm=%.4f (nonzero, real formula) - gapMethod=MachinedCenterLeg in both cases\n",
+                atReportedTarget.gapMm, atLowTarget.gapMm);
+}
+
+//9. A core with unknown/empty MaterialType must be treated conservatively (real machined-gap formula runs),
+//never assumed to be powder just because the field is missing.
+void testUnknownMaterialTypeIsNeverAssumedPowder() {
+    CoreCandidate core = realFerriteToroid();
+    core.materialType = "";  // simulates a CSV row with no MaterialType data
+    DesignRules rules = DesignRules::phase1Default();
+    TurnsAndGapResult result = designTurnsAndGap(core, 3000.0, 10.0, rules);
+    assert(result.gapMethod == GapMethod::MachinedCenterLeg);
+    std::printf("testUnknownMaterialTypeIsNeverAssumedPowder: gapMethod=MachinedCenterLeg (unknown MaterialType never treated as powder)\n");
+}
+
+//10. The correct case must stay correct: a genuine powder toroid (MPP) still reports Distributed/gapMm=0 -
+//this fix must not have broken the real distributed-gap path it's meant to preserve.
+void testGenuinePowderToroidStillReportsDistributedGap() {
+    CoreCandidate core = realPowderToroid();
+    DesignRules rules = DesignRules::phase1Default();
+    TurnsAndGapResult result = designTurnsAndGap(core, 3000.0, 10.0, rules);
+    assert(result.converged);
+    assert(result.gapMethod == GapMethod::Distributed);
+    assert(approxEqual(result.gapMm, 0.0, 1e-9));
+    std::printf("testGenuinePowderToroidStillReportsDistributedGap: turns=%d gapMethod=Distributed gapMm=0.0000 (unchanged)\n",
+                result.turns);
+}
+
 }  // namespace
 
 void runGapToleranceTests() {
@@ -165,5 +246,8 @@ void runGapToleranceTests() {
     testConvergenceIsRobustEvenNearThePracticalGapBoundary();
     testGapToleranceCanFailEvenWhenNominalPasses();
     testNonMachinedCenterLegGapMethodIsRejected();
+    testFerriteToroidGetsRealMachinedGapNotDistributed();
+    testUnknownMaterialTypeIsNeverAssumedPowder();
+    testGenuinePowderToroidStillReportsDistributedGap();
     std::printf("All GapToleranceTests passed.\n");
 }

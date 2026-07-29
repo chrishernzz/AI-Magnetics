@@ -37,6 +37,9 @@ struct CoreCandidate {
     //human-readable geometry family (e.g. "T", "ETD", "PQ") from real_cores.csv's ShapeFamily column - empty string means no shape data recorded.
     std::string shapeFamily;
 
+    //real material type ("ferrite"/"powder") from real_cores.csv's MaterialType column - see CoreData::materialType. Empty string means unknown, never treated as "powder".
+    std::string materialType;
+
     //provenance for this core's data - see Provenance.h. datasheetRevision/Url/dateAccessed are always unset
     //in Phase 1 (no real per-core datasheet revision/URL/access-date exists in this snapshot).
     SourceInfo source;

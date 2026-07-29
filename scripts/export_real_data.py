@@ -31,11 +31,18 @@ CoreShape/ShapeFamily (added after a real user report - see git log) are
 read from PyOpenMagnetics' functionalDescription.shape: magneticCircuit
 "closed" -> "Toroid", "open" -> "TwoPieceSet" (E-core, ETD, PQ, RM, etc.),
 and shape.family (e.g. "t", "etd", "pq") uppercased for a human-readable
-geometry label. This does NOT change TurnsAndGapDesign.cpp's physics - it
-still applies the same discrete-machined-gap formula to every shape,
-including toroids, which don't get a machined gap in reality (their
-effective permeability is a distributed-gap material property). The label
-is now real; the gap formula is still shape-unaware (see DATA_FILES.md).
+geometry label.
+
+MaterialType ("ferrite"/"powder", added after a real user report - a
+ferrite toroid, e.g. N87, was being treated as a distributed-gap powder
+core purely because CoreShape=="Toroid") is read directly from
+PyOpenMagnetics' own material.material field - the exact same field
+ALLOWED_MATERIAL_TYPES already filters on below, just never previously
+carried through to the CSV output. TurnsAndGapDesign.cpp uses this
+(materialType=="powder", not shape alone) to decide whether a core's
+effective permeability is a distributed-gap material property (no
+discrete machined gap exists) or needs the real machined-gap formula -
+see DATA_FILES.md.
 
 The per-vendor cap used to be a single flat counter, which meant whichever
 material family happened to iterate first for a vendor could consume the
@@ -235,6 +242,7 @@ def fetch_materials(available_core_material_names=None,) -> list:
                 ),
                 "Alternatives": "None",
                 "BmaxT": _pick_saturation_flux_density_t(m),
+                "MaterialType": m.get("material", ""),
                 "SteinmetzRanges": _steinmetz_ranges(m),
             }
         )
@@ -369,6 +377,7 @@ def fetch_cores() -> list[dict]:
                 / 1000.0,
                 "CoreShape": core_shape,
                 "ShapeFamily": shape_family,
+                "MaterialType": mat.get("material", ""),
             }
         )
 
@@ -426,6 +435,7 @@ def main():
                 "Reason",
                 "Alternatives",
                 "BmaxT",
+                "MaterialType",
             ]
         )
 
@@ -439,6 +449,7 @@ def main():
                     m["Reason"],
                     m["Alternatives"],
                     m["BmaxT"],
+                    m["MaterialType"],
                 ]
             )
 
@@ -465,6 +476,7 @@ def main():
                 "MaxFreq_kHz",
                 "CoreShape",
                 "ShapeFamily",
+                "MaterialType",
             ]
         )
 
@@ -485,6 +497,7 @@ def main():
                     c["MaxFreq_kHz"],
                     c["CoreShape"],
                     c["ShapeFamily"],
+                    c["MaterialType"],
                 ]
             )
 

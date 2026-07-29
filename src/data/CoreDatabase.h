@@ -23,6 +23,14 @@ struct CoreData {
 
     //Human-readable geometry family (e.g. "T", "ETD", "PQ", "RM") from the same source as coreShape. Empty string means no shape data recorded.
     std::string shapeFamily;
+
+    //Real material type ("ferrite" or "powder") from PyOpenMagnetics' own material.material field (see
+    //scripts/export_real_data.py) - not inferred from coreShape or the part number. A toroid can be either:
+    //powder toroids (MPP, Kool Mu, High Flux, Edge, XFlux, etc.) get their effective permeability from
+    //particle-level distributed gapping baked into the catalog AL; ferrite toroids (e.g. N87) do not - they
+    //need the same real machined-gap formula as a two-piece core. Empty string means no material-type data
+    //recorded; callers must treat that as unknown, never as "powder".
+    std::string materialType;
 };
 
 class CoreDatabase{

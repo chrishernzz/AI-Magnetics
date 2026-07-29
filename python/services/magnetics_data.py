@@ -111,6 +111,12 @@ def fetch_cores() -> list[dict]:
     CoreShape ("Toroid"/"TwoPieceSet") and ShapeFamily (e.g. "T", "ETD",
     "PQ") are real geometry classifications from PyOpenMagnetics - see
     scripts/export_real_data.py's _core_shape_and_family().
+
+    MaterialType ("ferrite"/"powder") is PyOpenMagnetics' own real material
+    classification - the C++ engine uses it (not CoreShape alone) to decide
+    whether a toroid's permeability is a distributed-gap material property
+    (powder) or needs the real machined-gap formula (ferrite toroids, e.g.
+    N87, do not get distributed gapping) - see TurnsAndGapDesign.cpp.
     """
     rows = _read_csv(CORES_FILE)
 
@@ -133,6 +139,7 @@ def fetch_cores() -> list[dict]:
                 "MaxFreq_kHz": float(r["MaxFreq_kHz"]),
                 "CoreShape": r.get("CoreShape", ""),
                 "ShapeFamily": r.get("ShapeFamily", ""),
+                "MaterialType": r.get("MaterialType", ""),
             }
         )
 
