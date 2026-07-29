@@ -48,10 +48,16 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, double targetIndu
 
     //Real powder toroid materials (MPP/Kool Mu/High Flux/Sendust, etc.) achieve their working permeability
     //through gapping distributed at the powder-particle level, baked into the catalog AL - there is no
-    //discrete machined air gap to report. real_cores.csv's own CoreShape column ("Toroid" vs "TwoPieceSet")
-    //is the real signal for this, not a guess: any core shaped "Toroid" is Distributed-gap; everything else
-    //still requires the validated MachinedCenterLeg formula this function already implements below.
-    bool isDistributedGapCore = core.coreShape == "Toroid";
+    //discrete machined air gap to report. Shape alone ("Toroid") is NOT a sufficient signal for this - the
+    //catalog also carries plenty of real ferrite toroids (e.g. N87, T35, T65, and Fair-Rite's 67/77/79/80
+    //grades), which get their permeability from the ferrite chemistry itself, not particle-level gapping,
+    //and need the exact same machined-gap formula as a two-piece core - a real user report (a passing N87
+    //toroid candidate reporting gapMm=0.0/Distributed) caught this. real_cores.csv's own MaterialType column
+    //("ferrite"/"powder", sourced directly from PyOpenMagnetics' material.material field - see
+    //scripts/export_real_data.py) is the real signal: only a Toroid whose material is confirmed "powder" is
+    //distributed-gap. An empty/unknown materialType is treated conservatively - it runs the real formula
+    //below rather than being assumed powder.
+    bool isDistributedGapCore = core.coreShape == "Toroid" && core.materialType == "powder";
     result.gapMethod = isDistributedGapCore ? GapMethod::Distributed : rules.gapMethod;
 
     //Only MachinedCenterLeg has a validated formula in Phase 1 (see GapMethod.h) - any other requested

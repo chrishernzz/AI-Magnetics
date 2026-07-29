@@ -149,6 +149,7 @@ def _serialize_core(c) -> dict:
         "vendor": c.vendor,
         "coreShape": c.coreShape,
         "shapeFamily": c.shapeFamily,
+        "materialType": c.materialType,
         "source": _serialize_source_info(c.source),
     }
 
