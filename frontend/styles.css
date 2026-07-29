@@ -183,14 +183,6 @@ body {
     color: var(--brand-black);
 }
 
-.rules-versions-line {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--line);
-    font-size: 0.78rem;
-    color: var(--ink-soft);
-}
-
 .card {
     background: var(--paper);
     border: 1px solid var(--line);
@@ -960,6 +952,90 @@ button:hover {
     font-size: 0.82rem;
 }
 
+/* Validation Coverage - compact Evaluated/Not-Evaluated summary
+   (renderValidationCoverage()), sitting between the status line and the
+   full Validation Checks list below it. */
+.coverage-block {
+    margin: 14px 0;
+    padding: 12px 14px;
+    background: var(--paper-sunk);
+    border-radius: 8px;
+}
+
+.coverage-block-full {
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.coverage-block-title {
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--brand-black);
+    margin-bottom: 8px;
+}
+
+.coverage-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+@media (max-width: 480px) {
+    .coverage-columns {
+        grid-template-columns: 1fr;
+    }
+}
+
+.coverage-col-label {
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+}
+
+.coverage-col ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.coverage-col li {
+    font-size: 0.8rem;
+    color: var(--ink);
+    line-height: 1.4;
+}
+
+.coverage-col-not-eval .coverage-col-label {
+    color: #b45309;
+}
+
+.coverage-needs {
+    color: #b45309;
+    font-size: 0.75rem;
+}
+
+/* Design-improvement suggestion (candidate.designNarrative, real rule-based
+   backend text from RankingExplanationService.cpp - never a generic
+   "increase turns" guess when the real blocker is missing data). */
+.detail-next-step {
+    margin: 0 0 14px;
+    padding: 10px 14px;
+    background: #fff8ec;
+    border-left: 3px solid #b45309;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--ink);
+    line-height: 1.5;
+}
+
+.detail-next-step strong {
+    color: var(--brand-black);
+}
+
 /* Validation checks - the single place every check is explained, each one
    exactly once: a status chip, the check name, its actual value against
    its limit (labeled, not a bare ratio), and - only for a check that
@@ -1310,6 +1386,63 @@ summary {
     border: 1px solid var(--line);
     margin-left: 6px;
     font-weight: 600;
+}
+
+/* Operating Point Mode card (renderOperatingPointConfidence()) - which of
+   the 4 input modes this run actually used, real backend classification
+   from OperatingPointConfidenceService.cpp, not a UI guess. */
+.chip-mode {
+    background: var(--brand-black);
+    color: #fff;
+}
+
+.op-mode-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.op-mode-summary {
+    color: var(--ink);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 6px;
+}
+
+.op-mode-provenance {
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+}
+
+.op-mode-provenance strong {
+    color: var(--brand-black);
+}
+
+.op-mode-points {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+}
+
+.op-mode-points li {
+    position: relative;
+    padding-left: 16px;
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.op-mode-points li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--brand-red);
 }
 
 /* Slide-in candidate detail panel - replaces the old inline accordion row,

@@ -538,6 +538,8 @@ function clearResults() {
     });
     const feasibility = document.getElementById("feasibility");
     if (feasibility) feasibility.hidden = true;
+    const operatingPointCard = document.getElementById("operatingPointCard");
+    if (operatingPointCard) operatingPointCard.hidden = true;
     const recommended = document.getElementById("recommendedCandidateCard");
     if (recommended) {
         recommended.hidden = false;
@@ -576,22 +578,6 @@ async function postRequest(endpoint, payload) {
     }
 
     return await response.json();
-}
-
-// Reproducibility info - real content hashes of the loaded CSV data plus literal
-// engine/rules version strings (EngineVersions.h), never an invented upstream semver.
-// Folded into the existing "Active Rules & Assumptions" disclosure instead of its
-// own always-visible line at the page bottom - same collapsed-by-default pattern
-// as everything else reference-only on this page.
-function renderVersions(versions) {
-    const element = document.getElementById("assistant");
-    if (!element || !versions) return;
-    const line = document.createElement("p");
-    line.className = "rules-versions-line";
-    line.textContent =
-        `Engine ${versions.calculationEngineVersion} · Rules ${versions.designRulesVersion} · ` +
-        `Core DB ${versions.coreDatabaseVersion} · Material DB ${versions.materialDatabaseVersion}`;
-    element.appendChild(line);
 }
 
 function renderRules(rules) {
@@ -646,6 +632,99 @@ function renderFeasibility(result) {
         element.hidden = true;
         element.innerHTML = "";
     }
+}
+
+// Request-level classification of which of the 4 input modes this run
+// actually used (OperatingPointConfidenceService.cpp) - orthogonal to any
+// one candidate's pass/fail tier, and the same fact for every candidate in
+// this run, so it's rendered once here instead of repeated per-candidate.
+// Confidence labels and the capability/limitation bullets below are a
+// direct restatement of behavior already verified this session (see
+// OperatingPointConfidenceService.cpp's real summary text, used verbatim
+// as the lead sentence) - never a new claim about what the engine can do.
+const OPERATING_POINT_MODE_INFO = {
+    RmsOnly: {
+        label: "Mode 1 · RMS Only",
+        confidence: "Low",
+        confidenceClass: "chip-fail",
+        points: [
+            "Peak flux density cannot be verified - no peak current to compute it from",
+            "Saturation margin cannot be verified",
+            "Stored energy cannot be computed (needs peak current)",
+        ],
+    },
+    RmsPlusRipple: {
+        label: "Mode 2 · RMS + Ripple",
+        confidence: "Medium",
+        confidenceClass: "chip-warn",
+        points: [
+            "Peak current derived from RMS + ripple (triangular-ripple assumption), not directly measured",
+            "Saturation validation runs, but against a derived peak, not a measured one",
+            "Core loss can be computed (real ripple to drive the Steinmetz calculation)",
+        ],
+    },
+    RmsPlusPeak: {
+        label: "Mode 3 · RMS + Peak",
+        confidence: "High",
+        confidenceClass: "chip-pass",
+        points: [
+            "Flux-aware turns sizing",
+            "Saturation validation against a directly measured peak current",
+            "Peak flux density validation",
+        ],
+    },
+    FullOperatingPoint: {
+        label: "Mode 4 · Full Operating Point",
+        confidence: "Highest",
+        confidenceClass: "chip-pass",
+        points: [
+            "Everything Mode 3 verifies, against directly measured peak current",
+            "Ripple-aware core loss evaluation",
+            "CurrentConsistencyValidation runs - conduction mode (CCM/DCM) is actually checked, not just assumed",
+        ],
+    },
+};
+
+// PeakFlux/Saturation still show NotEvaluated even in RmsPlusRipple if the
+// RMS/ripple pair failed the triangular-ripple consistency check (Irms^2 <
+// ripple^2/12) - the mode is reported but no peak was actually derived, so
+// this run's real limitations still match Mode 1, not the Mode 2 text above.
+function operatingPointModeInfo(confidence) {
+    const base = OPERATING_POINT_MODE_INFO[confidence.inputMode] || OPERATING_POINT_MODE_INFO.RmsOnly;
+    if (confidence.inputMode === "RmsPlusRipple" && confidence.peakCurrentProvenance !== "Derived") {
+        return { ...base, points: OPERATING_POINT_MODE_INFO.RmsOnly.points };
+    }
+    return base;
+}
+
+function renderOperatingPointConfidence(result) {
+    const card = document.getElementById("operatingPointCard");
+    const body = document.getElementById("operatingPointBody");
+    if (!card || !body) return;
+    const confidence = result.operatingPointConfidence;
+    if (!confidence || result.status !== "ok") {
+        card.hidden = true;
+        body.innerHTML = "";
+        return;
+    }
+
+    const info = operatingPointModeInfo(confidence);
+    const provenanceLabel = {
+        NotSupplied: "not supplied",
+        Derived: "derived from RMS + ripple",
+        DirectlySupplied: "directly supplied",
+    }[confidence.peakCurrentProvenance] || confidence.peakCurrentProvenance;
+
+    card.hidden = false;
+    body.innerHTML = `
+        <div class="op-mode-head">
+            <span class="chip chip-mode">${info.label}</span>
+            <span class="chip ${info.confidenceClass}">Confidence: ${info.confidence}</span>
+        </div>
+        <p class="op-mode-summary">${confidence.summary}</p>
+        <p class="op-mode-provenance">Peak current: <strong>${provenanceLabel}</strong></p>
+        <ul class="op-mode-points">${info.points.map((p) => `<li>${p}</li>`).join("")}</ul>
+    `;
 }
 
 // Tallies why candidates were rejected so an engineer can triage a batch
@@ -919,6 +998,51 @@ function acLossRiskChip(acLossRisk) {
     return `<span class="chip ${chipClass}" title="${acLossRisk.reason}">AC risk: ${level}</span>`;
 }
 
+// Which real, user-suppliable input would let a NotEvaluated check actually
+// run - only for the 5 checks that can ever report NotEvaluated (confirmed
+// against DesignValidation.cpp). ThermalValidation/BundleFitValidation are
+// deliberately absent: their real missing-data reason varies per candidate
+// (a database gap, a winding-geometry fact) and isn't a single fixed input
+// the user can type in, so no additional-input hint is fabricated for them -
+// their own explanation text (already shown per-check below) is the honest
+// answer instead.
+const ADDITIONAL_INPUT_NEEDED = {
+    CurrentConsistencyValidation: "Peak current and ripple current (both, mutually consistent)",
+    PeakFluxValidation: "Peak current",
+    SaturationValidation: "Peak current",
+};
+
+// Compact Evaluated/Not-Evaluated summary, positioned right under the status
+// chips - complements rather than duplicates the full Validation Checks list
+// below (which has each check's calculated value and full explanation).
+function renderValidationCoverage(candidate) {
+    const evaluated = candidate.validations.filter((v) => v.status === "Evaluated");
+    const notEvaluated = candidate.validations.filter((v) => v.status === "NotEvaluated");
+    if (notEvaluated.length === 0) {
+        return `<div class="coverage-block coverage-block-full">Validation coverage: every mandatory check ran (${evaluated.length}/${evaluated.length}).</div>`;
+    }
+    return `
+        <div class="coverage-block">
+            <div class="coverage-block-title">Validation Coverage</div>
+            <div class="coverage-columns">
+                <div class="coverage-col">
+                    <div class="coverage-col-label">Evaluated (${evaluated.length})</div>
+                    <ul>${evaluated.map((v) => `<li>${v.checkName}</li>`).join("")}</ul>
+                </div>
+                <div class="coverage-col coverage-col-not-eval">
+                    <div class="coverage-col-label">Not Evaluated (${notEvaluated.length})</div>
+                    <ul>${notEvaluated
+                        .map((v) => {
+                            const needed = ADDITIONAL_INPUT_NEEDED[v.checkName];
+                            return `<li><strong>${v.checkName}</strong>${needed ? `<br><span class="coverage-needs">needs: ${needed}</span>` : ""}</li>`;
+                        })
+                        .join("")}</ul>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 function renderCandidateDetail(candidate) {
     const warnings = candidate.material.missingDataWarnings
         .concat(candidate.winding.missingData || [])
@@ -969,7 +1093,10 @@ function renderCandidateDetail(candidate) {
     const tierChip = recommendationTierChip(candidate.recommendation.tier);
     const statusSummarySentence = `${passCount} of ${candidate.validations.length} applicable checks passed${notEvalCount ? `, ${notEvalCount} not evaluated` : ""}${preliminaryChecks.length ? `, ${preliminaryChecks.length} check${preliminaryChecks.length > 1 ? "s" : ""} based on a Phase 1 default assumption` : ""}`;
     const statusLine = candidate.rejectionReasons.length
-        ? `<div class="detail-status detail-status-fail">Rejected — ${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>`
+        ? `<div class="detail-status detail-status-fail">
+            <div class="detail-status-chips"><span class="chip chip-fail">REJECTED</span></div>
+            <div class="detail-status-sub">${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>
+        </div>`
         : `<div class="detail-status detail-status-pass">
             <div class="detail-status-chips">${tierChip ? tierChip + " " : ""}${completenessChip(candidate)}</div>
             <div class="detail-status-sub">${statusSummarySentence}</div>
@@ -991,6 +1118,8 @@ function renderCandidateDetail(candidate) {
     return `
         ${kpis}
         ${statusLine}
+        ${renderValidationCoverage(candidate)}
+        ${candidate.designNarrative ? `<p class="detail-next-step"><strong>Suggested next step:</strong> ${candidate.designNarrative}</p>` : ""}
         <details class="detail-group" open>
             <summary>Validation Checks <span class="detail-group-count">(${passCount} passed, ${failCount} failed, ${notEvalCount} not evaluated)</span></summary>
             <ul class="validation-list">${renderValidationList(candidate.validations)}</ul>
@@ -1235,8 +1364,8 @@ async function generateRecommendation() {
         console.log("DesignRecommendation", result);
 
         renderRules(result.activeRules);
-        renderVersions(result.versions);
         renderFeasibility(result);
+        renderOperatingPointConfidence(result);
         renderTriageStrip(result);
         renderRecommendedCandidate(result);
         renderShapeFilter(result);
