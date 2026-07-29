@@ -65,7 +65,8 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
         result.conductorAreaMm2 = strandGauge->areaMm2;
         result.parallelStrands = strands;
         selectedAwg = strandGauge->awg;
-    } else {
+    } 
+    else {
         result.wireDescription = "AWG" + std::to_string(singleStrand->awg) + " single strand";
         result.conductorAreaMm2 = singleStrand->areaMm2;
         result.parallelStrands = 1;
@@ -75,19 +76,16 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
     double totalCopperAreaPerTurnMm2 = result.conductorAreaMm2 * result.parallelStrands;
 
     result.currentDensityAperMm2 = rmsCurrentA / totalCopperAreaPerTurnMm2;
-    result.effectiveCurrentDensityAperMm2 =
-        result.parallelStrands > 1 ? result.currentDensityAperMm2 / rules.currentSharingDerateFactor : result.currentDensityAperMm2;
+    result.effectiveCurrentDensityAperMm2 = result.parallelStrands > 1 ? result.currentDensityAperMm2 / rules.currentSharingDerateFactor : result.currentDensityAperMm2;
     result.fillFactor = (static_cast<double>(turns) * totalCopperAreaPerTurnMm2) / core.waMm2;
     result.fitsWindow = result.fillFactor <= rules.maximumFillFactor;
 
-    result.constructionType =
-        result.parallelStrands > 1 ? WindingConstructionType::ParallelRoundWires : WindingConstructionType::SingleRoundWire;
+    result.constructionType = result.parallelStrands > 1 ? WindingConstructionType::ParallelRoundWires : WindingConstructionType::SingleRoundWire;
 
     // Bare-strand diameter for whichever gauge was actually selected (single or parallel-strand case).
     double bareStrandDiameterMm = 2.0 * std::sqrt(result.conductorAreaMm2 / kPi);
     result.insulatedConductorDiameterMm = bareStrandDiameterMm + rules.singleBuildInsulationBuildUpMm;
-    result.insulatedConductorAreaMm2 =
-        (kPi / 4.0) * result.insulatedConductorDiameterMm * result.insulatedConductorDiameterMm;
+    result.insulatedConductorAreaMm2 = (kPi / 4.0) * result.insulatedConductorDiameterMm * result.insulatedConductorDiameterMm;
 
     if (result.parallelStrands > 1) {
         result.physicalDescription = std::to_string(result.parallelStrands) + "x AWG" + std::to_string(selectedAwg) +
@@ -96,21 +94,18 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
         result.missingData.push_back(
             "parallel-strand bundle-vs-narrowest-opening fit is not evaluated - core data has no width/height "
             "split, only a raw window area (Wa), so there is no linear dimension to check the bundle against");
-    } else {
+    } 
+    else {
         result.physicalDescription = "AWG" + std::to_string(selectedAwg) + " magnet wire (bare " +
-            std::to_string(bareStrandDiameterMm) + " mm, insulated ~" + std::to_string(result.insulatedConductorDiameterMm) +
-            " mm), single strand";
+            std::to_string(bareStrandDiameterMm) + " mm, insulated ~" + std::to_string(result.insulatedConductorDiameterMm) + " mm), single strand";
     }
 
     // Physical window fill: bobbin-wall derate, then subtract margin/lead-exit clearance (both expressed as
     // area fractions since core data has no width/height split - see DesignRules.h), then divide the
     // insulated-conductor area sum by the achievable packing factor to get the physically occupied area.
-    result.physicalWindowAreaMm2 =
-        core.waMm2 * rules.bobbinWindowDerateFactor * (1.0 - rules.marginAllowanceAreaFraction - rules.leadExitAllowanceAreaFraction);
-    double physicalCopperAreaMm2 =
-        (static_cast<double>(turns) * result.parallelStrands * result.insulatedConductorAreaMm2) / rules.packingFactor;
-    result.physicalWindowFillFactor =
-        result.physicalWindowAreaMm2 > 0.0 ? physicalCopperAreaMm2 / result.physicalWindowAreaMm2 : 0.0;
+    result.physicalWindowAreaMm2 = core.waMm2 * rules.bobbinWindowDerateFactor * (1.0 - rules.marginAllowanceAreaFraction - rules.leadExitAllowanceAreaFraction);
+    double physicalCopperAreaMm2 = (static_cast<double>(turns) * result.parallelStrands * result.insulatedConductorAreaMm2) / rules.packingFactor;
+    result.physicalWindowFillFactor = result.physicalWindowAreaMm2 > 0.0 ? physicalCopperAreaMm2 / result.physicalWindowAreaMm2 : 0.0;
     result.fitsPhysicalWindow = result.physicalWindowFillFactor <= rules.maximumFillFactor;
 
     if (core.mltMm > 0.0) {
@@ -122,8 +117,7 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
         result.totalLengthM = result.coreWindingLengthM + result.leadLengthM + result.routingLengthM;
 
         double conductorAreaM2 = units::mm2ToM2(result.conductorAreaMm2);
-        double singleStrandResistanceOhms =
-            kCopperResistivityOhmMAt20C * result.totalLengthM / conductorAreaM2;
+        double singleStrandResistanceOhms = kCopperResistivityOhmMAt20C * result.totalLengthM / conductorAreaM2;
         result.connectionResistanceOhms = units::milliOhmToOhm(rules.connectionResistanceMilliOhm);
 
         result.totalWireLengthM = result.coreWindingLengthM * result.parallelStrands;
@@ -138,7 +132,8 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
             (1.0 + rules.copperTempCoefficientPerC * (rules.assumedWindingTempCWhenThermalNotEvaluated - 20.0));
 
         result.resistanceStatus = EvaluationStatus::Evaluated;
-    } else {
+    } 
+    else {
         result.resistanceStatus = EvaluationStatus::NotEvaluated;
         result.missingData.push_back(
             "core '" + core.partNumber +

@@ -51,9 +51,7 @@ std::vector<MaterialCandidate> findSuitableMaterials(const OperatingPoint& opera
         //no manufacturer/part-number column exists for materials in real_materials.csv - only left unset,
         //never fabricated. datasheetRevision/Url/dateAccessed are always unset (no such data exists).
         candidate.source.datasheetName = "PyOpenMagnetics/MAS export (data/real_materials.csv snapshot)";
-        candidate.source.confidence = (candidate.hasBmaxData && candidate.hasCoreLossData)
-            ? DataConfidence::Manufacturer
-            : DataConfidence::Estimated;
+        candidate.source.confidence = (candidate.hasBmaxData && candidate.hasCoreLossData) ? DataConfidence::Manufacturer : DataConfidence::Estimated;
         candidate.source.confidenceNote = (candidate.hasBmaxData && candidate.hasCoreLossData)
             ? "saturation flux density and core-loss coefficients sourced from PyOpenMagnetics/MAS, itself built "
               "from real manufacturer datasheets - no datasheet revision/URL/date-accessed is tracked in this snapshot"

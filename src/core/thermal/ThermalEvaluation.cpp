@@ -8,8 +8,7 @@ ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, co
 
     if (!inputs.copperLossGeometryKnown) {
         result.status = ThermalStatus::NotEvaluated;
-        result.missingDataExplanation =
-            "cannot seed a hot-DCR estimate without known winding DCR geometry (see WindingDesignResult::resistanceStatus)";
+        result.missingDataExplanation = "cannot seed a hot-DCR estimate without known winding DCR geometry (see WindingDesignResult::resistanceStatus)";
         return result;
     }
 

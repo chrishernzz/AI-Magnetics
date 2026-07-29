@@ -5,9 +5,7 @@
 
 //precondition: see header
 //postcondition: see header
-LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const CoreCandidate& core, const TurnsAndGapResult& turnsAndGap,
-                                     const WindingDesignResult& winding, double rmsCurrentA, double switchingFreqHz,
-                                     const std::optional<double>& rippleCurrentPeakToPeakA) {
+LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const CoreCandidate& core, const TurnsAndGapResult& turnsAndGap, const WindingDesignResult& winding, double rmsCurrentA, double switchingFreqHz, const std::optional<double>& rippleCurrentPeakToPeakA) {
     LossEvaluationResult result;
 
     if (winding.resistanceStatus == EvaluationStatus::Evaluated) {
@@ -15,35 +13,34 @@ LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const Cor
         result.copperLossW = calculateCopperLoss(rmsCurrentA, winding.dcrOhms);
     } else {
         result.copperLossStatus = EvaluationStatus::NotEvaluated;
-        result.missingData.push_back("DC copper loss not evaluated: " +
-                                      (winding.missingData.empty() ? std::string("DCR unavailable")
-                                                                    : winding.missingData.front()));
+        result.missingData.push_back("DC copper loss not evaluated: " + (winding.missingData.empty() ? std::string("DCR unavailable") : winding.missingData.front()));
     }
 
-    // Core loss (Stage B): needs a real coefficient row for this
-    // material/frequency AND a real ripple current to compute
-    // flux-density swing from (Option 1 - never approximate Bswing from
-    // peak flux, which would silently misrepresent a DC-biased inductor
-    // as swinging symmetrically around zero).
+    //Core loss (Stage B): needs a real coefficient row for this
+    //material/frequency AND a real ripple current to compute
+    //flux-density swing from (Option 1 - never approximate Bswing from
+    //peak flux, which would silently misrepresent a DC-biased inductor
+    //as swinging symmetrically around zero).
     if (!rippleCurrentPeakToPeakA.has_value()) {
         result.coreLossStatus = EvaluationStatus::NotEvaluated;
         result.missingData.push_back(
             "core loss not evaluated: no rippleCurrentPeakToPeakA supplied - flux-density swing can only be "
             "computed from real ripple current, never approximated from peak flux");
-    } else if (turnsAndGap.turns <= 0) {
+    } 
+    else if (turnsAndGap.turns <= 0) {
         result.coreLossStatus = EvaluationStatus::NotEvaluated;
         result.missingData.push_back("core loss not evaluated: turns/gap design did not converge");
-    } else {
+    } 
+    else {
         CoreLossCoefficientLookup lookup = findCoreLossCoefficients(material.materialFamily, switchingFreqHz);
         if (!lookup.found) {
             result.coreLossStatus = EvaluationStatus::NotEvaluated;
-            result.missingData.push_back("core loss not evaluated: no validated Steinmetz coefficients for material '" +
-                                          material.materialFamily + "' at this frequency");
-        } else {
+            result.missingData.push_back("core loss not evaluated: no validated Steinmetz coefficients for material '" + material.materialFamily + "' at this frequency");
+        } 
+        else {
             double calculatedInductanceH = units::uHToH(turnsAndGap.calculatedInductanceUH);
             double aeM2 = units::mm2ToM2(core.aeMm2);
-            double fluxDensitySwingT =
-                (calculatedInductanceH * (*rippleCurrentPeakToPeakA)) / (static_cast<double>(turnsAndGap.turns) * aeM2);
+            double fluxDensitySwingT = (calculatedInductanceH * (*rippleCurrentPeakToPeakA)) / (static_cast<double>(turnsAndGap.turns) * aeM2);
 
             if (!fluxSwingWithinValidatedRange(lookup.coefficients, fluxDensitySwingT)) {
                 result.coreLossStatus = EvaluationStatus::NotEvaluated;

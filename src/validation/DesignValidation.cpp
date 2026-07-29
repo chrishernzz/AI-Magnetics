@@ -22,6 +22,8 @@ struct FluxLimit {
     double limitT;
     bool usedDefault;
 };
+//precondition: FluxLimit struct is passed to get limit and usedDefault
+//postcondition: returns if there is Bmax in the database, if there is then return the value and false meaning that you are not using default Flux
 FluxLimit applicableFluxLimit(const MaterialCandidate& material, const DesignRules& rules) {
     if (material.hasBmaxData) {
         return {material.bmaxT, false};

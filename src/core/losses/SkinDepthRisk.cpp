@@ -29,9 +29,11 @@ SkinDepthRiskResult evaluateSkinDepthRisk(double switchingFreqHz, double conduct
 
     if (result.radiusToSkinDepthRatio <= rules.skinDepthRiskModerateThreshold) {
         result.riskLevel = AcLossRiskLevel::Low;
-    } else if (result.radiusToSkinDepthRatio <= rules.skinDepthRiskHighThreshold) {
+    } 
+    else if (result.radiusToSkinDepthRatio <= rules.skinDepthRiskHighThreshold) {
         result.riskLevel = AcLossRiskLevel::Moderate;
-    } else {
+    }
+    else {
         result.riskLevel = AcLossRiskLevel::High;
     }
 

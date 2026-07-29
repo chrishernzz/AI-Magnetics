@@ -51,5 +51,4 @@ struct RecommendationClassification {
 //NotEvaluated in Phase 1 too - see SkinDepthRisk.h). Pass only when none of those apply to any mandatory
 //check - see the block comment above for why that is currently unreachable given this engine's real data
 //coverage. This is the single centralized function that decides tier - no other code path may assign one.
-RecommendationClassification determineRecommendationStatus(bool passed, const std::vector<ValidationResult>& validations,
-                                                             const SkinDepthRiskResult& acLossRisk);
+RecommendationClassification determineRecommendationStatus(bool passed, const std::vector<ValidationResult>& validations, const SkinDepthRiskResult& acLossRisk);

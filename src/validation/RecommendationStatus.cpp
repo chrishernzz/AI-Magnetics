@@ -2,24 +2,27 @@
 
 //precondition: see header
 //postcondition: see header
-RecommendationClassification determineRecommendationStatus(bool passed, const std::vector<ValidationResult>& validations,
-                                                             const SkinDepthRiskResult& acLossRisk) {
+RecommendationClassification determineRecommendationStatus(bool passed, const std::vector<ValidationResult>& validations, const SkinDepthRiskResult& acLossRisk) {
     RecommendationClassification result;
 
     bool anyMandatoryPreliminaryOrDefaulted = false;
     bool anyMandatoryNotEvaluated = false;
+    //this will check all 7 mandatory validations check to see if they passed
     for (const auto& v : validations) {
+        //if they were evaluated then go in here and keep track of what is being evaluated else go to not evaluated
         if (v.status == EvaluationStatus::Evaluated) {
             result.checksEvaluatedCount++;
             if (v.passed) {
                 result.checksPassedCount++;
-            } else {
+            } 
+            else {
                 result.checksFailedCount++;
             }
             if (v.mandatory && (v.isPreliminaryEstimate || v.usesDefaultAssumption)) {
                 anyMandatoryPreliminaryOrDefaulted = true;
             }
-        } else {
+        }
+         else {
             result.checksNotEvaluatedCount++;
             result.missingInfo.push_back(v.checkName + ": " + v.explanation);
             if (v.mandatory) {

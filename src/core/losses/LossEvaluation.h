@@ -46,6 +46,4 @@ struct LossEvaluationResult {
 //PeakFluxValidation uses, but driven by the ripple current rather than peak current. See docs/FORMULAS.md section 9 for the full explanation,
 //including why no ripple data means no core-loss number (Option 1: never approximate Bswing from peak flux). Skin-depth AC-loss risk is
 //evaluated separately by the caller - see core/losses/SkinDepthRisk.h - not part of this function.
-LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const CoreCandidate& core, const TurnsAndGapResult& turnsAndGap,
-                                     const WindingDesignResult& winding, double rmsCurrentA, double switchingFreqHz,
-                                     const std::optional<double>& rippleCurrentPeakToPeakA);
+LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const CoreCandidate& core, const TurnsAndGapResult& turnsAndGap, const WindingDesignResult& winding, double rmsCurrentA, double switchingFreqHz, const std::optional<double>& rippleCurrentPeakToPeakA);

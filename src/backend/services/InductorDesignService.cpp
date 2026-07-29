@@ -26,11 +26,14 @@ namespace {
 //complete total, since AC-loss watts is never Evaluated in Phase 1 - see LossSummary.h.
 LossSummary buildLossSummary(const LossEvaluationResult& losses) {
     LossSummary summary;
+    //this will be used for the label in LossSummary
     std::string components;
+    //if you have copper loss evaluated then add it to the known partial loss and also components
     if (losses.copperLossStatus == EvaluationStatus::Evaluated) {
         summary.knownPartialLossW += losses.copperLossW;
         components += "copper";
     }
+    //if you have core loss evalauted then include that to get the sum of core loss with copper loss
     if (losses.coreLossStatus == EvaluationStatus::Evaluated) {
         summary.knownPartialLossW += losses.coreLossW;
         components += components.empty() ? "core" : "+core";
@@ -206,8 +209,10 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
     recommendation.activeRules = rules;
     recommendation.versions = EngineVersionsStore::current();
 
+    //what the inductor MUST have, so it goes to the derivation to get the correct information
     InductorRequirements requirements = RequirementDerivationService::derive(request, rules);
 
+    //this will loop through the material database and grab the materials that are within the range of the frequency
     std::vector<MaterialCandidate> materials = findSuitableMaterials(requirements.operatingPoint);
     if (materials.empty()) {
         recommendation.status = "no_feasible_design";
@@ -256,7 +261,7 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
     }
 
     //if there is no core that has a large enough area product to meet the requirements, return a no feasible design recommendation with the required and largest available area product values.
-    //When peak wasn't supplied, requiredAreaProductCm4 is 0.0 and every material-compatible core trivially
+    //When peak wasn't supplied, requiredAreaProductCm4 is 0.0 and every material-compatible core unimportant
     //meets it - this branch is then only reachable if there were zero material-compatible cores at all,
     //which findSuitableCores() would only produce for a materials list with no matching cores in the DB.
     if (feasibleCores.empty()) {
@@ -283,7 +288,8 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
 
         if (candidate.passed) {
             recommendation.candidates.push_back(std::move(candidate));
-        } else {
+        } 
+        else {
             recommendation.rejectedCandidates.push_back(std::move(candidate));
         }
     }
