@@ -179,6 +179,34 @@ void testCurrentDensityValidationConvertsAllowableToAPerMm2() {
     std::printf("testCurrentDensityValidationConvertsAllowableToAPerMm2: limit=%.6f A/mm^2\n", result.limitValue);
 }
 
+//9b. BundleFitValidation must be NotEvaluated when WindingDesign never computed a real bundle-fit check
+//(bundleFitStatus defaults to NotEvaluated - single-strand winding, or a core with no real window
+//width/height), and must genuinely pass/fail on the real numbers once WindingDesign has computed it.
+void testBundleFitValidationNotEvaluatedByDefault() {
+    WindingDesignResult winding;  // bundleFitStatus defaults to NotEvaluated
+    ValidationResult result = BundleFitValidation(winding);
+    assert(result.status == EvaluationStatus::NotEvaluated);
+    assert(!result.passed);
+    std::printf("testBundleFitValidationNotEvaluatedByDefault: %s\n", result.explanation.c_str());
+}
+
+void testBundleFitValidationFailsWhenBundleWiderThanOpening() {
+    WindingDesignResult winding;
+    winding.parallelStrands = 5;
+    winding.bundleFitStatus = EvaluationStatus::Evaluated;
+    winding.bundleWidthMm = 10.0;
+    winding.narrowestWindowOpeningMm = 6.0;
+    winding.bundleFitsWindowOpening = false;
+
+    ValidationResult result = BundleFitValidation(winding);
+    assert(result.status == EvaluationStatus::Evaluated);
+    assert(!result.passed);
+    assert(approxEqual(result.calculatedValue, 10.0, 1e-9));
+    assert(approxEqual(result.limitValue, 6.0, 1e-9));
+    std::printf("testBundleFitValidationFailsWhenBundleWiderThanOpening: bundle=%.1fmm vs opening=%.1fmm\n",
+                result.calculatedValue, result.limitValue);
+}
+
 //10. ThermalValidation must never report passed=true when thermal.status == NotEvaluated - spec section 10's
 //"never assume missing data equals a pass," exercised directly against a real evaluateThermal() call with
 //no known winding geometry (the case that still reports NotEvaluated after the Commit 10 rewrite).
@@ -304,6 +332,8 @@ void runValidationTests() {
     testSaturationValidationMarginShrinksWithHigherPeakCurrent();
     testWindingFitValidationGatesOnPhysicalFillNotRawFill();
     testCurrentDensityValidationConvertsAllowableToAPerMm2();
+    testBundleFitValidationNotEvaluatedByDefault();
+    testBundleFitValidationFailsWhenBundleWiderThanOpening();
     testThermalValidationNotEvaluatedIsNeverAPass();
     testThermalValidationComparesRealNumbersWhenEvaluated();
     testDetermineRecommendationStatusRejectMirrorsPassedFalse();

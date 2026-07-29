@@ -202,6 +202,39 @@ ValidationResult CurrentDensityValidation(const WindingDesignResult& winding, co
 }
 
 //precondition: none
+//postcondition: passes if a parallel-strand bundle (laid side by side, insulatedConductorDiameterMm each)
+//fits within the core's real narrowest window opening. NotEvaluated for a single-strand winding, or any
+//core with no real linear window dimension (every toroid, or a two-piece core missing the data) - see
+//WindingDesign.cpp for exactly when bundleFitStatus becomes Evaluated.
+ValidationResult BundleFitValidation(const WindingDesignResult& winding) {
+    ValidationResult result;
+    result.checkName = "BundleFitValidation";
+    result.unit = "mm";
+    result.mandatory = true;
+
+    if (winding.bundleFitStatus != EvaluationStatus::Evaluated) {
+        result.status = EvaluationStatus::NotEvaluated;
+        result.passed = false;
+        result.calculatedValue = 0.0;
+        result.explanation = "not evaluated: " +
+            std::string(winding.parallelStrands > 1
+                ? "this core has no real window width/height (toroid, or a two-piece core missing that data)"
+                : "single-strand winding - no parallel-strand bundle to check a linear opening against");
+        return result;
+    }
+
+    result.calculatedValue = winding.bundleWidthMm;
+    result.limitValue = winding.narrowestWindowOpeningMm;
+    result.passed = winding.bundleFitsWindowOpening;
+    result.explanation = std::to_string(winding.parallelStrands) + "x AWG bundle, " +
+        std::to_string(winding.bundleWidthMm) + " mm wide (strands laid side by side) vs narrowest real "
+        "window opening " + std::to_string(winding.narrowestWindowOpeningMm) +
+        " mm - does not account for bundle twisting/multi-row arrangement, which would need real "
+        "winding-pattern data this project doesn't have";
+    return result;
+}
+
+//precondition: none
 //postcondition: passes only when thermal.status == PreliminaryThermalEstimate and the predicted rise is within allowableTempRiseC;
 //otherwise not_evaluated (passed=false, never an assumed pass - spec section 10). ThermalStatus has no "fully evaluated" value
 //(see ThermalEvaluation.h), so a passing result here always carries isPreliminaryEstimate=true - the numeric check genuinely

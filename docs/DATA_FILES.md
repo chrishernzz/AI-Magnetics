@@ -146,12 +146,22 @@ that script and swap the resulting files in.
     which PyOpenMagnetics parameterizes by a radial height instead of a
     flat width/height — that's a real geometric difference, not missing
     data. Surfaced in the API (`core.windowWidthMm`/`core.windowHeightMm`)
-    but **not yet consumed** by `WindingDesign.cpp`'s physical-fill
-    formula, which still uses the area-fraction margin/lead-exit estimates
-    from `DesignRules` for every core shape - using a real linear
-    dimension there for two-piece cores is a separate, larger decision
-    (it would change pass/fail outcomes, not just add a field) than
-    capturing the data itself.
+    and now genuinely consumed: `WindingDesign.cpp`'s parallel-strand
+    bundle-fit check (`bundleFitStatus`, formerly permanently
+    `NotEvaluated` for every candidate) computes a real result for
+    two-piece cores - the bundle's strands laid side by side
+    (`bundleWidthMm`) checked against the window's narrower real dimension
+    (`narrowestWindowOpeningMm`). A new `BundleFitValidation` check (mandatory,
+    like every other real magnetic/electrical check this engine runs)
+    gates on this, so a candidate whose bundle genuinely cannot fit
+    through a real core's window is now rejected rather than silently
+    passing on total-area alone. Toroids and any two-piece core still
+    missing the dimension data stay `NotEvaluated`, same as before. The
+    model is conservative and explicitly documented as such (single row,
+    no twisting/multi-row arrangement) since no real winding-pattern data
+    exists to do better - `WindingDesign.cpp`'s area-fraction margin/
+    lead-exit formula itself is unchanged, this is an additional real
+    geometric check alongside it, not a replacement.
   - **Deliberately not added:** distributor cost. Real pricing exists
     upstream for only 15.2% of cores (vs. the `PartCost` column's current
     universal `0.0`), and no check in this project consumes cost today —

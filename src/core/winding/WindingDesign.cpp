@@ -91,10 +91,21 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
         result.physicalDescription = std::to_string(result.parallelStrands) + "x AWG" + std::to_string(selectedAwg) +
             " magnet wire (bare " + std::to_string(bareStrandDiameterMm) + " mm, insulated ~" +
             std::to_string(result.insulatedConductorDiameterMm) + " mm each), wound as a single bundle";
-        result.missingData.push_back(
-            "parallel-strand bundle-vs-narrowest-opening fit is not evaluated - real window width/height exists "
-            "for two-piece cores (core.windowWidthMm/windowHeightMm) but this check does not yet use it, and no "
-            "such linear dimension exists at all for toroids (radial window geometry, not a flat width/height)");
+
+        // Real check, only possible for two-piece cores (real window width/height - see
+        // CoreCandidate::windowWidthMm/windowHeightMm). Toroids have no flat width/height at all (radial
+        // window geometry instead), so they - and any two-piece core still missing this data - stay
+        // permanently NotEvaluated here, never assumed to fit.
+        if (core.windowWidthMm > 0.0 && core.windowHeightMm > 0.0) {
+            result.bundleWidthMm = static_cast<double>(result.parallelStrands) * result.insulatedConductorDiameterMm;
+            result.narrowestWindowOpeningMm = std::min(core.windowWidthMm, core.windowHeightMm);
+            result.bundleFitsWindowOpening = result.bundleWidthMm <= result.narrowestWindowOpeningMm;
+            result.bundleFitStatus = EvaluationStatus::Evaluated;
+        } else {
+            result.missingData.push_back(
+                "parallel-strand bundle-vs-narrowest-opening fit is not evaluated - this core has no real "
+                "window width/height (toroid, or a two-piece core missing that data in the current snapshot)");
+        }
     } else {
         result.physicalDescription = "AWG" + std::to_string(selectedAwg) + " magnet wire (bare " +
             std::to_string(bareStrandDiameterMm) + " mm, insulated ~" + std::to_string(result.insulatedConductorDiameterMm) + " mm), single strand";

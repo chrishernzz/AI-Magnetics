@@ -95,6 +95,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
         SaturationValidation(core, material, candidate.turnsAndGap, requirements.operatingPoint.peakCurrentA, rules),
         WindingFitValidation(candidate.winding, rules),
         CurrentDensityValidation(candidate.winding, rules),
+        BundleFitValidation(candidate.winding),
         ThermalValidation(candidate.thermal, requirements.allowableTempRiseC),
     };
 
@@ -129,7 +130,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
 }
 
 //precondition: candidate.validations was built with InductanceValidation/PeakFluxValidation/SaturationValidation/
-//WindingFitValidation/CurrentDensityValidation/ThermalValidation, in that order (see evaluateCandidate())
+//WindingFitValidation/CurrentDensityValidation/BundleFitValidation/ThermalValidation, in that order (see evaluateCandidate())
 //postcondition: returns a pointer to the named check, or nullptr if not found (defensive - never crashes on a mismatch)
 const ValidationResult* findValidation(const InductorCandidate& candidate, const char* checkName) {
     for (const auto& v : candidate.validations) {

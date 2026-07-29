@@ -39,6 +39,12 @@ ValidationResult WindingFitValidation(const WindingDesignResult& winding, const 
 //checks winding.currentDensityAperMm2 against rules.allowableCurrentDensityAperCm2.
 ValidationResult CurrentDensityValidation(const WindingDesignResult& winding, const DesignRules& rules);
 
+//checks winding.bundleWidthMm (parallel-strand bundle laid side by side) against
+//winding.narrowestWindowOpeningMm - only possible when winding.bundleFitStatus == Evaluated (a
+//parallel-strand winding on a two-piece core with real window width/height). NotEvaluated for a
+//single-strand winding or any core with no real linear window dimension (every toroid) - never assumed to fit.
+ValidationResult BundleFitValidation(const WindingDesignResult& winding);
+
 //checks thermal.predictedTempRiseC against allowableTempRiseC when thermal.status == Evaluated; always not_evaluated (passed=false, never an assumed pass) in Phase 1 since evaluateThermal() never produces an
 // Evaluated result today.
 ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, double allowableTempRiseC);
