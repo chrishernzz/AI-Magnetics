@@ -249,14 +249,39 @@ function updateDirectDiagnosticsLive() {
     const rmsA = Number(document.getElementById("rmsCurrent").value);
     const rippleRaw = document.getElementById("rippleCurrent").value;
 
+    const storedEnergyNote = document.getElementById("diagStoredEnergyNote");
     if (document.getElementById("diagStoredEnergy")) {
         if (inductanceUH > 0 && peakA > 0) {
             // E = 0.5 x L x I^2 - the same headline formula already shown in
             // the Inductance field's hint tooltip, just kept live here too.
             const energyMJ = 0.5 * (inductanceUH * 1e-6) * peakA * peakA * 1e3;
             setDiagValue("diagStoredEnergy", `${energyMJ.toFixed(4)} mJ`);
+            if (storedEnergyNote) {
+                storedEnergyNote.textContent = "";
+                storedEnergyNote.className = "diagnostics-note";
+            }
+        } else if (inductanceUH > 0 && rmsA > 0) {
+            // No real peak current yet - rather than leave this row blank (the
+            // Diagnostics panel reading as empty for the RMS-only case is exactly
+            // the gap this exists to close), show a labeled ESTIMATE using RMS
+            // current as a proxy. This is never presented as the real figure: RMS
+            // is always <= real peak for any unidirectional inductor-current
+            // waveform, so E=0.5*L*Irms^2 is a genuine LOWER BOUND, not a guess -
+            // same "guaranteed floor, never a substitute" logic as the backend's
+            // RMS-floor saturation check (DesignValidation.cpp), applied here to
+            // this one live, client-side, non-blocking sanity number.
+            const energyMJ = 0.5 * (inductanceUH * 1e-6) * rmsA * rmsA * 1e3;
+            setDiagValue("diagStoredEnergy", `${energyMJ.toFixed(4)} mJ (est.)`);
+            if (storedEnergyNote) {
+                storedEnergyNote.textContent = `Peak current not supplied - this is a lower-bound ESTIMATE using RMS current (${rmsA} A) as a proxy for peak, not the real figure. Actual stored energy is likely higher (real peak current is always >= RMS) - recompute once peak current is known.`;
+                storedEnergyNote.className = "diagnostics-note diagnostics-note-warn";
+            }
         } else {
             setDiagValue("diagStoredEnergy", "–");
+            if (storedEnergyNote) {
+                storedEnergyNote.textContent = "";
+                storedEnergyNote.className = "diagnostics-note";
+            }
         }
     }
 
