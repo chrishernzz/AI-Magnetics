@@ -55,7 +55,8 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     candidate.fluxLimits = calculateFluxLimitTiers(material, rules);
 
     double targetInductanceUH = units::hToUH(requirements.operatingPoint.inductanceH);
-    candidate.turnsAndGap = designTurnsAndGap(core, material, targetInductanceUH, requirements.inductanceTolerancePercent, requirements.operatingPoint.peakCurrentA, rules);
+    candidate.turnsAndGap = designTurnsAndGap(core, material, targetInductanceUH, requirements.inductanceTolerancePercent,
+                                               requirements.operatingPoint.peakCurrentA, requirements.operatingPoint.rmsCurrentA, rules);
 
     if (!candidate.turnsAndGap.converged) {
         candidate.passed = false;
@@ -97,8 +98,8 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     candidate.validations = {
         CurrentConsistencyValidation(requirements.operatingPoint),
         InductanceValidation(candidate.turnsAndGap, requirements.inductanceTolerancePercent),
-        PeakFluxValidation(core, material, candidate.turnsAndGap, requirements.operatingPoint.peakCurrentA, rules),
-        SaturationValidation(core, material, candidate.turnsAndGap, requirements.operatingPoint.peakCurrentA, rules),
+        PeakFluxValidation(core, material, candidate.turnsAndGap, requirements.operatingPoint.peakCurrentA, requirements.operatingPoint.rmsCurrentA, rules),
+        SaturationValidation(core, material, candidate.turnsAndGap, requirements.operatingPoint.peakCurrentA, requirements.operatingPoint.rmsCurrentA, rules),
         WindingFitValidation(candidate.winding, rules),
         CurrentDensityValidation(candidate.winding, rules),
         BundleFitValidation(candidate.winding),

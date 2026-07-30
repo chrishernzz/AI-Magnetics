@@ -170,9 +170,10 @@ def test_case7_gap_tolerance_sweep_fails_even_when_nominal_passes():
     engine level in tests/cpp/GapToleranceTests.cpp's
     testGapToleranceCanFailEvenWhenNominalPasses, reproduced here through the
     Python binding to confirm it holds end-to-end, not just in the C++ unit test.
-    peakCurrentA=None (the real material has no relevant Bmax data plugged in
-    here either) means the flux-aware seed never activates - this stays a pure
-    inductance/gap-tolerance check, unaffected by that fix."""
+    peakCurrentA=None and rmsCurrentA=0.0 (the real material has no relevant
+    Bmax data plugged in here either) means the flux-aware seed never
+    activates - this stays a pure inductance/gap-tolerance check, unaffected
+    by that fix or by the later RMS-current-as-lower-bound fix."""
     core = magnetics_cpp.CoreCandidate()
     core.partNumber = "E100/60/28-3C90"
     core.material = "3C90"
@@ -187,7 +188,7 @@ def test_case7_gap_tolerance_sweep_fails_even_when_nominal_passes():
 
     material = magnetics_cpp.MaterialCandidate()
     rules = magnetics_cpp.design_rules_phase1_default()
-    result = magnetics_cpp.design_turns_and_gap(core, material, 2.0, 0.5, None, rules)
+    result = magnetics_cpp.design_turns_and_gap(core, material, 2.0, 0.5, None, 0.0, rules)
 
     assert result.converged
     assert result.withinTolerance  # the nominal design itself is precise

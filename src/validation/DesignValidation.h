@@ -27,11 +27,19 @@ ValidationResult CurrentConsistencyValidation(const OperatingPoint& operatingPoi
 //check turnsAndGap.withinTolerance/converged against tolerancePercent.
 ValidationResult InductanceValidation(const TurnsAndGapResult& turnsAndGap, double tolerancePercent);
 
-//computes peak flux density Bpk = L*Ipk/(N*Ae) and checks it against the applicable flux density limit (material-specific BmaxT if available, otherwise rules.defaultFluxDensityLimitT). NotEvaluated when peakCurrentA is absent - never substituted from RMS.
-ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, const DesignRules& rules);
+//computes peak flux density Bpk = L*Ipk/(N*Ae) and checks it against the applicable flux density limit
+//(material-specific BmaxT if available, otherwise rules.defaultFluxDensityLimitT). When peakCurrentA is
+//absent, real peak is never substituted from RMS - but rmsCurrentA (always <= real peak, for any
+//unidirectional inductor-current waveform) is used as a guaranteed LOWER BOUND to detect a CERTAIN failure:
+//if flux is already over the limit using RMS alone, it is guaranteed to be over the limit at the real
+//(unknown, >= RMS) peak too - see ValidationResult::isRmsLowerBoundRejection. Otherwise NotEvaluated, exactly
+//as before - the floor proves failure or nothing, never a pass.
+ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, double rmsCurrentA, const DesignRules& rules);
 
-//checks that the margin between the applicable flux density limit and the calculated peak flux density meets rules.minimumSaturationMarginPercent. NotEvaluated when peakCurrentA is absent.
-ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, const DesignRules& rules);
+//checks that the margin between the applicable flux density limit and the calculated peak flux density meets
+//rules.minimumSaturationMarginPercent. Same RMS-as-guaranteed-lower-bound certain-failure detection as
+//PeakFluxValidation above when peakCurrentA is absent - see ValidationResult::isRmsLowerBoundRejection.
+ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, double rmsCurrentA, const DesignRules& rules);
 
 //checks winding.fillFactor against rules.maximumFillFactor.
 ValidationResult WindingFitValidation(const WindingDesignResult& winding, const DesignRules& rules);

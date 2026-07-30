@@ -20,6 +20,24 @@ double calculatePeakFluxDensityT(const CoreCandidate& core, const TurnsAndGapRes
 }
 
 //precondition: none
+//postcondition: returns the flux density at rmsCurrentA - used only as a guaranteed LOWER BOUND on the
+//unsupplied real peak current (RMS <= peak always, for any unidirectional inductor-current waveform) - if,
+//and only if, that floor already exceeds the applicable limit: a CERTAIN failure, since the real (unknown,
+//>= RMS) peak can only make it worse. Returns nullopt when rmsCurrentA <= 0.0 (no current data to compute
+//even a floor from) or when the floor doesn't prove anything - this never confirms safety, only failure.
+std::optional<double> bpkAtCertainFailureRmsFloor(const CoreCandidate& core, const TurnsAndGapResult& turnsAndGap,
+                                                   double rmsCurrentA, const FluxLimit& limit) {
+    if (rmsCurrentA <= 0.0) {
+        return std::nullopt;
+    }
+    double bpkAtRmsFloor = calculatePeakFluxDensityT(core, turnsAndGap, rmsCurrentA);
+    if (bpkAtRmsFloor > limit.limitT) {
+        return bpkAtRmsFloor;
+    }
+    return std::nullopt;
+}
+
+//precondition: none
 //postcondition: returns what mode it is in
 std::string conductionModeName(ConductionMode mode) {
     switch (mode) {
@@ -92,8 +110,8 @@ ValidationResult InductanceValidation(const TurnsAndGapResult& turnsAndGap, doub
 }
 
 //precondition: turnsAndGap.converged
-//postcondition: passes if calculated peak flux density is at or below the applicable limit (material-specific if available, else the Phase 1 default). NotEvaluated when peakCurrentA is absent - never substituted from RMS, which would understate the real peak.
-ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, const DesignRules& rules) {
+//postcondition: passes if calculated peak flux density is at or below the applicable limit (material-specific if available, else the Phase 1 default). When peakCurrentA is absent, real peak is never substituted from RMS - but see bpkAtCertainFailureRmsFloor for the certain-failure lower-bound check that still runs.
+ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, double rmsCurrentA, const DesignRules& rules) {
     ValidationResult result;
     //set the name, unit, and if it is mandatory
     result.checkName = "PeakFluxValidation";
@@ -102,6 +120,20 @@ ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCan
 
     //if no value then return right away
     if (!peakCurrentA.has_value()) {
+        FluxLimit limit = applicableFluxLimit(material, rules);
+        result.limitValue = limit.limitT;
+        result.usesDefaultAssumption = limit.usedDefault;
+        if (auto bpkAtRmsFloor = bpkAtCertainFailureRmsFloor(core, turnsAndGap, rmsCurrentA, limit)) {
+            result.status = EvaluationStatus::Evaluated;
+            result.passed = false;
+            result.isRmsLowerBoundRejection = true;
+            result.calculatedValue = *bpkAtRmsFloor;
+            result.explanation = "certain failure: peak flux density is already " + std::to_string(*bpkAtRmsFloor) +
+                " T using RMS current (" + std::to_string(rmsCurrentA) +
+                " A) alone as a guaranteed LOWER BOUND on the real (unsupplied) peak current, vs limit " +
+                std::to_string(limit.limitT) + " T. Real peak current is always >= RMS, so this can only get worse - saturation is guaranteed regardless of ripple.";
+            return result;
+        }
         result.status = EvaluationStatus::NotEvaluated;
         result.passed = false;
         result.calculatedValue = 0.0;
@@ -124,8 +156,8 @@ ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCan
 }
 
 //precondition: turnsAndGap.converged
-//postcondition: passes if the margin between the applicable limit and the calculated peak flux density meets rules.minimumSaturationMarginPercent. NotEvaluated when peakCurrentA is absent.
-ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, const DesignRules& rules) {
+//postcondition: passes if the margin between the applicable limit and the calculated peak flux density meets rules.minimumSaturationMarginPercent. When peakCurrentA is absent, see bpkAtCertainFailureRmsFloor for the certain-failure lower-bound check that still runs.
+ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, double rmsCurrentA, const DesignRules& rules) {
     ValidationResult result;
     //set the name, unit, and if it is mandatory
     result.checkName = "SaturationValidation";
@@ -134,6 +166,19 @@ ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialC
     result.mandatory = true;
 
     if (!peakCurrentA.has_value()) {
+        FluxLimit limit = applicableFluxLimit(material, rules);
+        result.usesDefaultAssumption = limit.usedDefault;
+        if (auto bpkAtRmsFloor = bpkAtCertainFailureRmsFloor(core, turnsAndGap, rmsCurrentA, limit)) {
+            double marginPercent = limit.limitT > 0.0 ? 100.0 * (limit.limitT - *bpkAtRmsFloor) / limit.limitT : 0.0;
+            result.status = EvaluationStatus::Evaluated;
+            result.passed = false;
+            result.isRmsLowerBoundRejection = true;
+            result.calculatedValue = marginPercent;
+            result.explanation = "certain failure: saturation margin is already " + std::to_string(marginPercent) +
+                "% (negative = already past the limit) using RMS current (" + std::to_string(rmsCurrentA) +
+                " A) alone as a guaranteed LOWER BOUND on the real (unsupplied) peak current. Real peak current is always >= RMS, so this can only get worse - saturation is guaranteed regardless of ripple.";
+            return result;
+        }
         result.status = EvaluationStatus::NotEvaluated;
         result.passed = false;
         result.calculatedValue = 0.0;

@@ -128,7 +128,7 @@ void testPeakFluxValidationFlagsDefaultLimit() {
     DesignRules rules = DesignRules::phase1Default();
     TurnsAndGapResult turnsAndGap = convergedTurnsAndGap(20, 2.0, 0.1);
 
-    ValidationResult result = PeakFluxValidation(core, material, turnsAndGap, 5.0, rules);
+    ValidationResult result = PeakFluxValidation(core, material, turnsAndGap, 5.0, 0.0, rules);
     assert(result.usesDefaultAssumption);
     assert(approxEqual(result.limitValue, rules.defaultFluxDensityLimitT, 1e-9));
     std::printf("testPeakFluxValidationFlagsDefaultLimit: Bpk=%.6f T vs default limit %.4f T\n",
@@ -142,8 +142,8 @@ void testSaturationValidationMarginShrinksWithHigherPeakCurrent() {
     DesignRules rules = DesignRules::phase1Default();
     TurnsAndGapResult turnsAndGap = convergedTurnsAndGap(20, 2.0, 0.1);
 
-    ValidationResult lowCurrent = SaturationValidation(core, material, turnsAndGap, 2.0, rules);
-    ValidationResult highCurrent = SaturationValidation(core, material, turnsAndGap, 20.0, rules);
+    ValidationResult lowCurrent = SaturationValidation(core, material, turnsAndGap, 2.0, 0.0, rules);
+    ValidationResult highCurrent = SaturationValidation(core, material, turnsAndGap, 20.0, 0.0, rules);
     assert(highCurrent.calculatedValue < lowCurrent.calculatedValue);
     std::printf("testSaturationValidationMarginShrinksWithHigherPeakCurrent: margin@2A=%.2f%% margin@20A=%.2f%%\n",
                 lowCurrent.calculatedValue, highCurrent.calculatedValue);
