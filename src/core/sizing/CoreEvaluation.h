@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include<unordered_map>
 #include "core/sizing/MaterialEvaluation.h"
 
 /*
@@ -58,12 +59,13 @@ struct CoreCandidate {
     SourceInfo source;
 };
 
-//precondition: CoreDatabase::load() has been populated
-//postcondition: returns every core whose material matches one of the given compatible materials, each carrying its own computed area product and
-/*whether it meets requiredAreaProductCm4 (with a 5% margin). Cores that do
-  Not meet the requirement are still returned (meetsAreaProduct=false) so
-  callers can build an honest no_feasible_design report (largest available
-  Ap) instead of a silent oversized fallback - it is the caller's
-  responsibility to reject the design, not this function's, to keep the
-  "why did this fail" data available.*/
-std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate>& compatibleMaterials, double requiredAreaProductCm4);
+
+//CoreDatabase::load() has been populated; requiredAreaProductCm4ByMaterial has one entry for every MaterialCandidate.materialFamily
+//present in compatibleMaterials (the caller builds this from the same list, so every core that finds a materialCompatible match is guaranteed a lookup hit)
+//returns every core whose material matches one of the given compatible materials, each carrying its own computed area product and whether it meets the materials own
+//requiredAreaProductCm4 (with a 5% margin) - looked up per-core by material, not a single value applied to every material alike (a flat ferrite-typical flux limit was
+//silently under-crediting higher-Bsat powder cores like MPP/Kool Mu, which can legitimately need less area product than the same request would demand of ferrite - see AreaProduct.h
+//caller in InductorDesignService.cpp for how each materials own applicableFluxLimit() now feeds this map). Cores that do not meet the requirment are still returned (meetsAreaProduct=false)
+// so callers can build an honest no_feasible_desing report (largest available Ap) instead of a silent oversized fallback - it is the callers responsibilty to reject teh deisng, not this
+//functions to keep teh "why did this fail" data available
+std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate>& compatibleMaterials, const std::unordered_map<std::string, double>& requiredAreaProductCm4ByMaterial);

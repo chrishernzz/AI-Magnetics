@@ -21,6 +21,7 @@
 #include "backend/services/CandidateRankingHelpers.h"
 #include "backend/services/BottleneckAnalysisService.h"
 #include "backend/services/RankingHighlightsService.h"
+#include "core/sizing/FluxLimit.h"
 
 //lets us reuse the function throughout the file without having to prefix it with the namespace
 namespace {
@@ -54,8 +55,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     candidate.fluxLimits = calculateFluxLimitTiers(material, rules);
 
     double targetInductanceUH = units::hToUH(requirements.operatingPoint.inductanceH);
-    candidate.turnsAndGap = designTurnsAndGap(core, material, targetInductanceUH, requirements.inductanceTolerancePercent,
-                                               requirements.operatingPoint.peakCurrentA, rules);
+    candidate.turnsAndGap = designTurnsAndGap(core, material, targetInductanceUH, requirements.inductanceTolerancePercent, requirements.operatingPoint.peakCurrentA, rules);
 
     if (!candidate.turnsAndGap.converged) {
         candidate.passed = false;
@@ -171,7 +171,8 @@ bool candidateRanksAhead(const InductorCandidate& a, const InductorCandidate& b)
     if (a.core.areaProductCm4 != b.core.areaProductCm4) {
         return a.core.areaProductCm4 < b.core.areaProductCm4;
     }
-    return a.core.partNumber < b.core.partNumber;  // deterministic final tiebreak
+     //deterministic final tiebreak
+    return a.core.partNumber < b.core.partNumber; 
 }
 
 }  // namespace
@@ -203,24 +204,51 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
     //makes findSuitableCores() flag every core as meeting it, which is the correct "no pre-filter" result -
     //PeakFluxValidation/SaturationValidation report the real gap per candidate instead).
     bool peakSupplied = requirements.operatingPoint.peakCurrentA.has_value();
-    double requiredAreaProductCm4 = 0.0;
-    //if there is a peak current then do the Ap else do not do it and skip the filter
-    if (peakSupplied) {
-        AreaProductInput apInput;
-        apInput.inductanceH = requirements.operatingPoint.inductanceH;
-        apInput.peakCurrentA = *requirements.operatingPoint.peakCurrentA;
-        apInput.switchingFreqHz = requirements.operatingPoint.switchingFreqHz;
-        apInput.allowableTempRiseC = requirements.allowableTempRiseC;
-        apInput.windowUtilization = rules.windowUtilization;
-        apInput.fluxDensityT = rules.defaultFluxDensityLimitT;
-        apInput.currentDensityAPerCm2 = rules.allowableCurrentDensityAperCm2;
-        //call the function to calculate the required area product for the inductor design based on the input parameters
-        requiredAreaProductCm4 = calculateAp(apInput);
+    //computed PER Material, not once for the whole request - Ap is inversely proportional to the flux density
+    //limit used (see AreaProduct.cpp) and that limit is genuinely different per material (a ferrite-typical Bmax vs
+    //a powder core real, usually much higher, Bsat from real_materials.csv). Using one flat default here for every material
+    //silently under-credited high-Bsat pwoder cores (MPP, Kool Mu, XFlux, etc) - they need real_materials.csv own applicableFluxLimit()
+    //to size correctly, but were being judged against a ferrite-typical number instead, dropping otherwise-viable candidates before they ever
+    //reached the real per-candidate SturationValidation/PeakFluxValidation checks
+    std::unordered_map<std::string, double> requiredAreaProductCm4ByMaterial;
+    for(const auto& material: materials){
+        double requiredAreaProductCm4 = 0.0;
+        //if there is a peak current then do the Ap else do not do it and skip the filter
+        if (peakSupplied) {
+            AreaProductInput apInput;
+            apInput.inductanceH = requirements.operatingPoint.inductanceH;
+            apInput.peakCurrentA = *requirements.operatingPoint.peakCurrentA;
+            apInput.switchingFreqHz = requirements.operatingPoint.switchingFreqHz;
+            apInput.allowableTempRiseC = requirements.allowableTempRiseC;
+            apInput.windowUtilization = rules.windowUtilization;
+            apInput.fluxDensityT = applicableFluxLimit(material, rules).limitT;
+            apInput.currentDensityAPerCm2 = rules.allowableCurrentDensityAperCm2;
+            //call the function to calculate the required area product for the inductor design based on the input parameters
+            requiredAreaProductCm4 = calculateAp(apInput);
+        }
+        //call the key and set the value equal to that which is required Ap for that specific material
+        requiredAreaProductCm4ByMaterial[material.materialFamily] = requiredAreaProductCm4;
     }
 
-    //CoreCandiate now gets get picked based on if they meet the required area product and if they are compatible with the suitable materials from stage 1
-    std::vector<CoreCandidate> cores = findSuitableCores(materials, requiredAreaProductCm4);
+    //smallest requirement across all compatible materials - the easiest one to satisfy - not any single materials own number
+    //since there is no longer one "the" requried Ap for the whole request. Used only for the no_feasible_design report below: 
+    //"even the easiest material requirment wasnt met" is an honest, non-misleading single number to show, unlike averaging or picking an arbitrary material
+    double smallestRequiredAreaProductCm4 = 0.0;
+    if(!requiredAreaProductCm4ByMaterial.empty()) {
+        //will start at the beginning of the unordered map
+        smallestRequiredAreaProductCm4 = requiredAreaProductCm4ByMaterial.begin()->second;
+        for(const auto& materialRequiremnet : requiredAreaProductCm4ByMaterial) {
+            if(materialRequiremnet.second < smallestRequiredAreaProductCm4) {
+                //if small then now update it so we can recheck the others to the new small number
+                smallestRequiredAreaProductCm4 = materialRequiremnet.second;
+            }
+        }
 
+    }
+
+
+    //CoreCandiate now gets get picked based on if they meet the required area product and if they are compatible with the suitable materials from stage 1
+    std::vector<CoreCandidate> cores = findSuitableCores(materials, requiredAreaProductCm4ByMaterial);
 
     //find the largest Ap among the avilable compatible cores and this value is used to explain how close the available cores are to the required Ap for the inductor design
     double largestAvailableAreaProductCm4 = 0.0;
@@ -245,7 +273,7 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
         recommendation.message = peakSupplied
             ? "No core met the area-product requirement."
             : "No core found for the compatible materials at this frequency (no peak current was supplied, so no area-product pre-filter was applied - this means the database itself has no matching core, not that one was filtered out).";
-        recommendation.requiredAreaProductCm4 = requiredAreaProductCm4;
+        recommendation.requiredAreaProductCm4 = smallestRequiredAreaProductCm4;
         recommendation.largestAvailableAreaProductCm4 = largestAvailableAreaProductCm4;
         return recommendation;
     }
