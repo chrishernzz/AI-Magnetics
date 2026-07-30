@@ -10,8 +10,8 @@ static double coreAreaProductCm4(double aeMm2, double waMm2) {
 }
 
 //precondition: CoreDatabase::load() has been populated
-//postcondition: returns every core whose material matches a compatible material candidate, each flagged with whether it meets the area-product requirement (5% margin, matching the original single-pick behavior)
-std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate>& compatibleMaterials, double requiredAreaProductCm4) {
+//postcondition: returns every core whose material matches a compatible material candidate, each flagged with whether it meets that material own area-product requirement (5% margin, matching the original single-pick behavior)
+std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate>& compatibleMaterials, const std::unordered_map<std::string, double>& requiredAreaProductCm4ByMaterial) {
     const auto& cores = CoreDatabase::load();
     std::vector<CoreCandidate> candidates;
 
@@ -32,6 +32,13 @@ std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate
         }
 
         double apCm4 = coreAreaProductCm4(core.ae, core.wa);
+
+        //this core's own material requiredAp - never the same flat number for every material (a ferrite-typical flux limit was
+        //silently under-crediting higher-Bsat powder cores). The lookup is guaranteed to hit: materialCompatible above only became
+        //true because some entry in compatibleMaterials has materialFamily == core.material, and the caller builds this map from that
+        //exact same list, one entry per material. Down below we are calling the strings (key) values which is a double
+        double requiredAreaProductCm4 = requiredAreaProductCm4ByMaterial.at(core.material);
+
 
         CoreCandidate candidate;
         candidate.partNumber = core.partNumber;
