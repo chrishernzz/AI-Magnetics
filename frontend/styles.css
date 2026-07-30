@@ -1388,6 +1388,21 @@ summary {
     font-weight: 600;
 }
 
+/* Small neutral secondary tag (e.g. "RMS floor", "peak-based", "certain
+   failure · RMS floor") - clarifies HOW a pass/fail chip was reached, not a
+   pass/fail signal on its own, so it stays visually quieter than chip-pass/
+   chip-fail/chip-warn (see turnsRaisedSubLine()/renderValidationList()). */
+.chip-tag {
+    background: var(--paper-sunk);
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    margin-left: 6px;
+    font-weight: 600;
+    font-size: 0.68rem;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
 /* Operating Point Mode card (renderOperatingPointConfidence()) - which of
    the 4 input modes this run actually used, real backend classification
    from OperatingPointConfidenceService.cpp, not a UI guess. */

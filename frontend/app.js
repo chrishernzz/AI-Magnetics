@@ -939,11 +939,21 @@ function renderValidationList(validations) {
                 : v.passed
                 ? '<span class="chip chip-pass">PASS</span>'
                 : '<span class="chip chip-fail">FAIL</span>';
+            // isRmsLowerBoundRejection: real peak current was never supplied, but flux
+            // at RMS current alone (a guaranteed lower bound on the real peak - see
+            // DesignValidation.cpp) already exceeded the limit, so failure is CERTAIN
+            // regardless of the unknown real peak/ripple. A different kind of FAIL
+            // than a check that ran against a real supplied peak - worth flagging so
+            // an engineer doesn't read this as "less certain" than it actually is.
+            const rmsFloorTag = v.isRmsLowerBoundRejection
+                ? '<span class="chip chip-tag" title="Real peak current was never supplied - this fails even in the best case (RMS current alone, zero ripple), so the real peak (always >= RMS) is guaranteed to fail too">certain failure · RMS floor</span>'
+                : "";
             return `
         <li class="validation-row ${rowClass}">
             <div class="validation-row-main">
                 ${chip}
                 <span class="validation-item-name">${v.checkName}</span>
+                ${rmsFloorTag}
             </div>
             <div class="validation-item-value">actual <strong>${v.calculatedValue.toFixed(3)}</strong> · limit <strong>${v.limitValue.toFixed(3)}</strong> ${v.unit}${v.usesDefaultAssumption ? " *" : ""}</div>
             <div class="validation-row-explain">${v.explanation}</div>
@@ -968,6 +978,22 @@ function gapCellLabel(turnsAndGap) {
         return '<span class="cell-muted" title="Distributed-gap toroid - no discrete machined air gap exists on this part">Distributed gap</span>';
     }
     return turnsAndGap.gapMm.toFixed(2);
+}
+
+// Surfaces TurnsAndGapDesign.cpp's flux-aware seed decision - previously computed
+// by the backend (turnsRaisedForSaturationMargin/Reason) but never shown anywhere
+// in this UI. Distinguishes a raise based on a real supplied peak current from one
+// based on turnsRaisedUsingRmsFloor (RMS current used as a guaranteed lower bound
+// on the real, unsupplied peak - see DesignValidation.cpp) - the latter is a
+// weaker guarantee (real peak, still unknown, could need more margin than the
+// floor proves) and engineers reading this panel should be able to tell the two
+// apart, not just see "turns were raised" with no context for how confident that is.
+function turnsRaisedSubLine(turnsAndGap) {
+    if (!turnsAndGap.turnsRaisedForSaturationMargin) return "";
+    const basis = turnsAndGap.turnsRaisedUsingRmsFloor
+        ? '<span class="chip chip-tag" title="Raised using RMS current as a guaranteed lower bound on peak - real (unsupplied) peak current could still require more margin than this floor guarantees">RMS floor</span>'
+        : '<span class="chip chip-tag" title="Raised against a real, directly supplied peak current">peak-based</span>';
+    return `<div class="detail-kpi-sub" title="${turnsAndGap.turnsRaisedForSaturationMarginReason}">raised for saturation margin ${basis}</div>`;
 }
 
 function shapeCellLabel(core) {
@@ -1082,6 +1108,7 @@ function renderCandidateDetail(candidate) {
             <div class="detail-kpi">
                 <span class="detail-kpi-label">Turns / Gap</span>
                 <span class="detail-kpi-value">${candidate.turnsAndGap.turns}t, ${candidate.turnsAndGap.gapMethod === "Distributed" ? "distributed gap" : candidate.turnsAndGap.gapMm.toFixed(2) + "mm"}</span>
+                ${turnsRaisedSubLine(candidate.turnsAndGap)}
             </div>
         </div>
         <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong> &nbsp; ${acLossRiskChip(candidate.acLossRisk)}</p>
