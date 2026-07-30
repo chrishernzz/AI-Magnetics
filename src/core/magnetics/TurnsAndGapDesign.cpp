@@ -66,7 +66,7 @@ double inductanceAtGapUH(int turns, double gapMm, double aeCm2, double leCm, dou
 //to check inductance stays within tolerancePercent at both extremes, or returns converged=false with a rejection reason.
 TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCandidate& material,
                                      double targetInductanceUH, double tolerancePercent,
-                                     const std::optional<double>& peakCurrentA, const DesignRules& rules) {
+                                     const std::optional<double>& peakCurrentA, double rmsCurrentA, const DesignRules& rules) {
     TurnsAndGapResult result;
 
     //Real powder toroid materials (MPP/Kool Mu/High Flux/Sendust, etc.) achieve their working permeability
@@ -153,22 +153,45 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
     //known, raise the starting turns to whatever this exact core/target/limit combination requires to
     //already respect rules.minimumSaturationMarginPercent - Bpk = L*Ipk/(N*Ae) inverted for N. This only
     //ever RAISES the seed (max(), never lowered) - a core where the inductance-matching seed already had
-    //enough margin is completely unaffected, and the RMS-only flow (peakCurrentA absent) is untouched.
-    //PeakFluxValidation/SaturationValidation still run their own independent check on whatever (turns, gap)
-    //this loop actually converges to below - this never substitutes for those checks, it only gives the
-    //solver a turns count worth trying.
+    //enough margin is completely unaffected.
+    //
+    //When peakCurrentA is absent but rmsCurrentA > 0.0, the same seed runs against rmsCurrentA instead - a
+    //mathematically guaranteed LOWER BOUND on the real (unsupplied) peak current (RMS <= peak always, for
+    //any unidirectional inductor-current waveform), never a substitute for the real peak. Without this, an
+    //RMS-only request has NO flux-aware floor at all, and the plain inductance-matching seed can converge on
+    //a minimum-turns, ultra-high-permeability ferrite design that saturates far below the stated RMS current
+    //(a real user report: 3000uH/5A RMS with no peak supplied ranked a mu=5654 26-turn ungapped toroid as
+    //its #1 passing candidate - that design saturates at ~0.12A, ~40x below the request's own 5A RMS value).
+    //Using the RMS floor here does not confirm the design is safe (real ripple could still push the true
+    //peak, and therefore true required margin, higher) - PeakFluxValidation/SaturationValidation's own
+    //RMS-floor certain-failure check (see DesignValidation.cpp) is what actually rejects a design that's
+    //still broken even at this floor; this seed just stops the solver from handing that design a trivial
+    //minimum-turns win in the first place.
+    std::optional<double> fluxAwareSeedCurrentA;
+    bool seedIsRmsFloor = false;
     if (peakCurrentA.has_value() && *peakCurrentA > 0.0) {
+        fluxAwareSeedCurrentA = peakCurrentA;
+    } else if (rmsCurrentA > 0.0) {
+        fluxAwareSeedCurrentA = rmsCurrentA;
+        seedIsRmsFloor = true;
+    }
+
+    if (fluxAwareSeedCurrentA.has_value()) {
         FluxLimit limit = applicableFluxLimit(material, rules);
-        int fluxAwareMinTurns = minimumTurnsForSaturationMargin(core, targetInductanceUH, *peakCurrentA, limit.limitT, rules);
+        int fluxAwareMinTurns = minimumTurnsForSaturationMargin(core, targetInductanceUH, *fluxAwareSeedCurrentA, limit.limitT, rules);
         if (fluxAwareMinTurns > turns) {
             result.turnsRaisedForSaturationMargin = true;
+            result.turnsRaisedUsingRmsFloor = seedIsRmsFloor;
             result.turnsRaisedForSaturationMarginReason =
                 "seed turns raised from " + std::to_string(turns) + " (inductance-matching minimum, ungapped AL) to " +
                 std::to_string(fluxAwareMinTurns) + " turns to respect the " +
-                std::to_string(rules.minimumSaturationMarginPercent) + "% saturation margin at peak current " +
-                std::to_string(*peakCurrentA) + " A against the applicable " + std::to_string(limit.limitT) +
+                std::to_string(rules.minimumSaturationMarginPercent) + "% saturation margin at " +
+                (seedIsRmsFloor ? "RMS current (used as a guaranteed lower bound on peak current, since no real peak current was supplied) "
+                                 : "peak current ") +
+                std::to_string(*fluxAwareSeedCurrentA) + " A against the applicable " + std::to_string(limit.limitT) +
                 " T flux limit (" + (limit.usedDefault ? "Phase 1 default" : "material-specific") +
-                ") - PeakFluxValidation/SaturationValidation still verify this independently below";
+                ") - PeakFluxValidation/SaturationValidation still verify this independently below" +
+                (seedIsRmsFloor ? "; the real (unsupplied) peak current could still require more margin than this floor guarantees" : "");
             turns = fluxAwareMinTurns;
         }
     }

@@ -87,6 +87,7 @@ def _serialize_validation(v) -> dict:
         "status": v.status.name,
         "isPreliminaryEstimate": v.isPreliminaryEstimate,
         "mandatory": v.mandatory,
+        "isRmsLowerBoundRejection": v.isRmsLowerBoundRejection,
     }
 
 #precondition: s is a valid SourceInfo object
@@ -177,6 +178,7 @@ def _serialize_turns_and_gap(t) -> dict:
         "smallGapWarningReason": t.smallGapWarningReason,
         "turnsRaisedForSaturationMargin": t.turnsRaisedForSaturationMargin,
         "turnsRaisedForSaturationMarginReason": t.turnsRaisedForSaturationMarginReason,
+        "turnsRaisedUsingRmsFloor": t.turnsRaisedUsingRmsFloor,
     }
 
 #precondition: winding design stage has completed and w contains winding analysis data

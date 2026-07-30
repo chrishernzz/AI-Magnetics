@@ -42,4 +42,12 @@ struct ValidationResult {
     //passed"). Exists as an explicit field, not an implicit "everything in the list" assumption, so a future
     //informational-only check can be added without silently becoming a gate.
     bool mandatory = true;
+
+    //true when peakCurrentA was absent and this check's Evaluated+failed result comes from RMS current used
+    //as a mathematically guaranteed LOWER BOUND on the real (unsupplied) peak current - never a substitute
+    //for the real peak (RMS is always <= peak for any unidirectional inductor-current waveform, so a failure
+    //at the RMS floor is a CERTAIN failure at the real peak too, regardless of ripple). This never produces a
+    //Pass - only a certain-failure Reject (this flag true) or an honest NotEvaluated (this flag stays false)
+    //when the floor alone doesn't prove anything either way. See PeakFluxValidation/SaturationValidation.
+    bool isRmsLowerBoundRejection = false;
 };

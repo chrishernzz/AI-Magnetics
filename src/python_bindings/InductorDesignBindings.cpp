@@ -259,7 +259,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("smallGapWarning", &TurnsAndGapResult::smallGapWarning)
         .def_readwrite("smallGapWarningReason", &TurnsAndGapResult::smallGapWarningReason)
         .def_readwrite("turnsRaisedForSaturationMargin", &TurnsAndGapResult::turnsRaisedForSaturationMargin)
-        .def_readwrite("turnsRaisedForSaturationMarginReason", &TurnsAndGapResult::turnsRaisedForSaturationMarginReason);
+        .def_readwrite("turnsRaisedForSaturationMarginReason", &TurnsAndGapResult::turnsRaisedForSaturationMarginReason)
+        .def_readwrite("turnsRaisedUsingRmsFloor", &TurnsAndGapResult::turnsRaisedUsingRmsFloor);
     m.def("design_turns_and_gap", &designTurnsAndGap, "Run the turns/gap convergence loop directly against a core, target inductance, and tolerance - exposed for tests that need this stage in isolation from full core auto-selection");
 
     py::class_<ValidationResult>(m, "ValidationResult")
@@ -273,7 +274,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("usesDefaultAssumption", &ValidationResult::usesDefaultAssumption)
         .def_readwrite("status", &ValidationResult::status)
         .def_readwrite("isPreliminaryEstimate", &ValidationResult::isPreliminaryEstimate)
-        .def_readwrite("mandatory", &ValidationResult::mandatory);
+        .def_readwrite("mandatory", &ValidationResult::mandatory)
+        .def_readwrite("isRmsLowerBoundRejection", &ValidationResult::isRmsLowerBoundRejection);
 
     py::class_<FluxLimitTiers>(m, "FluxLimitTiers")
         .def(py::init<>())

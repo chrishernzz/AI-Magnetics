@@ -249,14 +249,39 @@ function updateDirectDiagnosticsLive() {
     const rmsA = Number(document.getElementById("rmsCurrent").value);
     const rippleRaw = document.getElementById("rippleCurrent").value;
 
+    const storedEnergyNote = document.getElementById("diagStoredEnergyNote");
     if (document.getElementById("diagStoredEnergy")) {
         if (inductanceUH > 0 && peakA > 0) {
             // E = 0.5 x L x I^2 - the same headline formula already shown in
             // the Inductance field's hint tooltip, just kept live here too.
             const energyMJ = 0.5 * (inductanceUH * 1e-6) * peakA * peakA * 1e3;
             setDiagValue("diagStoredEnergy", `${energyMJ.toFixed(4)} mJ`);
+            if (storedEnergyNote) {
+                storedEnergyNote.textContent = "";
+                storedEnergyNote.className = "diagnostics-note";
+            }
+        } else if (inductanceUH > 0 && rmsA > 0) {
+            // No real peak current yet - rather than leave this row blank (the
+            // Diagnostics panel reading as empty for the RMS-only case is exactly
+            // the gap this exists to close), show a labeled ESTIMATE using RMS
+            // current as a proxy. This is never presented as the real figure: RMS
+            // is always <= real peak for any unidirectional inductor-current
+            // waveform, so E=0.5*L*Irms^2 is a genuine LOWER BOUND, not a guess -
+            // same "guaranteed floor, never a substitute" logic as the backend's
+            // RMS-floor saturation check (DesignValidation.cpp), applied here to
+            // this one live, client-side, non-blocking sanity number.
+            const energyMJ = 0.5 * (inductanceUH * 1e-6) * rmsA * rmsA * 1e3;
+            setDiagValue("diagStoredEnergy", `${energyMJ.toFixed(4)} mJ (est.)`);
+            if (storedEnergyNote) {
+                storedEnergyNote.textContent = `Peak current not supplied - this is a lower-bound ESTIMATE using RMS current (${rmsA} A) as a proxy for peak, not the real figure. Actual stored energy is likely higher (real peak current is always >= RMS) - recompute once peak current is known.`;
+                storedEnergyNote.className = "diagnostics-note diagnostics-note-warn";
+            }
         } else {
             setDiagValue("diagStoredEnergy", "–");
+            if (storedEnergyNote) {
+                storedEnergyNote.textContent = "";
+                storedEnergyNote.className = "diagnostics-note";
+            }
         }
     }
 
@@ -939,11 +964,21 @@ function renderValidationList(validations) {
                 : v.passed
                 ? '<span class="chip chip-pass">PASS</span>'
                 : '<span class="chip chip-fail">FAIL</span>';
+            // isRmsLowerBoundRejection: real peak current was never supplied, but flux
+            // at RMS current alone (a guaranteed lower bound on the real peak - see
+            // DesignValidation.cpp) already exceeded the limit, so failure is CERTAIN
+            // regardless of the unknown real peak/ripple. A different kind of FAIL
+            // than a check that ran against a real supplied peak - worth flagging so
+            // an engineer doesn't read this as "less certain" than it actually is.
+            const rmsFloorTag = v.isRmsLowerBoundRejection
+                ? '<span class="chip chip-tag" title="Real peak current was never supplied - this fails even in the best case (RMS current alone, zero ripple), so the real peak (always >= RMS) is guaranteed to fail too">certain failure · RMS floor</span>'
+                : "";
             return `
         <li class="validation-row ${rowClass}">
             <div class="validation-row-main">
                 ${chip}
                 <span class="validation-item-name">${v.checkName}</span>
+                ${rmsFloorTag}
             </div>
             <div class="validation-item-value">actual <strong>${v.calculatedValue.toFixed(3)}</strong> · limit <strong>${v.limitValue.toFixed(3)}</strong> ${v.unit}${v.usesDefaultAssumption ? " *" : ""}</div>
             <div class="validation-row-explain">${v.explanation}</div>
@@ -968,6 +1003,22 @@ function gapCellLabel(turnsAndGap) {
         return '<span class="cell-muted" title="Distributed-gap toroid - no discrete machined air gap exists on this part">Distributed gap</span>';
     }
     return turnsAndGap.gapMm.toFixed(2);
+}
+
+// Surfaces TurnsAndGapDesign.cpp's flux-aware seed decision - previously computed
+// by the backend (turnsRaisedForSaturationMargin/Reason) but never shown anywhere
+// in this UI. Distinguishes a raise based on a real supplied peak current from one
+// based on turnsRaisedUsingRmsFloor (RMS current used as a guaranteed lower bound
+// on the real, unsupplied peak - see DesignValidation.cpp) - the latter is a
+// weaker guarantee (real peak, still unknown, could need more margin than the
+// floor proves) and engineers reading this panel should be able to tell the two
+// apart, not just see "turns were raised" with no context for how confident that is.
+function turnsRaisedSubLine(turnsAndGap) {
+    if (!turnsAndGap.turnsRaisedForSaturationMargin) return "";
+    const basis = turnsAndGap.turnsRaisedUsingRmsFloor
+        ? '<span class="chip chip-tag" title="Raised using RMS current as a guaranteed lower bound on peak - real (unsupplied) peak current could still require more margin than this floor guarantees">RMS floor</span>'
+        : '<span class="chip chip-tag" title="Raised against a real, directly supplied peak current">peak-based</span>';
+    return `<div class="detail-kpi-sub" title="${turnsAndGap.turnsRaisedForSaturationMarginReason}">raised for saturation margin ${basis}</div>`;
 }
 
 function shapeCellLabel(core) {
@@ -1082,6 +1133,7 @@ function renderCandidateDetail(candidate) {
             <div class="detail-kpi">
                 <span class="detail-kpi-label">Turns / Gap</span>
                 <span class="detail-kpi-value">${candidate.turnsAndGap.turns}t, ${candidate.turnsAndGap.gapMethod === "Distributed" ? "distributed gap" : candidate.turnsAndGap.gapMm.toFixed(2) + "mm"}</span>
+                ${turnsRaisedSubLine(candidate.turnsAndGap)}
             </div>
         </div>
         <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong> &nbsp; ${acLossRiskChip(candidate.acLossRisk)}</p>
@@ -1144,7 +1196,14 @@ const CANDIDATE_TABLE_HEADERS = [
     { label: "Material" },
     { label: "Turns", numeric: true },
     { label: "Gap (mm)", numeric: true },
-    { label: "Calc L (µH)", numeric: true },
+    // µ (micro sign) has no real uppercase form - the table header's CSS
+    // text-transform:uppercase (.candidate-table thead th) was mapping it to
+    // Greek capital Mu, which most fonts render indistinguishably from Latin
+    // "M", so this column was displaying as "CALC L (MH)" instead of "µH" -
+    // a real user report caught this. Wrapping just the unit in
+    // .unit-literal (text-transform:none) keeps the rest of the header
+    // uppercase as designed while leaving µH untouched.
+    { label: 'Calc L (<span class="unit-literal">µH</span>)', numeric: true },
     { label: "Error %", numeric: true },
     { label: "Physical Fill %", numeric: true },
     { label: "DC Copper Loss", numeric: true },
