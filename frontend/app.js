@@ -1196,7 +1196,14 @@ const CANDIDATE_TABLE_HEADERS = [
     { label: "Material" },
     { label: "Turns", numeric: true },
     { label: "Gap (mm)", numeric: true },
-    { label: "Calc L (µH)", numeric: true },
+    // µ (micro sign) has no real uppercase form - the table header's CSS
+    // text-transform:uppercase (.candidate-table thead th) was mapping it to
+    // Greek capital Mu, which most fonts render indistinguishably from Latin
+    // "M", so this column was displaying as "CALC L (MH)" instead of "µH" -
+    // a real user report caught this. Wrapping just the unit in
+    // .unit-literal (text-transform:none) keeps the rest of the header
+    // uppercase as designed while leaving µH untouched.
+    { label: 'Calc L (<span class="unit-literal">µH</span>)', numeric: true },
     { label: "Error %", numeric: true },
     { label: "Physical Fill %", numeric: true },
     { label: "DC Copper Loss", numeric: true },

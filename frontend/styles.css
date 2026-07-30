@@ -1278,6 +1278,16 @@ summary {
     white-space: nowrap;
 }
 
+/* µ (micro sign) has no real uppercase form - under an ancestor's
+   text-transform:uppercase (.candidate-table thead th above), it maps to
+   Greek capital Mu, which most fonts render indistinguishably from Latin
+   "M" (a real user report: the "Calc L (µH)" column header displayed as
+   "CALC L (MH)"). Wrap just the unit text in this class to opt it back out
+   of the transform wherever it sits inside an uppercased ancestor. */
+.unit-literal {
+    text-transform: none;
+}
+
 .candidate-table thead th.numeric,
 .candidate-table tbody td.numeric {
     text-align: right;
