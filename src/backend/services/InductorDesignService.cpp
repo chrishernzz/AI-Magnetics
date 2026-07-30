@@ -21,6 +21,7 @@
 #include "backend/services/CandidateRankingHelpers.h"
 #include "backend/services/BottleneckAnalysisService.h"
 #include "backend/services/RankingHighlightsService.h"
+#include "core/sizing/FluxLimit.h"
 
 //lets us reuse the function throughout the file without having to prefix it with the namespace
 namespace {
@@ -54,8 +55,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     candidate.fluxLimits = calculateFluxLimitTiers(material, rules);
 
     double targetInductanceUH = units::hToUH(requirements.operatingPoint.inductanceH);
-    candidate.turnsAndGap = designTurnsAndGap(core, material, targetInductanceUH, requirements.inductanceTolerancePercent,
-                                               requirements.operatingPoint.peakCurrentA, rules);
+    candidate.turnsAndGap = designTurnsAndGap(core, material, targetInductanceUH, requirements.inductanceTolerancePercent, requirements.operatingPoint.peakCurrentA, rules);
 
     if (!candidate.turnsAndGap.converged) {
         candidate.passed = false;
@@ -221,7 +221,7 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
             apInput.switchingFreqHz = requirements.operatingPoint.switchingFreqHz;
             apInput.allowableTempRiseC = requirements.allowableTempRiseC;
             apInput.windowUtilization = rules.windowUtilization;
-            apInput.fluxDensityT = rules.defaultFluxDensityLimitT;
+            apInput.fluxDensityT = applicableFluxLimit(material, rules).limitT;
             apInput.currentDensityAPerCm2 = rules.allowableCurrentDensityAperCm2;
             //call the function to calculate the required area product for the inductor design based on the input parameters
             requiredAreaProductCm4 = calculateAp(apInput);
