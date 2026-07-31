@@ -112,7 +112,16 @@ struct DesignRules {
 
     // Fraction of a core's raw window area (Wa) usable after bobbin wall
     // thickness is accounted for. No per-core bobbin geometry exists in
-    // the data, so this is a Phase 1 generic estimate.
+    // the data, so this is a Phase 1 generic estimate. Applied only to
+    // non-toroid cores (see WindingDesign.cpp) - a toroid has no separate
+    // bobbin former at all, so charging it this derate overstated how much
+    // window space a toroid actually loses. A real user report (a senior
+    // magnetics engineer's hand calculation) caught this - it was the
+    // single largest identifiable cause of powder-core toroids (the
+    // majority of high-current powder candidates, which already need far
+    // more turns than ferrite for the same inductance) failing
+    // WindingFitValidation on a derate that doesn't apply to their real
+    // construction.
     double bobbinWindowDerateFactor;
 
     // Creepage/clearance margin, expressed as a fraction of the raw window
