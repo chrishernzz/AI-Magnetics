@@ -915,8 +915,8 @@ function gapCellLabel(turnsAndGap) {
 function turnsRaisedSubLine(turnsAndGap) {
     if (!turnsAndGap.turnsRaisedForSaturationMargin) return "";
     const basis = turnsAndGap.turnsRaisedUsingRmsFloor
-        ? '<span class="chip chip-tag" title="Raised using RMS current as a guaranteed lower bound on peak - real (unsupplied) peak current could still require more margin than this floor guarantees">RMS floor</span>'
-        : '<span class="chip chip-tag" title="Raised against a real, directly supplied peak current">peak-based</span>';
+        ? '<span class="tag-text" title="Raised using RMS current as a guaranteed lower bound on peak - real (unsupplied) peak current could still require more margin than this floor guarantees">RMS floor</span>'
+        : '<span class="tag-text" title="Raised against a real, directly supplied peak current">peak-based</span>';
     return `<div class="detail-kpi-sub" title="${turnsAndGap.turnsRaisedForSaturationMarginReason}">raised for saturation margin ${basis}</div>`;
 }
 
@@ -944,13 +944,16 @@ function renderSourcesDetail(candidate) {
     return `<details class="detail-group"><summary>Sources</summary><ul class="detail-group-list">${rows}</ul></details>`;
 }
 
-// AC-loss risk chip (spec section 8) - qualitative skin-depth heuristic, never a
+// AC-loss risk (spec section 8) - qualitative skin-depth heuristic, never a
 // watts figure (SkinDepthRisk.h). The full reason (what was/wasn't evaluated) is
-// the tooltip rather than inline text, to keep the KPI strip scannable.
+// the tooltip rather than inline text, to keep the KPI strip scannable. Plain
+// colored text, not a bounded chip - a pill here read as competing for attention
+// with the real PASS/FAIL chips elsewhere in the panel, when this is a softer,
+// informational signal.
 function acLossRiskChip(acLossRisk) {
     const level = acLossRisk.riskLevel;
-    const chipClass = level === "Low" ? "chip-pass" : level === "Moderate" ? "chip-warn" : "chip-fail";
-    return `<span class="chip ${chipClass}" title="${acLossRisk.reason}">AC risk: ${level}</span>`;
+    const riskClass = level === "Low" ? "risk-text-low" : level === "Moderate" ? "risk-text-moderate" : "risk-text-high";
+    return `<span class="risk-text ${riskClass}" title="${acLossRisk.reason}">AC risk: ${level}</span>`;
 }
 
 // Which real, user-suppliable input would let a NotEvaluated check actually
@@ -1050,7 +1053,6 @@ function renderCandidateDetail(candidate) {
     const statusLine = candidate.rejectionReasons.length
         ? `<div class="detail-status detail-status-fail">
             <div class="detail-status-chips"><span class="chip chip-fail">REJECTED</span></div>
-            <div class="detail-status-sub">${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>
         </div>`
         : tierChip
         ? `<div class="detail-status detail-status-pass"><div class="detail-status-chips">${tierChip}</div></div>`
@@ -1259,6 +1261,24 @@ function wireCandidatesTabs() {
     rejectedBtn.addEventListener("click", () => switchCandidatesTab("rejected"));
 }
 
+// The side panel body can have several independent <details class="detail-group">
+// blocks (Validation Checks, Sources, Missing-data warnings) - a real user report:
+// opening one (e.g. Sources) left an already-open one (e.g. Validation Checks,
+// open by default) expanded too, so both fought for space in the same panel.
+// Wired fresh each time openCandidateSidePanel() replaces body.innerHTML, since
+// these elements are recreated on every candidate, not reused like the panel itself.
+function wireDetailGroupAccordion(body) {
+    const groups = body.querySelectorAll("details.detail-group");
+    groups.forEach((group) => {
+        group.addEventListener("toggle", () => {
+            if (!group.open) return;
+            groups.forEach((other) => {
+                if (other !== group) other.open = false;
+            });
+        });
+    });
+}
+
 // Slide-in side panel for candidate detail (replaces the old inline accordion
 // row, which crammed KPIs, status, every validation check, sources, and
 // warnings into one long stacked block under the table row). The table stays
@@ -1274,6 +1294,7 @@ function openCandidateSidePanel(candidate, passed) {
     title.textContent = candidate.core.partNumber;
     subtitle.innerHTML = `${shapeCellLabel(candidate.core)} <span>${candidate.material.materialFamily}</span> <span>·</span> <span>${passed ? "Passing" : "Rejected"}</span>`;
     body.innerHTML = renderCandidateDetail(candidate);
+    wireDetailGroupAccordion(body);
 
     panel.hidden = false;
     panel.setAttribute("aria-hidden", "false");
@@ -1402,12 +1423,15 @@ async function generateRecommendation() {
         const rankingNote = document.getElementById("rankingNote");
         if (rankingNote) rankingNote.hidden = result.candidates.length + result.rejectedCandidates.length === 0;
 
-        // Jump straight to the results card instead of leaving the user to scroll past
-        // the (often tall) requirements form and diagnostics panel to find the table -
-        // a real complaint once candidate counts grew into the hundreds (see
-        // candidatesByTechnology/material-type-filter work above for why).
-        const candidatesCard = document.querySelector(".candidates-card");
-        if (candidatesCard) candidatesCard.scrollIntoView({ behavior: "smooth", block: "start" });
+        // Jump straight to the results instead of leaving the user to scroll past the
+        // (often tall) requirements form and diagnostics panel to find them - a real
+        // complaint once candidate counts grew into the hundreds (see
+        // candidatesByTechnology/material-type-filter work above for why). Prefers the
+        // Recommended Candidate card (the actual answer) when there is one; falls back
+        // to the candidates table itself when there's no passing candidate to recommend.
+        const recommendedCard = document.getElementById("recommendedCandidateCard");
+        const scrollTarget = recommendedCard && !recommendedCard.hidden ? recommendedCard : document.querySelector(".candidates-card");
+        if (scrollTarget) scrollTarget.scrollIntoView({ behavior: "smooth", block: "start" });
 
         setStatus(
             result.status === "ok"

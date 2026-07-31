@@ -945,13 +945,6 @@ button:hover {
     flex-wrap: wrap;
 }
 
-.detail-status-sub {
-    margin-top: 4px;
-    color: var(--ink-soft);
-    font-weight: 400;
-    font-size: 0.82rem;
-}
-
 /* Validation Coverage - compact Evaluated/Not-Evaluated summary
    (renderValidationCoverage()), sitting between the status line and the
    full Validation Checks list below it. */
@@ -1417,6 +1410,34 @@ summary {
     font-size: 0.68rem;
     text-transform: none;
     letter-spacing: 0;
+}
+
+/* Plain-text (no pill/border/background) variant of the same informational
+   tag - used where a bounded chip competed for attention with real PASS/FAIL
+   signals nearby (see turnsRaisedSubLine() in app.js). */
+.tag-text {
+    color: var(--ink-soft);
+    font-weight: 600;
+    font-size: 0.85em;
+}
+
+/* AC-loss risk (acLossRiskChip() in app.js) - plain colored text instead of a
+   bounded chip, same reasoning as .tag-text above: this is a softer,
+   informational signal, not a pass/fail chip. */
+.risk-text {
+    font-weight: 700;
+}
+
+.risk-text-low {
+    color: #15803d;
+}
+
+.risk-text-moderate {
+    color: #b45309;
+}
+
+.risk-text-high {
+    color: var(--brand-red-dark);
 }
 
 /* Slide-in candidate detail panel - replaces the old inline accordion row,
