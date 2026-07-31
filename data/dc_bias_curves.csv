@@ -1,0 +1,8 @@
+MaterialName,A,B,C,D,Vendor,DatasheetUrl
+MPP 60,0.01,1.165E-07,2.436,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
+Kool Mµ 60,0.01,2.142E-06,1.855,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Cores/Kool-Mu-Material-Curves
+High Flux 14,0.01,1.657E-09,2.441,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 26,0.01,4.205E-09,2.426,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+XFlux 60,0.01,1.489E-08,2.613,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFLUX-Cores/XFLUX-Material-Curves
+Edge 60,0.01,9.202E-10,3.044,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Edge-Cores/Edge-Material-Curves
+Mix 26,1.00E-02,9.70E-06,1.72,0.00,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/2d/6d/2d6d534c-9520-45b8-9bf4-2403b1d2e3b0/mix-26-datasheet.pdf

@@ -53,10 +53,11 @@ def load_real_magnetics_data():
     """
     import hashlib
     import magnetics_cpp
-    from services.magnetics_data import fetch_all, fetch_core_loss_coefficients, CORES_FILE, MATERIALS_FILE
+    from services.magnetics_data import fetch_all, fetch_core_loss_coefficients, fetch_dc_bias_curves, CORES_FILE, MATERIALS_FILE
 
     materials, cores = fetch_all()
     core_loss_coefficients = fetch_core_loss_coefficients()
+    dc_bias_curves = fetch_dc_bias_curves()
 
     if not materials or not cores:
         raise RuntimeError(
@@ -108,9 +109,23 @@ def load_real_magnetics_data():
         "ct1" : "Ct1",
         "ct2" : "Ct2",
     })
+    # Unlike materials/cores/core-loss-coefficients above, an empty DC-bias curve database is not fatal -
+    # TurnsAndGapDesign.cpp's distributed-gap branch already falls back to the flat catalog AL (the original
+    # Phase 1 behavior) for any powder material with no published curve, so this data is a real accuracy
+    # improvement for the materials it covers, not a hard dependency for the app to start.
+    cpp_dc_bias_curves = _build_cpp_record(dc_bias_curves, magnetics_cpp.DCBiasCurveData, {
+        "materialName" : "MaterialName",
+        "a" : "A",
+        "b" : "B",
+        "c" : "C",
+        "d" : "D",
+        "vendor" : "Vendor",
+        "datasheetUrl" : "DatasheetUrl",
+    })
     magnetics_cpp.set_material_database(cpp_materials)
     magnetics_cpp.set_core_database(cpp_cores)
     magnetics_cpp.set_core_loss_coefficient_database(cpp_core_loss_coefficients)
+    magnetics_cpp.set_dc_bias_curve_database(cpp_dc_bias_curves)
 
     # Real, reproducible version identifiers - a content hash of the exact CSV bytes actually loaded,
     # not an invented semver for data whose upstream (PyOpenMagnetics/MAS) release version isn't tracked
@@ -120,7 +135,9 @@ def load_real_magnetics_data():
     magnetics_cpp.set_engine_versions(core_db_version, material_db_version)
 
     print(f"Loaded real data: {len(cpp_materials)} materials, {len(cpp_cores)} cores, "
-          f"{len(cpp_core_loss_coefficients)} core-loss coefficient rows. source: PyOpenMagnetics / MAS")
+          f"{len(cpp_core_loss_coefficients)} core-loss coefficient rows, "
+          f"{len(cpp_dc_bias_curves)} DC-bias roll-off curve rows. source: PyOpenMagnetics / MAS + "
+          f"Magnetics Inc. / Micrometals datasheets")
 
 
 @app.get("/", response_class=FileResponse)

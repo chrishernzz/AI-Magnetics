@@ -174,6 +174,34 @@ that script and swap the resulting files in.
 
 ---
 
+## dc_bias_curves.csv
+
+**Purpose:** Real, manufacturer-published DC-bias permeability roll-off curve-fit coefficients for powder
+(distributed-gap) toroid materials - lets `TurnsAndGapDesign.cpp` compute a real, current-dependent
+effective AL instead of the flat 0-bias catalog AL. See `docs/ARCHITECTURE.md` → "Powder-Core DC-Bias
+Permeability Roll-Off" for the full mechanism.
+**Location:** `data/dc_bias_curves.csv`
+**Used by:** `python/services/magnetics_data.py`'s `fetch_dc_bias_curves()` → `DCBiasCurveDatabase`
+(`src/data/DCBiasCurveDatabase.h`)
+**Format:** `MaterialName,A,B,C,D,Vendor,DatasheetUrl` - `%initial_permeability = 1/(A + B*H^C) + D`, H in
+Oersteds. `MaterialName` matches `real_materials.csv`'s `Name` column exactly (e.g. `MPP 60`).
+**Currently:** 7 rows - MPP 60, Kool Mµ 60, High Flux 14, High Flux 26, XFlux 60, Edge 60 (source: Magnetics
+Inc.'s own "Material Curves" pages, the same `DatasheetUrl`s already cited in `real_materials.csv` for these
+materials), and Mix 26 (source: Micrometals' own Mix-26 datasheet PDF). Transcribed by hand from the
+vendors' own published coefficient tables, not derived or fitted by this project - cross-checked against
+each datasheet's own worked example/spot value in `tests/cpp/PermeabilityRolloffTests.cpp`.
+
+**Known Phase 1 data gap:** `real_materials.csv` carries 54 powder materials total; only these 6 have a
+published curve transcribed so far. Any other distributed-gap material (e.g. `MPP 26`, `Kool Mµ 26`) falls
+back to the pre-existing flat-AL0 behavior - `TurnsAndGapResult::usesDCBiasRolloffCurve` stays `false` so
+callers can tell the difference, never a silently-assumed 0%-bias result. Extending coverage is purely a
+data-transcription task (same per-material "Permeability vs. DC Bias" page pattern), not an engine change.
+
+**Do not hand-edit the coefficients.** They're read verbatim from the manufacturer's own published tables;
+if a value looks wrong, re-check it against the datasheet URL in that row rather than adjusting it here.
+
+---
+
 This document also explains the structure the *original* CSV files used
 to have — useful background if you're editing `python/services/magnetics_data.py`'s
 field mapping, since that's what these columns became.

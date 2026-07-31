@@ -21,8 +21,10 @@
 #include "core/magnetics/GapMethod.h"
 #include "core/model/Provenance.h"
 #include "core/model/EngineVersions.h"
+#include "core/magnetics/PermeabilityRolloff.h"
 #include "data/CoreDatabase.h"
 #include "data/CoreLossCoefficientDatabase.h"
+#include "data/DCBiasCurveDatabase.h"
 #include "data/MaterialDatabase.h"
 #include "rules/DesignRules.h"
 #include "validation/EvaluationStatus.h"
@@ -104,6 +106,15 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("minFluxSwingT", &CoreLossCoefficientData::minFluxSwingT)
         .def_readwrite("maxFluxSwingT", &CoreLossCoefficientData::maxFluxSwingT)
         .def_readwrite("testTemperatureC", &CoreLossCoefficientData::testTemperatureC);
+    py::class_<DCBiasCurveData>(m, "DCBiasCurveData")
+        .def(py::init<>())
+        .def_readwrite("materialName", &DCBiasCurveData::materialName)
+        .def_readwrite("a", &DCBiasCurveData::a)
+        .def_readwrite("b", &DCBiasCurveData::b)
+        .def_readwrite("c", &DCBiasCurveData::c)
+        .def_readwrite("d", &DCBiasCurveData::d)
+        .def_readwrite("vendor", &DCBiasCurveData::vendor)
+        .def_readwrite("datasheetUrl", &DCBiasCurveData::datasheetUrl);
 
     //vector contains valid core records : in-memory core database is replaced with supplied data
     m.def("set_core_database", &CoreDatabase::setData, "Replace the in-memory core database (called once at startup with real data)");
@@ -111,6 +122,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
     m.def("set_material_database", &MaterialDatabase::setData, "Replace the in-memory material database (called once at startup with real data)");
     //coefficient records are available for supported materials : in-memory loss coefficient database is updated
     m.def("set_core_loss_coefficient_database", &CoreLossCoefficientDatabase::setData, "Replace the in-memory core-loss (Steinmetz) coefficient database (called once at startup with real data)");
+    //curve records are available for powder materials with a published DC-bias curve : in-memory roll-off database is updated
+    m.def("set_dc_bias_curve_database", &DCBiasCurveDatabase::setData, "Replace the in-memory DC-bias permeability roll-off curve database (called once at startup with real data)");
 
     py::class_<CoreLossCoefficientLookup>(m, "CoreLossCoefficientLookup")
         .def(py::init<>())
@@ -262,7 +275,11 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("smallGapWarningReason", &TurnsAndGapResult::smallGapWarningReason)
         .def_readwrite("turnsRaisedForSaturationMargin", &TurnsAndGapResult::turnsRaisedForSaturationMargin)
         .def_readwrite("turnsRaisedForSaturationMarginReason", &TurnsAndGapResult::turnsRaisedForSaturationMarginReason)
-        .def_readwrite("turnsRaisedUsingRmsFloor", &TurnsAndGapResult::turnsRaisedUsingRmsFloor);
+        .def_readwrite("turnsRaisedUsingRmsFloor", &TurnsAndGapResult::turnsRaisedUsingRmsFloor)
+        .def_readwrite("usesDCBiasRolloffCurve", &TurnsAndGapResult::usesDCBiasRolloffCurve)
+        .def_readwrite("dcMagnetizingForceOe", &TurnsAndGapResult::dcMagnetizingForceOe)
+        .def_readwrite("percentInitialPermeabilityAtOperatingCurrent", &TurnsAndGapResult::percentInitialPermeabilityAtOperatingCurrent)
+        .def_readwrite("dcBiasRolloffUsedRmsFloor", &TurnsAndGapResult::dcBiasRolloffUsedRmsFloor);
     m.def("design_turns_and_gap", &designTurnsAndGap, "Run the turns/gap convergence loop directly against a core, target inductance, and tolerance - exposed for tests that need this stage in isolation from full core auto-selection");
 
     py::class_<ValidationResult>(m, "ValidationResult")

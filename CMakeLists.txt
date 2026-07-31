@@ -47,6 +47,7 @@ set(CORE_SOURCES
     src/core/sizing/CoreEvaluation.cpp
     src/core/sizing/FluxLimit.cpp
     src/core/magnetics/GapDesign.cpp
+    src/core/magnetics/PermeabilityRolloff.cpp
     src/core/magnetics/TurnsCalculation.cpp
     src/core/magnetics/TurnsAndGapDesign.cpp
     src/core/winding/WindingDesign.cpp
@@ -156,6 +157,7 @@ add_executable(magnetics_engine_tests
     tests/cpp/WindingDesignTests.cpp
     tests/cpp/LossTests.cpp
     tests/cpp/GapToleranceTests.cpp
+    tests/cpp/PermeabilityRolloffTests.cpp
     tests/cpp/ThermalTests.cpp
     tests/cpp/RequirementDerivationServiceTests.cpp
     tests/cpp/OperatingPointConfidenceServiceTests.cpp

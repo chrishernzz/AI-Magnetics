@@ -238,6 +238,44 @@ there, not to pretend the cap doesn't exist.
 
 ---
 
+## Powder-Core DC-Bias Permeability Roll-Off
+
+A real, previously-missing piece of physics for distributed-gap (powder) toroids - `TurnsAndGapDesign.cpp`
+used to solve `N = round(sqrt(L/AL0))` once against the core's catalog AL and call it done, reporting the
+exact same inductance at 0 A and at the request's real operating current. Real powder cores (MPP, Kool Mµ,
+High Flux, XFlux, Edge, Mix) don't work that way - permeability rolls off as DC bias current rises, so the
+true inductance at current is measurably below the 0-bias catalog number. A real user report ("at 0 you get
+3mH and at 5 amps you should see less than 3mH") caught this.
+
+**`data/dc_bias_curves.csv` / `DCBiasCurveDatabase.h`**: real, manufacturer-published curve-fit coefficients
+(`a`, `b`, `c`, `d`) for `%initial_permeability = 1/(a + b*H^c) + d` (H in Oersteds), transcribed directly
+from Magnetics Inc.'s and Micrometals' own "Permeability vs. DC Bias" datasheet pages (Toroid shape family)
+- not derived, fitted, or estimated by this project. Currently covers six materials (MPP 60, Kool Mµ 60,
+High Flux 14, High Flux 26, XFlux 60, Edge 60, Mix 26); a distributed-gap material with no row here falls
+back to the original flat-AL0 behavior, never a guessed curve.
+
+**`core/magnetics/PermeabilityRolloff.h/.cpp`**: `findDCBiasCurve()` (lookup, mirrors
+`findCoreLossCoefficients()`'s pattern), `dcMagnetizingForceOe()` (`H = 0.4*pi*N*I/le`, le in cm - the
+standard formula, confirmed against Magnetics Inc.'s own published worked example), and
+`percentInitialPermeability()` (the formula above, clamped to [0, 100]). Both formula and transcribed
+coefficients are cross-checked against real datasheet spot-values in `PermeabilityRolloffTests.cpp` (a 60µ
+Kool Mµ core at H=57.5 Oe should read ~72% per Magnetics Inc.'s own worked example; Mix-26 at 50 Oe should
+bracket Micrometals' stated 47.4%/55.2% min/nom).
+
+**`TurnsAndGapDesign.cpp`'s distributed-gap branch**: when a real curve exists for the material *and* a real
+operating current is known (peak if supplied, else RMS as the same guaranteed-lower-bound floor already
+established for the ferrite flux-aware seed), turns and the rolled-off AL are solved together as a fixed
+point - seed turns from AL0, compute H, look up %µ, get `AL_eff = AL0 * %µ/100`, recompute the turns
+required against `AL_eff`, repeat (capped at the same `kMaxIterations` the ferrite loop uses). This map is
+monotonically increasing in turns (more turns raises H, which lowers %µ, which demands still more turns), so
+a genuine "no turns count on this core achieves the target L at this current" case - operating near the
+material's real saturation behavior - fails to converge and is rejected with a real reason, never forced to
+a number. `TurnsAndGapResult` gained four fields to make this visible: `usesDCBiasRolloffCurve`,
+`dcMagnetizingForceOe`, `percentInitialPermeabilityAtOperatingCurrent`, `dcBiasRolloffUsedRmsFloor` - all
+false/100%/0 (the old behavior, unchanged) whenever no curve or no current is available.
+
+---
+
 ## Data Source: Real Data, Bundled Snapshot — No Live Windows Dependency
 
 `cores.csv` and `materials.csv` (the old hand-typed files) are gone for

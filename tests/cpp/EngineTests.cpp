@@ -6,6 +6,7 @@ void runGapDesignTests();
 void runUnitConversionTests();
 void runAreaProductTests();
 void runGapToleranceTests();
+void runPermeabilityRolloffTests();
 void runValidationTests();
 void runWindingDesignTests();
 void runLossTests();
@@ -23,6 +24,7 @@ int main() {
     runUnitConversionTests();
     runAreaProductTests();
     runGapToleranceTests();
+    runPermeabilityRolloffTests();
     runValidationTests();
     runWindingDesignTests();
     runLossTests();
