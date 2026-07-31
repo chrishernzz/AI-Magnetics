@@ -38,6 +38,7 @@ DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 MATERIALS_FILE = DATA_DIR / "real_materials.csv"
 CORES_FILE = DATA_DIR / "real_cores.csv"
 CORE_LOSS_COEFFICIENTS_FILE = DATA_DIR / "real_core_loss_coefficients.csv"
+DC_BIAS_CURVES_FILE = DATA_DIR / "dc_bias_curves.csv"
 
 
 def _read_csv(path: Path) -> list[dict]:
@@ -184,6 +185,40 @@ def fetch_core_loss_coefficients() -> list[dict]:
                 "Ct0": float(r["Ct0"]),
                 "Ct1": float(r["Ct1"]),
                 "Ct2": float(r["Ct2"]),
+            }
+        )
+
+    return results
+
+
+def fetch_dc_bias_curves() -> list[dict]:
+    """
+    Returns real powder-core DC-bias permeability roll-off curve-fit coefficients,
+    mapped to the same fields the C++ engine expects:
+
+    MaterialName, A, B, C, D, Vendor, DatasheetUrl
+
+    %initial_permeability = 1/(A + B*H^C) + D, H in Oersteds - transcribed verbatim
+    from Magnetics Inc.'s and Micrometals' own published "Permeability vs. DC Bias"
+    datasheet pages (Toroid shape family) - see data/dc_bias_curves.csv. Only the
+    materials this project has real transcribed coefficients for appear here; a
+    distributed-gap material with no row here falls back to the flat catalog AL in
+    TurnsAndGapDesign.cpp, never a guessed curve.
+    """
+    rows = _read_csv(DC_BIAS_CURVES_FILE)
+
+    results = []
+
+    for r in rows:
+        results.append(
+            {
+                "MaterialName": r["MaterialName"],
+                "A": float(r["A"]),
+                "B": float(r["B"]),
+                "C": float(r["C"]),
+                "D": float(r["D"]),
+                "Vendor": r.get("Vendor", ""),
+                "DatasheetUrl": r.get("DatasheetUrl", ""),
             }
         )
 

@@ -1,5 +1,6 @@
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/magnetics/GapDesign.h"
+#include "core/magnetics/PermeabilityRolloff.h"
 #include "core/magnetics/TurnsCalculation.h"
 #include "core/sizing/FluxLimit.h"
 #include "core/units/UnitConversions.h"
@@ -69,18 +70,23 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
                                      const std::optional<double>& peakCurrentA, double rmsCurrentA, const DesignRules& rules) {
     TurnsAndGapResult result;
 
-    //Real powder toroid materials (MPP/Kool Mu/High Flux/Sendust, etc.) achieve their working permeability
-    //through gapping distributed at the powder-particle level, baked into the catalog AL - there is no
-    //discrete machined air gap to report. Shape alone ("Toroid") is NOT a sufficient signal for this - the
-    //catalog also carries plenty of real ferrite toroids (e.g. N87, T35, T65, and Fair-Rite's 67/77/79/80
-    //grades), which get their permeability from the ferrite chemistry itself, not particle-level gapping,
-    //and need the exact same machined-gap formula as a two-piece core - a real user report (a passing N87
-    //toroid candidate reporting gapMm=0.0/Distributed) caught this. real_cores.csv's own MaterialType column
-    //("ferrite"/"powder", sourced directly from PyOpenMagnetics' material.material field - see
-    //scripts/export_real_data.py) is the real signal: only a Toroid whose material is confirmed "powder" is
-    //distributed-gap. An empty/unknown materialType is treated conservatively - it runs the real formula
-    //below rather than being assumed powder.
-    bool isDistributedGapCore = core.coreShape == "Toroid" && core.materialType == "powder";
+    //Real powder materials (MPP/Kool Mu/High Flux/XFlux/Edge/Sendust, etc.) achieve their working
+    //permeability through gapping distributed at the powder-particle level, baked into the catalog AL -
+    //there is no discrete machined air gap to report, REGARDLESS OF SHAPE. This used to also require
+    //coreShape=="Toroid", which was wrong in the other direction from the original ferrite-toroid bug: real
+    //powder E-cores/blocks/EQ/LP families (e.g. Kool Mu E/U/EER, XFlux Blocks) are just as distributed-gap
+    //as powder toroids - same material, same physics, different mechanical shape - but a real user report
+    //(3000uH/5A RMS/100kHz on a mixed materials search) caught several TwoPieceSet powder parts wrongly
+    //running the ferrite MachinedCenterLeg formula instead, producing physically nonsensical turns counts
+    //(400-700+) and >1.0 "fill factors". Shape alone was never the right signal either direction - the
+    //catalog also carries real ferrite toroids (e.g. N87, T35, T65, Fair-Rite's 67/77/79/80 grades), which
+    //get their permeability from the ferrite chemistry itself and need the real machined-gap formula despite
+    //being toroids (the original bug this logic was written to fix). real_cores.csv's own MaterialType
+    //column ("ferrite"/"powder", sourced directly from PyOpenMagnetics' material.material field - see
+    //scripts/export_real_data.py) is the one real signal that matters, independent of shape: any core whose
+    //material is confirmed "powder" is distributed-gap. An empty/unknown materialType is treated
+    //conservatively - it runs the real machined-gap formula below rather than being assumed powder.
+    bool isDistributedGapCore = core.materialType == "powder";
     result.gapMethod = isDistributedGapCore ? GapMethod::Distributed : rules.gapMethod;
 
     //Only MachinedCenterLeg has a validated formula in Phase 1 (see GapMethod.h) - any other requested
@@ -96,25 +102,97 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
     //target inductance is converted from microhenries to nanohenries (1uH = 1000nH)
     double targetNh = units::uHToNh(targetInductanceUH);
 
-    //Distributed-gap toroids: no center leg exists to machine a discrete gap into, so the McLyman
-    //required-gap iteration below (which solves for an ADDITIONAL air gap on top of the ungapped AL) does
-    //not apply - the only lever available is turns, against the real catalog AL that already reflects the
-    //material's distributed permeability. Reporting a nonzero "gap" here would imply a machinable dimension
-    //that does not physically exist on this part. No gap-tolerance sweep either - there is no gap dimension
-    //for mechanical tolerance to act on; AL manufacturing tolerance is a different, real concern this Phase
-    //1 dataset does not carry data for (see DATA_FILES.md). material/peakCurrentA are intentionally never
-    //consulted in this branch either - the flux-aware turns floor below (see the real-gap-formula path)
-    //needs a gap to trade against turns for a given target inductance, and powder toroids have none: their
-    //catalog AL is fixed, so N=sqrt(L/AL) is uniquely determined with zero design freedom. If a powder
-    //toroid fails saturation, the only real fix is a different, lower-permeability part - out of scope here.
+    //Distributed-gap (powder) cores: even on shapes with a physical center leg (E-cores, blocks, EQ/LP),
+    //that leg is never machined with an air gap - the material itself provides the gap-equivalent property,
+    //distributed through the powder. So the McLyman required-gap iteration below (which solves for an
+    //ADDITIONAL air gap on top of the ungapped AL) does not apply - the only lever available is turns.
+    //Reporting a nonzero "gap" here would imply a machinable dimension that does not physically exist on
+    //this part. No gap-tolerance sweep either - there is no gap dimension for mechanical tolerance to act
+    //on; AL manufacturing tolerance is a different, real concern this Phase 1 dataset does not carry data
+    //for (see DATA_FILES.md).
+    //
+    //core.al is the material's INITIAL permeability (measured at ~0 A DC bias), not a constant - real
+    //powder cores roll off permeability as DC current rises (see PermeabilityRolloff.h; a real user report
+    //caught this: the old code solved N=sqrt(L/AL0) once and reported the SAME inductance at 0A and at the
+    //design's real operating current, when the true inductance at current is measurably lower). When a real
+    //manufacturer DC-bias curve exists for this material AND a real operating current is known, turns and
+    //the rolled-off AL are solved together below as a fixed point: turns -> H -> %mu(H) -> AL_eff -> turns
+    //required against AL_eff -> repeat, capped at kMaxIterations like the ferrite gap loop below. This
+    //iteration is monotonically increasing in turns (more turns raises H, which lowers %mu, which demands
+    //still more turns) - a genuine "no turns count on this core achieves the target L at this current"
+    //case (operating near the material's real saturation current) fails to converge and is rejected with a
+    //real reason, not forced to a number. When no curve exists yet for this material, or no current is
+    //known at all, this falls back to the original AL0-only formula (result.usesDCBiasRolloffCurve stays
+    //false either way, so callers can tell the difference from a real 0%-bias result).
     if (isDistributedGapCore) {
         int turns = std::max(1, seedTurns(core, targetInductanceUH));
-        double actualNh = static_cast<double>(turns) * turns * core.al;
+
+        DCBiasCurveLookup rolloffCurve = findDCBiasCurve(core.material);
+
+        std::optional<double> biasCurrentA;
+        bool biasCurrentIsRmsFloor = false;
+        if (peakCurrentA.has_value() && *peakCurrentA > 0.0) {
+            biasCurrentA = peakCurrentA;
+        } else if (rmsCurrentA > 0.0) {
+            biasCurrentA = rmsCurrentA;
+            biasCurrentIsRmsFloor = true;
+        }
+
+        double alEffNh = core.al;
+        double appliedHOe = 0.0;
+        double appliedPercentMu = 100.0;
+        bool rolloffApplied = false;
+
+        if (rolloffCurve.found && biasCurrentA.has_value()) {
+            int previousTurns = -1;
+            bool stabilized = false;
+            for (int i = 0; i < kMaxIterations; ++i) {
+                double hOe = dcMagnetizingForceOe(turns, *biasCurrentA, core.leMm);
+                double percentMu = percentInitialPermeability(hOe, rolloffCurve.curve);
+                double trialAlEffNh = core.al * (percentMu / 100.0);
+                if (trialAlEffNh <= 0.0) {
+                    break;
+                }
+                int requiredTurns = std::max(1, static_cast<int>(std::round(std::sqrt(targetNh / trialAlEffNh))));
+
+                appliedHOe = hOe;
+                appliedPercentMu = percentMu;
+                alEffNh = trialAlEffNh;
+
+                if (requiredTurns == turns) {
+                    stabilized = true;
+                    break;
+                }
+                if (requiredTurns == previousTurns) {
+                    //rounding 2-cycle between two adjacent integer turns counts near the true (fractional)
+                    //fixed point - resolve conservatively (more turns -> lower flux, never the reverse).
+                    turns = std::max(turns, requiredTurns);
+                    stabilized = true;
+                    break;
+                }
+                previousTurns = turns;
+                turns = requiredTurns;
+            }
+
+            if (!stabilized) {
+                result.converged = false;
+                result.rejectionReasons.push_back("no turns count converged for this distributed-gap core at the real "
+                    "operating current (" + std::to_string(*biasCurrentA) + " A" +
+                    (biasCurrentIsRmsFloor ? ", RMS used as a guaranteed lower bound on unsupplied peak current" : "") +
+                    ") within " + std::to_string(kMaxIterations) + " iterations - DC-bias permeability roll-off means "
+                    "more turns raises the magnetizing force further, which rolls off permeability further; this core's "
+                    "real saturation behavior may not support the target inductance at this current at all");
+                return result;
+            }
+            rolloffApplied = true;
+        }
+
+        double actualNh = static_cast<double>(turns) * turns * alEffNh;
         double errorPercent = 100.0 * (actualNh - targetNh) / targetNh;
 
         result.turns = turns;
         result.gapMm = 0.0;
-        result.effectiveAlNHPerTurnSquared = core.al;
+        result.effectiveAlNHPerTurnSquared = alEffNh;
         result.calculatedInductanceUH = units::nHToUh(actualNh);
         result.inductanceErrorPercent = errorPercent;
         result.withinTolerance = std::abs(errorPercent) <= tolerancePercent;
@@ -124,11 +202,17 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
         result.inductanceAtMinGapUH = result.calculatedInductanceUH;
         result.inductanceAtMaxGapUH = result.calculatedInductanceUH;
         result.inductanceWithinToleranceAcrossGapRange = result.withinTolerance;
+        result.usesDCBiasRolloffCurve = rolloffApplied;
+        result.dcMagnetizingForceOe = rolloffApplied ? appliedHOe : 0.0;
+        result.percentInitialPermeabilityAtOperatingCurrent = rolloffApplied ? appliedPercentMu : 100.0;
+        result.dcBiasRolloffUsedRmsFloor = rolloffApplied && biasCurrentIsRmsFloor;
 
         if (!result.withinTolerance) {
             result.rejectionReasons.push_back("calculated inductance " + std::to_string(result.calculatedInductanceUH) +
-                " uH (turns=" + std::to_string(turns) + " against catalog AL " + std::to_string(core.al) +
-                " nH/turn^2, distributed-gap core, no machined gap available to fine-tune) is outside the " +
+                " uH (turns=" + std::to_string(turns) + " against " + (rolloffApplied ? "DC-bias-rolled-off AL " : "catalog AL ") +
+                std::to_string(alEffNh) + " nH/turn^2" + (rolloffApplied ? " (" + std::to_string(appliedPercentMu) +
+                "% of initial permeability at " + std::to_string(appliedHOe) + " Oe)" : "") +
+                ", distributed-gap core, no machined gap available to fine-tune) is outside the " +
                 std::to_string(tolerancePercent) + "% tolerance of the target " + std::to_string(targetInductanceUH) +
                 " uH (error " + std::to_string(errorPercent) + "%)");
         }

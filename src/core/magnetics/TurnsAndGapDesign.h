@@ -70,6 +70,27 @@ struct TurnsAndGapResult {
     //parameter. The real peak current, unknown here, could still require more margin than this floor
     //guarantees - this seed only protects against the worst, most-obviously-wrong designs.
     bool turnsRaisedUsingRmsFloor = false;
+
+    //Powder-core (distributed-gap) DC-bias permeability roll-off - see PermeabilityRolloff.h. true only
+    //when a real manufacturer-published DC-bias curve was found for this material AND a real operating
+    //current was available to evaluate it against - turns/effectiveAlNHPerTurnSquared/calculatedInductanceUH
+    //above already reflect the rolled-off AL, not the flat catalog AL0, whenever this is true. False (with
+    //effectiveAlNHPerTurnSquared == core.al, the old Phase 1 behavior) when either is missing - a distributed-
+    //gap core whose material has no curve in data/dc_bias_curves.csv yet, or whose request supplied neither
+    //peak nor RMS current - never silently guessed.
+    bool usesDCBiasRolloffCurve = false;
+
+    //DC magnetizing force (Oersteds) and %initial-permeability-remaining actually used to compute the
+    //rolled-off AL above - 0.0 Oe / 100% when usesDCBiasRolloffCurve is false (no rolloff applied, not "0%
+    //bias confirmed"). Real, per-material curve values when true - see percentInitialPermeability().
+    double dcMagnetizingForceOe = 0.0;
+    double percentInitialPermeabilityAtOperatingCurrent = 100.0;
+
+    //true when the roll-off above was evaluated against rmsCurrentA as a guaranteed lower bound on peak
+    //(peakCurrentA was absent) - same RMS-floor convention and same caveat as turnsRaisedUsingRmsFloor: the
+    //real (unsupplied) peak current could drive H, and therefore the true roll-off, higher than this floor
+    //reflects. Only meaningful when usesDCBiasRolloffCurve is true.
+    bool dcBiasRolloffUsedRmsFloor = false;
 };
 
 // precondition: core.aeMm2 > 0, core.leMm > 0, core.mu > 0, targetInductanceUH > 0

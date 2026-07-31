@@ -4,6 +4,7 @@
 #include <optional>
 #include "TestHelpers.h"
 #include "core/magnetics/TurnsAndGapDesign.h"
+#include "data/DCBiasCurveDatabase.h"
 #include "rules/DesignRules.h"
 #include "validation/DesignValidation.h"
 
@@ -233,8 +234,161 @@ void testGenuinePowderToroidStillReportsDistributedGap() {
     assert(result.converged);
     assert(result.gapMethod == GapMethod::Distributed);
     assert(approxEqual(result.gapMm, 0.0, 1e-9));
+    //"MPP 26" has no published DC-bias curve in data/dc_bias_curves.csv yet (only the six materials this
+    //project has real transcribed coefficients for do) - must fall back to the flat catalog AL, not silently
+    //claim roll-off it can't actually compute.
+    assert(!result.usesDCBiasRolloffCurve);
+    assert(approxEqual(result.effectiveAlNHPerTurnSquared, core.al, 1e-9));
     std::printf("testGenuinePowderToroidStillReportsDistributedGap: turns=%d gapMethod=Distributed gapMm=0.0000 (unchanged)\n",
                 result.turns);
+}
+
+//real Kool Mu 60 E-core (00K1808E060, TwoPieceSet/E shape family, from real_cores.csv) - a real user report
+//(3000uH/5A RMS/100kHz) caught this exact part wrongly running the ferrite MachinedCenterLeg formula
+//(turns=686, "physical fill" > 1.0) because isDistributedGapCore used to require coreShape=="Toroid" - real
+//powder E-cores/blocks are just as distributed-gap as powder toroids, same material, different shape.
+CoreCandidate realPowderTwoPieceCore() {
+    CoreCandidate core;
+    core.partNumber = "00K1808E060";
+    core.material = "Kool Mu 60 test";  // deliberately not in dc_bias_curves.csv - this test is about gapMethod, not roll-off
+    core.mu = 60.0;
+    core.al = 46.603357101361475;
+    core.aeMm2 = 24.298018397212974;
+    core.waMm2 = 50.6356;
+    core.leMm = 39.311061266653965;
+    core.coreShape = "TwoPieceSet";
+    core.shapeFamily = "E";
+    core.materialType = "powder";
+    return core;
+}
+
+//13b. Regression: a powder core on a non-Toroid shape must still be treated as distributed-gap - shape
+//alone was never the right signal in either direction (see the ferrite-toroid fix this same file already
+//covers above); only MaterialType=="powder" is.
+void testPowderTwoPieceCoreAlsoReportsDistributedGap() {
+    CoreCandidate core = realPowderTwoPieceCore();
+    DesignRules rules = DesignRules::phase1Default();
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, 100.0, 20.0, std::nullopt, 0.0, rules);
+    assert(result.converged);
+    assert(result.gapMethod == GapMethod::Distributed);
+    assert(approxEqual(result.gapMm, 0.0, 1e-9));
+    std::printf("testPowderTwoPieceCoreAlsoReportsDistributedGap: shape=TwoPieceSet turns=%d gapMethod=Distributed gapMm=0.0000\n",
+                result.turns);
+}
+
+//real MPP 60 toroid (C055439A2X2, from real_cores.csv) - this exact material has a real, transcribed
+//DC-bias curve in data/dc_bias_curves.csv (Magnetics Inc.'s own published coefficients: a=0.01,
+//b=1.165E-07, c=2.436), unlike realPowderToroid()'s MPP 26 above.
+CoreCandidate realMpp60PowderToroid() {
+    CoreCandidate core;
+    core.partNumber = "C055439A2X2";
+    core.material = "MPP 60";
+    core.mu = 60.0;
+    core.al = 316.9118489299326;
+    core.aeMm2 = 449.4919;
+    core.waMm2 = 419.82233603275705;
+    core.leMm = 106.94106558574245;
+    core.coreShape = "Toroid";
+    core.materialType = "powder";
+    return core;
+}
+
+void loadMpp60DCBiasCurve() {
+    DCBiasCurveData curve;
+    curve.materialName = "MPP 60";
+    curve.a = 0.01;
+    curve.b = 1.165e-07;
+    curve.c = 2.436;
+    curve.d = 0.0;
+    DCBiasCurveDatabase::setData({curve});
+}
+
+//13. Regression for the DC-bias roll-off gap this round fixes (Roger's report: "when a powder core is at
+//0 you get 3mH and 5 amps you see less than 3mH... the powders roll off inductance with current"). At a
+//real operating current, the solved turns/effective AL must reflect the roll-off, not the flat 0-bias
+//catalog AL - hand-verified against the exact same formula in Python: target=3000uH/5A on this exact core
+//converges to turns=111, effectiveAl~=242.6nH/turn^2 (76.6% of the 316.9nH catalog AL0), H~=65.2 Oe.
+void testPowderCoreAppliesRealDCBiasRolloffAtOperatingCurrent() {
+    loadMpp60DCBiasCurve();
+    CoreCandidate core = realMpp60PowderToroid();
+    DesignRules rules = DesignRules::phase1Default();
+    double peakCurrentA = 5.0;
+
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, 3000.0, 10.0, peakCurrentA, 0.0, rules);
+
+    assert(result.converged);
+    assert(result.usesDCBiasRolloffCurve);
+    assert(!result.dcBiasRolloffUsedRmsFloor);  // real peak was supplied
+    // naive flat-AL0 seed here is round(sqrt(3000000/316.9118...)) = 97 - the whole point of this fix is
+    // that the real answer at 5A needs MORE turns than that, never fewer.
+    assert(result.turns > 97);
+    assert(result.turns >= 100 && result.turns <= 125);
+    assert(result.effectiveAlNHPerTurnSquared < core.al);       // rolled off below the flat catalog AL0...
+    assert(result.effectiveAlNHPerTurnSquared > core.al * 0.5); // ...but not implausibly far below it
+    assert(result.percentInitialPermeabilityAtOperatingCurrent > 60.0 && result.percentInitialPermeabilityAtOperatingCurrent < 90.0);
+    assert(result.dcMagnetizingForceOe > 40.0 && result.dcMagnetizingForceOe < 90.0);
+
+    std::printf("testPowderCoreAppliesRealDCBiasRolloffAtOperatingCurrent: turns=%d (naive seed was 97) "
+                "effectiveAl=%.2f nH/turn^2 (catalog AL0=%.2f) %%mu=%.2f%% H=%.2f Oe\n",
+                result.turns, result.effectiveAlNHPerTurnSquared, core.al,
+                result.percentInitialPermeabilityAtOperatingCurrent, result.dcMagnetizingForceOe);
+}
+
+//14. Same physical scenario, but only RMS current is known (no real peak supplied) - must still apply the
+//real roll-off using RMS as the same guaranteed-lower-bound floor already established for the flux-aware
+//seed elsewhere in this file, and flag dcBiasRolloffUsedRmsFloor so callers know it's a floor, not a
+//confirmed value.
+void testPowderCoreRmsFloorAppliesRealDCBiasRolloff() {
+    loadMpp60DCBiasCurve();
+    CoreCandidate core = realMpp60PowderToroid();
+    DesignRules rules = DesignRules::phase1Default();
+    double rmsCurrentA = 5.0;
+
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, 3000.0, 10.0, std::nullopt, rmsCurrentA, rules);
+
+    assert(result.converged);
+    assert(result.usesDCBiasRolloffCurve);
+    assert(result.dcBiasRolloffUsedRmsFloor);
+    assert(result.turns > 97);
+    std::printf("testPowderCoreRmsFloorAppliesRealDCBiasRolloff: turns=%d dcBiasRolloffUsedRmsFloor=true\n", result.turns);
+}
+
+//15. With no current known at all (no peak, rmsCurrentA<=0.0), there is no H to evaluate the curve against
+//- must fall back to the flat catalog AL exactly like before this round, not guess a current or assume 0A
+//bias is the real operating point.
+void testPowderCoreFallsBackToFlatAlWhenNoCurrentSupplied() {
+    loadMpp60DCBiasCurve();
+    CoreCandidate core = realMpp60PowderToroid();
+    DesignRules rules = DesignRules::phase1Default();
+
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, 3000.0, 10.0, std::nullopt, 0.0, rules);
+
+    assert(result.converged);
+    assert(!result.usesDCBiasRolloffCurve);
+    assert(approxEqual(result.effectiveAlNHPerTurnSquared, core.al, 1e-9));
+    assert(approxEqual(result.percentInitialPermeabilityAtOperatingCurrent, 100.0, 1e-9));
+    std::printf("testPowderCoreFallsBackToFlatAlWhenNoCurrentSupplied: turns=%d effectiveAl=%.2f (== catalog AL0, unchanged)\n",
+                result.turns, result.effectiveAlNHPerTurnSquared);
+}
+
+//16. Near/at this material's real saturation behavior (a large current on a core sized for a much smaller
+//one), more turns raises H, which rolls off permeability further, which demands still more turns - a real
+//physical dead end, not a solver bug. Hand-verified in Python: 3000uH/20A on this exact core diverges
+//(turns grows without bound) rather than settling - must be rejected with a real reason, never forced to
+//a number.
+void testPowderCoreRejectsWhenNoFeasibleTurnsUnderRolloff() {
+    loadMpp60DCBiasCurve();
+    CoreCandidate core = realMpp60PowderToroid();
+    DesignRules rules = DesignRules::phase1Default();
+    double peakCurrentA = 20.0;
+
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, 3000.0, 10.0, peakCurrentA, 0.0, rules);
+
+    assert(!result.converged);
+    assert(!result.rejectionReasons.empty());
+    assert(result.rejectionReasons.front().find("no turns count converged") != std::string::npos);
+    std::printf("testPowderCoreRejectsWhenNoFeasibleTurnsUnderRolloff: converged=false, reason=\"%s\"\n",
+                result.rejectionReasons.front().c_str());
 }
 
 //real 3C90 material - hasBmaxData=true, bmaxT=0.47T (matches real_materials.csv), reused so these tests
@@ -401,6 +555,11 @@ void runGapToleranceTests() {
     testFerriteToroidGetsRealMachinedGapNotDistributed();
     testUnknownMaterialTypeIsNeverAssumedPowder();
     testGenuinePowderToroidStillReportsDistributedGap();
+    testPowderTwoPieceCoreAlsoReportsDistributedGap();
+    testPowderCoreAppliesRealDCBiasRolloffAtOperatingCurrent();
+    testPowderCoreRmsFloorAppliesRealDCBiasRolloff();
+    testPowderCoreFallsBackToFlatAlWhenNoCurrentSupplied();
+    testPowderCoreRejectsWhenNoFeasibleTurnsUnderRolloff();
     testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore();
     testRmsFloorRaisesTurnsSeedWhenPeakAbsent();
     testRmsFloorCatchesCertainSaturationFailure();

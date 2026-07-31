@@ -238,6 +238,69 @@ there, not to pretend the cap doesn't exist.
 
 ---
 
+## Powder-Core DC-Bias Permeability Roll-Off
+
+A real, previously-missing piece of physics for distributed-gap (powder) toroids - `TurnsAndGapDesign.cpp`
+used to solve `N = round(sqrt(L/AL0))` once against the core's catalog AL and call it done, reporting the
+exact same inductance at 0 A and at the request's real operating current. Real powder cores (MPP, Kool Mµ,
+High Flux, XFlux, Edge, Mix) don't work that way - permeability rolls off as DC bias current rises, so the
+true inductance at current is measurably below the 0-bias catalog number. A real user report ("at 0 you get
+3mH and at 5 amps you should see less than 3mH") caught this.
+
+**`data/dc_bias_curves.csv` / `DCBiasCurveDatabase.h`**: real, manufacturer-published curve-fit coefficients
+(`a`, `b`, `c`, `d`) for `%initial_permeability = 1/(a + b*H^c) + d` (H in Oersteds), transcribed directly
+from Magnetics Inc.'s and Micrometals' own "Permeability vs. DC Bias" datasheet pages (Toroid shape family)
+- not derived, fitted, or estimated by this project. Currently covers six materials (MPP 60, Kool Mµ 60,
+High Flux 14, High Flux 26, XFlux 60, Edge 60, Mix 26); a distributed-gap material with no row here falls
+back to the original flat-AL0 behavior, never a guessed curve.
+
+**`core/magnetics/PermeabilityRolloff.h/.cpp`**: `findDCBiasCurve()` (lookup, mirrors
+`findCoreLossCoefficients()`'s pattern), `dcMagnetizingForceOe()` (`H = 0.4*pi*N*I/le`, le in cm - the
+standard formula, confirmed against Magnetics Inc.'s own published worked example), and
+`percentInitialPermeability()` (the formula above, clamped to [0, 100]). Both formula and transcribed
+coefficients are cross-checked against real datasheet spot-values in `PermeabilityRolloffTests.cpp` (a 60µ
+Kool Mµ core at H=57.5 Oe should read ~72% per Magnetics Inc.'s own worked example; Mix-26 at 50 Oe should
+bracket Micrometals' stated 47.4%/55.2% min/nom).
+
+**`TurnsAndGapDesign.cpp`'s distributed-gap branch**: when a real curve exists for the material *and* a real
+operating current is known (peak if supplied, else RMS as the same guaranteed-lower-bound floor already
+established for the ferrite flux-aware seed), turns and the rolled-off AL are solved together as a fixed
+point - seed turns from AL0, compute H, look up %µ, get `AL_eff = AL0 * %µ/100`, recompute the turns
+required against `AL_eff`, repeat (capped at the same `kMaxIterations` the ferrite loop uses). This map is
+monotonically increasing in turns (more turns raises H, which lowers %µ, which demands still more turns), so
+a genuine "no turns count on this core achieves the target L at this current" case - operating near the
+material's real saturation behavior - fails to converge and is rejected with a real reason, never forced to
+a number. `TurnsAndGapResult` gained four fields to make this visible: `usesDCBiasRolloffCurve`,
+`dcMagnetizingForceOe`, `percentInitialPermeabilityAtOperatingCurrent`, `dcBiasRolloffUsedRmsFloor` - all
+false/100%/0 (the old behavior, unchanged) whenever no curve or no current is available.
+
+**Shape no longer gates which cores are distributed-gap.** `isDistributedGapCore` originally also required
+`coreShape=="Toroid"`, inherited from the original ferrite-toroid fix (real ferrite toroids like N87 need
+the machined-gap formula despite being toroids). That condition was backwards for powder E-cores/blocks/
+EQ/LP families (e.g. Kool Mµ E/U/EER, XFlux Blocks) - they're just as distributed-gap as powder toroids,
+same material, same physics, only the mechanical shape differs - but were wrongly running the ferrite
+machined-gap formula, producing physically nonsensical turns counts (400-700+) and >1.0 winding-fill
+factors. A real user report (3000µH/5A RMS/100kHz across all materials) caught this. The fix: shape was
+never the right signal in either direction - only `real_cores.csv`'s own `MaterialType` column
+("ferrite"/"powder") is. `isDistributedGapCore` is now simply `core.materialType == "powder"`.
+
+**The area-product pre-filter was excluding most powder cores before the real solve ever ran.**
+`CoreEvaluation.cpp`'s `findSuitableCores()` gates candidates on `meetsAreaProduct`, computed from
+`calculateAp()` (McLyman's `Ap = 2E*1e4/(Ku*Bmax*J)`) *before* `TurnsAndGapDesign.cpp`'s real turns/gap/
+DC-bias solve ever runs on them. That formula assumes gap is a free variable - a fair shortcut for gapped
+ferrite ("is this core physically big enough at Bmax, since any AL can be reached by adjusting the gap"),
+but the wrong question for powder cores, whose real constraint is whether enough turns exist that the real
+roll-off-corrected AL still reaches the target inductance - something this closed-form estimate has no
+notion of. A real user report found this meant 61 of 80 powder cores in the database never reached real
+per-candidate evaluation at all when a peak current was supplied. Same fix philosophy as the pre-existing
+`peakSupplied==false` skip in the same function: when a shortcut can't be trusted for a case, skip it and
+let the real per-candidate check decide. `meetsAreaProduct` is now unconditionally `true` for any core
+with `materialType=="powder"`, judged only by the real turns/gap/DC-bias solve and the real
+`DesignValidation` checks downstream - never pre-excluded by a formula that doesn't model how powder
+cores actually work.
+
+---
+
 ## Data Source: Real Data, Bundled Snapshot — No Live Windows Dependency
 
 `cores.csv` and `materials.csv` (the old hand-typed files) are gone for
