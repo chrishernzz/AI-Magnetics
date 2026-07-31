@@ -167,15 +167,40 @@ struct DesignRules {
 
     // --- Thermal (Phase 1 default Rth) ---
 
-    // Generic natural-convection thermal-resistance order-of-magnitude
-    // (degC/W) for a small/medium ferrite power inductor. This is the
-    // single Phase 1 default constant that makes the iterative thermal
-    // loop runnable - it is NEVER per-core measured or simulated data, so
-    // ThermalEvaluation can only ever report a PreliminaryThermalEstimate,
-    // never a full pass, regardless of how complete upstream loss coverage
-    // is. Typical real-world Rth for inductors this size ranges roughly
-    // 5-40 degC/W depending on actual size/surface area/airflow.
+    // Fallback thermal-resistance (degC/W) used ONLY when a candidate's core
+    // geometry (Ae/Le) is unavailable to derive the size-aware estimate below -
+    // never per-core measured or simulated data either way, so ThermalEvaluation
+    // can only ever report a PreliminaryThermalEstimate, never a full pass,
+    // regardless of how complete upstream loss coverage is. Typical real-world
+    // Rth for inductors this size ranges roughly 5-40 degC/W depending on actual
+    // size/surface area/airflow - this flat number used to be applied to every
+    // core regardless of size; see naturalConvectionCoefficientWPerM2K below for
+    // the real per-core replacement.
     double defaultThermalResistanceCPerW;
+
+    // Natural-convection heat-transfer coefficient, W/(m^2*K), used to turn a
+    // candidate's own real core geometry (Ae*Le -> an estimated external surface
+    // area) into a size-aware thermal resistance via Newton's law of cooling
+    // (Rth = 1 / (h * surfaceAreaM2)) - see ThermalEvaluation.cpp. Real,
+    // citable natural-convection-in-still-air range for small
+    // electronics-scale components is ~5-25 W/(m^2*K), with 10 W/(m^2*K) the
+    // commonly used typical value (standard heat-transfer references, e.g.
+    // engineeringtoolbox.com "Convective Heat Transfer"). Still a generic
+    // constant (no per-part airflow/orientation/enclosure data exists), but
+    // it replaces one flat Rth guess for every core size with a real physics
+    // relationship driven by each candidate's own geometry.
+    double naturalConvectionCoefficientWPerM2K;
+
+    // Shape factor relating a core's magnetic volume (Ae*Le) to an estimated
+    // total external surface area, assuming a roughly compact/cube-like solid
+    // (surfaceArea ~= factor * volume^(2/3) - the real cube surface-to-volume
+    // relation at factor=6). This does not yet differentiate real shape
+    // families: a toroid's actual surface-to-volume ratio is higher than a
+    // cube's (so this under-estimates a toroid's real surface area, i.e. is
+    // conservative - it overstates rather than overclaims a toroid's real
+    // cooling); a squat two-piece ferrite core is a closer fit. A documented
+    // Phase 1 order-of-magnitude simplification, not a fabricated per-shape fact.
+    double compactSolidSurfaceAreaShapeFactor;
 
     // Winding-temperature change (degC) below which the thermal iterative
     // loop is considered converged.

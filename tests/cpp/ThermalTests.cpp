@@ -46,8 +46,49 @@ void testConvergesForTypicalCopperOnlyDesign() {
     assert(approxEqual(result.predictedTempRiseC, 16.249526336461873, 1e-6));
     assert(approxEqual(result.predictedHotspotTempC, result.convergedWindingTempC, 1e-12));
     assert(approxEqual(result.thermalResistanceCPerWUsed, rules.defaultThermalResistanceCPerW, 1e-12));
+    assert(!result.thermalResistanceIsGeometryDerived);  // baseInputs() never sets Ae/Le
     std::printf("testConvergesForTypicalCopperOnlyDesign: convergedWindingTempC=%.6f (%d iterations)\n",
                 result.convergedWindingTempC, result.iterationsUsed);
+}
+
+//2b. When a candidate's real Ae/Le geometry is supplied, the loop must use a size-aware Rth (Newton's law
+//of cooling over an estimated compact-solid surface area) instead of the flat default - cross-checked
+//against an independent hand computation of the same formula (Ae=1000mm^2, Le=100mm, h=10 W/m^2K,
+//shapeFactor=6 -> volume=1e-4 m^3, surfaceArea=6*volume^(2/3), Rth=1/(h*surfaceArea)).
+void testGeometryDerivedRthUsedWhenCoreDimensionsKnown() {
+    DesignRules rules = DesignRules::phase1Default();
+    ThermalIterationInputs inputs = baseInputs();
+    inputs.coreEffectiveAreaMm2 = 1000.0;
+    inputs.coreMagneticPathLengthMm = 100.0;
+
+    ThermalEvaluationResult result = evaluateThermal(inputs, rules);
+    assert(result.status == ThermalStatus::PreliminaryThermalEstimate);
+    assert(result.thermalResistanceIsGeometryDerived);
+    assert(approxEqual(result.thermalResistanceCPerWUsed, 7.735981389354627, 1e-9));
+    assert(result.thermalResistanceCPerWUsed != rules.defaultThermalResistanceCPerW);
+    std::printf("testGeometryDerivedRthUsedWhenCoreDimensionsKnown: Rth=%.6f C/W (vs flat default %.1f)\n",
+                result.thermalResistanceCPerWUsed, rules.defaultThermalResistanceCPerW);
+}
+
+//2c. A bigger core (larger Ae*Le) must get a lower geometry-derived Rth than a smaller one - the real
+//physics this whole model exists to capture (more surface area -> better natural-convection cooling).
+void testLargerCoreGetsLowerGeometryDerivedRth() {
+    DesignRules rules = DesignRules::phase1Default();
+    ThermalIterationInputs smallCore = baseInputs();
+    smallCore.coreEffectiveAreaMm2 = 200.0;
+    smallCore.coreMagneticPathLengthMm = 50.0;
+
+    ThermalIterationInputs bigCore = baseInputs();
+    bigCore.coreEffectiveAreaMm2 = 2000.0;
+    bigCore.coreMagneticPathLengthMm = 200.0;
+
+    ThermalEvaluationResult smallResult = evaluateThermal(smallCore, rules);
+    ThermalEvaluationResult bigResult = evaluateThermal(bigCore, rules);
+    assert(smallResult.thermalResistanceIsGeometryDerived);
+    assert(bigResult.thermalResistanceIsGeometryDerived);
+    assert(bigResult.thermalResistanceCPerWUsed < smallResult.thermalResistanceCPerWUsed);
+    std::printf("testLargerCoreGetsLowerGeometryDerivedRth: small=%.4f C/W, big=%.4f C/W\n",
+                smallResult.thermalResistanceCPerWUsed, bigResult.thermalResistanceCPerWUsed);
 }
 
 //3. Including a known core loss must raise the converged temperature above the copper-only case, and
@@ -122,6 +163,8 @@ void testDivergesHonestlyReportsNotEvaluatedRatherThanAStaleNumber() {
 void runThermalTests() {
     testNotEvaluatedWhenGeometryUnknown();
     testConvergesForTypicalCopperOnlyDesign();
+    testGeometryDerivedRthUsedWhenCoreDimensionsKnown();
+    testLargerCoreGetsLowerGeometryDerivedRth();
     testKnownCoreLossRaisesConvergedTemperature();
     testConvergesForHighCurrentLowDcrStillWithinStableRegion();
     testDivergesHonestlyReportsNotEvaluatedRatherThanAStaleNumber();

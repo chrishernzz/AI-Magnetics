@@ -141,10 +141,25 @@ def test_case6_flux_aware_seed_finds_real_design_that_used_to_saturate():
     inductor design would use. Re-probed after the flux-aware-seed fix (turns/gap
     now start from whichever is larger: the inductance-matching minimum, or the
     minimum turns that respects the saturation margin) - this exact scenario now
-    produces a real passing candidate (E100/60/28-3C90, turns raised from the old
-    minimum-turns value to a saturation-safe one), proving the fix works through
-    the full Python binding path, not just the C++ unit test
-    (testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore in GapToleranceTests.cpp)."""
+    produces a real passing candidate with turns raised from the old minimum-turns
+    value to a saturation-safe one, proving the fix works through the full Python
+    binding path, not just the C++ unit test
+    (testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore in GapToleranceTests.cpp).
+
+    The top candidate changed from E100/60/28-3C90 to B65919A0000R088 (N88) when
+    ThermalEvaluation moved from one flat Rth constant for every core to a
+    size-aware estimate derived from each core's own real Ae/Le geometry (Newton's
+    law of cooling) - not a regression, a real bug the flat constant was hiding.
+    At this request's real 28A RMS, E100/60/28-3C90's DCR loss is large enough that
+    the old flat 15 C/W Rth pushed the thermal loop's positive-feedback gain (hot
+    DCR -> more loss -> more heat) past its stability threshold, so it never
+    converged - reported as ThermalValidation=NotEvaluated, which never blocks a
+    candidate, so this overheating design silently ranked first with no real
+    thermal number behind it. The smaller, real per-core Rth this core actually
+    gets (better surface-area-to-volume than a flat guess assumed) lowers that same
+    gain below 1, so the loop now converges to a real number - and that real number
+    is a genuine failure (83 C rise vs 40 C allowable), correctly demoting it below
+    a candidate with an honest, converged, passing thermal margin instead."""
     result = magnetics_cpp.run_inductor_design(
         _design_request(inductanceUH=470.0, peakCurrentA=40.0, rmsCurrentA=28.0, switchingFreqKHz=80.0)
     )
@@ -152,14 +167,25 @@ def test_case6_flux_aware_seed_finds_real_design_that_used_to_saturate():
     assert len(result.candidates) >= 1
 
     candidate = result.candidates[0]
-    assert candidate.core.partNumber == "E100/60/28-3C90"
+    assert candidate.core.partNumber == "B65919A0000R088 (N88)"
     assert candidate.turnsAndGap.turnsRaisedForSaturationMargin
     assert candidate.turnsAndGap.gapMm > 0.0
 
     peak_flux = next(v for v in candidate.validations if v.checkName == "PeakFluxValidation")
     saturation = next(v for v in candidate.validations if v.checkName == "SaturationValidation")
+    thermal = next(v for v in candidate.validations if v.checkName == "ThermalValidation")
     assert peak_flux.passed
     assert saturation.passed
+    assert thermal.status.name == "Evaluated"
+    assert thermal.passed
+
+    # Regression guard for the mechanism above: the previous top pick must now show a real,
+    # converged, and correctly failing thermal number - not silently NotEvaluated.
+    old_top = next(c for c in result.rejectedCandidates if c.core.partNumber == "E100/60/28-3C90")
+    old_top_thermal = next(v for v in old_top.validations if v.checkName == "ThermalValidation")
+    assert old_top_thermal.status.name == "Evaluated"
+    assert not old_top_thermal.passed
+    assert old_top.thermal.thermalResistanceIsGeometryDerived
 
 
 def test_case7_gap_tolerance_sweep_fails_even_when_nominal_passes():
