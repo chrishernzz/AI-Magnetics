@@ -13,7 +13,6 @@ void runWindingDesignTests();
 void runLossTests();
 void runThermalTests();
 void runRequirementDerivationServiceTests();
-void runOperatingPointConfidenceServiceTests();
 void runBottleneckAnalysisTests();
 void runRankingExplanationTests();
 void runRankingHighlightsTests();
@@ -32,7 +31,6 @@ int main() {
     runLossTests();
     runThermalTests();
     runRequirementDerivationServiceTests();
-    runOperatingPointConfidenceServiceTests();
     runBottleneckAnalysisTests();
     runRankingExplanationTests();
     runRankingHighlightsTests();

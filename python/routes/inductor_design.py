@@ -381,15 +381,6 @@ def _serialize_rules(r) -> dict:
         "skinDepthRiskHighThreshold": r.skinDepthRiskHighThreshold,
     }
 
-#precondition: o is a valid OperatingPointConfidence object
-#postcondition: returns a serializable operating-point-confidence dictionary; both enums are converted to string
-def _serialize_operating_point_confidence(o) -> dict:
-    return {
-        "inputMode": o.inputMode.name,
-        "peakCurrentProvenance": o.peakCurrentProvenance.name,
-        "summary": o.summary,
-    }
-
 #precondition: h is a valid RankingHighlights object
 #postcondition: returns a serializable ranking-highlights dictionary; every *PartNumber field is meaningless
 #when hasCandidates is False (still returned, never omitted, so the shape is always predictable)
@@ -443,7 +434,6 @@ def serialize_recommendation(rec) -> dict:
         "requiredAreaProductCm4": rec.requiredAreaProductCm4,
         "largestAvailableAreaProductCm4": rec.largestAvailableAreaProductCm4,
         "versions": _serialize_versions(rec.versions),
-        "operatingPointConfidence": _serialize_operating_point_confidence(rec.operatingPointConfidence),
         "rankingHighlights": _serialize_ranking_highlights(rec.rankingHighlights),
     }
 

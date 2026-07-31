@@ -25,10 +25,14 @@ it, re-run the export (see scripts/export_real_data.py) somewhere
 PyOpenMagnetics actually installs, and replace the two CSV files below.
 
 Snapshot generated: see data/real_materials.csv / data/real_cores.csv
-header comment for the export date. 32 materials, 60 cores as of this
+header comment for the export date. 165 materials, 1276 cores as of this
 snapshot — filtered to power-application ferrite/powder materials,
-ungapped cores only (GapDesign.cpp isn't implemented yet), spread across
-materials and vendors (not just the first N encountered).
+ungapped cores only (GapDesign.cpp isn't implemented yet), sampled per
+material name across its real small-to-large size range (not just the
+first N encountered - see scripts/export_real_data.py's
+_select_size_diverse_cores(), added after a real user report found every
+MPP/Kool Mu/High Flux permeability grade above mu=60 almost entirely
+absent from an earlier snapshot for exactly that reason).
 """
 
 import csv
