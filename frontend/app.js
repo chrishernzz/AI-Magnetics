@@ -3,6 +3,7 @@ const TOPOLOGY_ENDPOINT = "/topology-design/buck";
 
 let lastResult = null;
 let currentShapeFilter = "all"; // all | Toroid | TwoPieceSet
+let currentMaterialTypeFilter = "all"; // all | ferrite | powder
 
 // Set when Mode 1 (Buck converter) has derived requirements - holds the
 // averageCurrentA/rippleCurrentPeakToPeakA pair so buildPayload() sends
@@ -1153,13 +1154,14 @@ function wireCandidateRowClicks(table, rows, passed) {
 function renderPassingTable(result) {
     const table = document.getElementById("candidateTable");
     const emptyState = document.getElementById("candidatesEmptyState");
-    const summary = document.getElementById("passingSectionSummary");
+    const tabCount = document.getElementById("passingTabCount");
     if (!table) return;
 
-    if (summary) summary.textContent = `Passing Candidates (${result.candidates.length})`;
+    if (tabCount) tabCount.textContent = String(result.candidates.length);
 
     let rows = result.candidates;
     if (currentShapeFilter !== "all") rows = rows.filter((c) => c.core.coreShape === currentShapeFilter);
+    if (currentMaterialTypeFilter !== "all") rows = rows.filter((c) => c.core.materialType === currentMaterialTypeFilter);
 
     if (rows.length === 0) {
         table.innerHTML = "";
@@ -1168,7 +1170,7 @@ function renderPassingTable(result) {
             emptyState.innerHTML =
                 result.candidates.length === 0
                     ? '<p class="candidates-empty-title">No candidate passed every mandatory check.</p><p>See Rejected Candidates below for why.</p>'
-                    : '<p class="candidates-empty-title">No passing candidate matches the selected shape filter.</p>';
+                    : '<p class="candidates-empty-title">No passing candidate matches the selected filters.</p>';
         }
         return;
     }
@@ -1183,29 +1185,35 @@ function renderPassingTable(result) {
     wireCandidateRowClicks(table, rows, true);
 }
 
-// Rejected candidates live in a collapsed <details> below the passing table -
-// de-emphasized by default (closed, quieter styling - see .candidates-section
-// in styles.css) since they're the "why not" record, not the primary answer,
-// but never hidden entirely - every evaluated candidate is still one click away.
+// Rejected candidates live behind their own tab, not stacked under the
+// passing table - de-emphasized by default (the Rejected tab isn't shown at
+// all unless there's at least one, and switching to it is never the default
+// after a run - see switchCandidatesTab()) since they're the "why not"
+// record, not the primary answer, but never hidden entirely - every
+// evaluated candidate is still one click away.
 function renderRejectedSection(result) {
-    const section = document.getElementById("rejectedSection");
-    const summary = document.getElementById("rejectedSectionSummary");
+    const rejectedBtn = document.getElementById("rejectedTabBtn");
+    const tabCount = document.getElementById("rejectedTabCount");
     const table = document.getElementById("rejectedTable");
-    if (!section || !table) return;
+    if (!table) return;
 
     if (result.rejectedCandidates.length === 0) {
-        section.hidden = true;
+        if (rejectedBtn) rejectedBtn.hidden = true;
         table.innerHTML = "";
+        // This run has no rejected candidates at all - if a previous run left the Rejected tab
+        // active, fall back to Passing so the user is never looking at a hidden, unreachable tab.
+        if (currentCandidatesTab === "rejected") switchCandidatesTab("passing");
         return;
     }
-    section.hidden = false;
-    if (summary) summary.textContent = `Rejected Candidates (${result.rejectedCandidates.length})`;
+    if (rejectedBtn) rejectedBtn.hidden = false;
+    if (tabCount) tabCount.textContent = String(result.rejectedCandidates.length);
 
     let rows = result.rejectedCandidates;
     if (currentShapeFilter !== "all") rows = rows.filter((c) => c.core.coreShape === currentShapeFilter);
+    if (currentMaterialTypeFilter !== "all") rows = rows.filter((c) => c.core.materialType === currentMaterialTypeFilter);
 
     if (rows.length === 0) {
-        table.innerHTML = `<tbody><tr><td class="table-empty">No rejected candidates match the selected shape filter.</td></tr></tbody>`;
+        table.innerHTML = `<tbody><tr><td class="table-empty">No rejected candidates match the selected filters.</td></tr></tbody>`;
         return;
     }
 
@@ -1215,23 +1223,40 @@ function renderRejectedSection(result) {
     wireCandidateRowClicks(table, rows, false);
 }
 
-// Real accordion: opening one of Passing/Rejected closes the other, so a long
-// list in one never keeps the other permanently scrolled out of view below
-// it. Wired once against the static <details> elements in the page (their
+// Passing/Rejected as real tabs (one panel visible at a time) instead of the
+// old stacked <details> accordion - a real user report: switching back and
+// forth meant scrolling to find the collapsed section's <summary> bar each
+// time. Wired once against the static tab buttons/panels in the page (their
 // contents get replaced on every render, but the elements themselves never
-// do), listening to the native `toggle` event so this also catches a user
-// clicking the <summary> directly, not just a script-driven open/close.
-function wireCandidatesAccordion() {
-    const passing = document.getElementById("passingSection");
-    const rejected = document.getElementById("rejectedSection");
-    if (!passing || !rejected) return;
+// do) - clicking a tab just toggles which panel is hidden, no scrolling
+// required to reach the other one.
+let currentCandidatesTab = "passing"; // passing | rejected
 
-    passing.addEventListener("toggle", () => {
-        if (passing.open) rejected.open = false;
-    });
-    rejected.addEventListener("toggle", () => {
-        if (rejected.open) passing.open = false;
-    });
+function switchCandidatesTab(tab) {
+    currentCandidatesTab = tab;
+    const passingBtn = document.getElementById("passingTabBtn");
+    const rejectedBtn = document.getElementById("rejectedTabBtn");
+    const passingPanel = document.getElementById("passingSection");
+    const rejectedPanel = document.getElementById("rejectedSection");
+    if (!passingBtn || !rejectedBtn || !passingPanel || !rejectedPanel) return;
+
+    const showPassing = tab === "passing";
+    passingBtn.classList.toggle("active", showPassing);
+    passingBtn.setAttribute("aria-selected", String(showPassing));
+    passingPanel.hidden = !showPassing;
+
+    rejectedBtn.classList.toggle("active", !showPassing);
+    rejectedBtn.setAttribute("aria-selected", String(!showPassing));
+    rejectedPanel.hidden = showPassing;
+}
+
+function wireCandidatesTabs() {
+    const passingBtn = document.getElementById("passingTabBtn");
+    const rejectedBtn = document.getElementById("rejectedTabBtn");
+    if (!passingBtn || !rejectedBtn) return;
+
+    passingBtn.addEventListener("click", () => switchCandidatesTab("passing"));
+    rejectedBtn.addEventListener("click", () => switchCandidatesTab("rejected"));
 }
 
 // Slide-in side panel for candidate detail (replaces the old inline accordion
@@ -1299,6 +1324,42 @@ function renderShapeFilter(result) {
     };
 }
 
+// Same pattern as renderShapeFilter() above, one filter dimension over -
+// material FAMILY (ferrite vs powder), not the specific grade (e.g. "MPP 60"
+// vs "N87"). A real user report: with 150+ candidates now that the core
+// database covers real MPP/Kool Mu/High Flux permeability grades (not just
+// the handful that used to survive the old sampling bug), ferrite still
+// crowds out powder in the ranked list - shape alone doesn't let an engineer
+// isolate "just show me the powder options." Filtering by the specific grade
+// name instead of family would mean 30+ options (one per real MPP/Kool
+// Mu/... permeability grade) - too granular to be a useful dropdown; the
+// grade itself is still visible in the Material column per row.
+function renderMaterialTypeFilter(result) {
+    const element = document.getElementById("materialTypeFilter");
+    if (!element) return;
+
+    const allCandidates = result.candidates.concat(result.rejectedCandidates);
+    const typesPresent = new Set(allCandidates.map((c) => c.core.materialType).filter(Boolean));
+
+    if (typesPresent.size === 0) {
+        element.hidden = true;
+        return;
+    }
+    element.hidden = false;
+
+    const typeLabels = { all: "All types", ferrite: "Ferrite", powder: "Powder" };
+    const options = ["all", ...Array.from(typesPresent)]
+        .map((key) => `<option value="${key}"${key === currentMaterialTypeFilter ? " selected" : ""}>${typeLabels[key] || key}</option>`)
+        .join("");
+    element.innerHTML = options;
+
+    element.onchange = () => {
+        currentMaterialTypeFilter = element.value;
+        renderPassingTable(lastResult);
+        renderRejectedSection(lastResult);
+    };
+}
+
 async function generateRecommendation() {
     // Hard block - re-check even though the button is already disabled when
     // invalid, since this function is the single entry point regardless of
@@ -1320,6 +1381,7 @@ async function generateRecommendation() {
         const result = await postRequest(ENDPOINT, payload);
         lastResult = result;
         currentShapeFilter = "all";
+        currentMaterialTypeFilter = "all";
 
         console.log("DesignRecommendation", result);
 
@@ -1328,13 +1390,24 @@ async function generateRecommendation() {
         renderTriageStrip(result);
         renderRecommendedCandidate(result);
         renderShapeFilter(result);
+        renderMaterialTypeFilter(result);
         renderPassingTable(result);
         renderRejectedSection(result);
+        // Every fresh run opens back on the Passing tab, even if a previous run left
+        // Rejected active - same reset policy as the shape/material-type filters above.
+        switchCandidatesTab("passing");
 
         // The ranking policy only means anything once there's something to
         // rank - showing it before any run just reads as unexplained noise.
         const rankingNote = document.getElementById("rankingNote");
         if (rankingNote) rankingNote.hidden = result.candidates.length + result.rejectedCandidates.length === 0;
+
+        // Jump straight to the results card instead of leaving the user to scroll past
+        // the (often tall) requirements form and diagnostics panel to find the table -
+        // a real complaint once candidate counts grew into the hundreds (see
+        // candidatesByTechnology/material-type-filter work above for why).
+        const candidatesCard = document.querySelector(".candidates-card");
+        if (candidatesCard) candidatesCard.scrollIntoView({ behavior: "smooth", block: "start" });
 
         setStatus(
             result.status === "ok"
@@ -1394,7 +1467,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     document.querySelectorAll(".field-tabs").forEach(initFieldTabs);
-    wireCandidatesAccordion();
+    wireCandidatesTabs();
 
     document.getElementById("sidePanelClose").addEventListener("click", closeCandidateSidePanel);
     document.getElementById("sidePanelOverlay").addEventListener("click", closeCandidateSidePanel);
