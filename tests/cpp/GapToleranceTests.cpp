@@ -243,6 +243,39 @@ void testGenuinePowderToroidStillReportsDistributedGap() {
                 result.turns);
 }
 
+//real Kool Mu 60 E-core (00K1808E060, TwoPieceSet/E shape family, from real_cores.csv) - a real user report
+//(3000uH/5A RMS/100kHz) caught this exact part wrongly running the ferrite MachinedCenterLeg formula
+//(turns=686, "physical fill" > 1.0) because isDistributedGapCore used to require coreShape=="Toroid" - real
+//powder E-cores/blocks are just as distributed-gap as powder toroids, same material, different shape.
+CoreCandidate realPowderTwoPieceCore() {
+    CoreCandidate core;
+    core.partNumber = "00K1808E060";
+    core.material = "Kool Mu 60 test";  // deliberately not in dc_bias_curves.csv - this test is about gapMethod, not roll-off
+    core.mu = 60.0;
+    core.al = 46.603357101361475;
+    core.aeMm2 = 24.298018397212974;
+    core.waMm2 = 50.6356;
+    core.leMm = 39.311061266653965;
+    core.coreShape = "TwoPieceSet";
+    core.shapeFamily = "E";
+    core.materialType = "powder";
+    return core;
+}
+
+//13b. Regression: a powder core on a non-Toroid shape must still be treated as distributed-gap - shape
+//alone was never the right signal in either direction (see the ferrite-toroid fix this same file already
+//covers above); only MaterialType=="powder" is.
+void testPowderTwoPieceCoreAlsoReportsDistributedGap() {
+    CoreCandidate core = realPowderTwoPieceCore();
+    DesignRules rules = DesignRules::phase1Default();
+    TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, 100.0, 20.0, std::nullopt, 0.0, rules);
+    assert(result.converged);
+    assert(result.gapMethod == GapMethod::Distributed);
+    assert(approxEqual(result.gapMm, 0.0, 1e-9));
+    std::printf("testPowderTwoPieceCoreAlsoReportsDistributedGap: shape=TwoPieceSet turns=%d gapMethod=Distributed gapMm=0.0000\n",
+                result.turns);
+}
+
 //real MPP 60 toroid (C055439A2X2, from real_cores.csv) - this exact material has a real, transcribed
 //DC-bias curve in data/dc_bias_curves.csv (Magnetics Inc.'s own published coefficients: a=0.01,
 //b=1.165E-07, c=2.436), unlike realPowderToroid()'s MPP 26 above.
@@ -522,6 +555,7 @@ void runGapToleranceTests() {
     testFerriteToroidGetsRealMachinedGapNotDistributed();
     testUnknownMaterialTypeIsNeverAssumedPowder();
     testGenuinePowderToroidStillReportsDistributedGap();
+    testPowderTwoPieceCoreAlsoReportsDistributedGap();
     testPowderCoreAppliesRealDCBiasRolloffAtOperatingCurrent();
     testPowderCoreRmsFloorAppliesRealDCBiasRolloff();
     testPowderCoreFallsBackToFlatAlWhenNoCurrentSupplied();

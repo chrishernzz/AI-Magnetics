@@ -274,6 +274,16 @@ a number. `TurnsAndGapResult` gained four fields to make this visible: `usesDCBi
 `dcMagnetizingForceOe`, `percentInitialPermeabilityAtOperatingCurrent`, `dcBiasRolloffUsedRmsFloor` - all
 false/100%/0 (the old behavior, unchanged) whenever no curve or no current is available.
 
+**Shape no longer gates which cores are distributed-gap.** `isDistributedGapCore` originally also required
+`coreShape=="Toroid"`, inherited from the original ferrite-toroid fix (real ferrite toroids like N87 need
+the machined-gap formula despite being toroids). That condition was backwards for powder E-cores/blocks/
+EQ/LP families (e.g. Kool Mµ E/U/EER, XFlux Blocks) - they're just as distributed-gap as powder toroids,
+same material, same physics, only the mechanical shape differs - but were wrongly running the ferrite
+machined-gap formula, producing physically nonsensical turns counts (400-700+) and >1.0 winding-fill
+factors. A real user report (3000µH/5A RMS/100kHz across all materials) caught this. The fix: shape was
+never the right signal in either direction - only `real_cores.csv`'s own `MaterialType` column
+("ferrite"/"powder") is. `isDistributedGapCore` is now simply `core.materialType == "powder"`.
+
 ---
 
 ## Data Source: Real Data, Bundled Snapshot — No Live Windows Dependency

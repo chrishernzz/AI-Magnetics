@@ -70,18 +70,23 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
                                      const std::optional<double>& peakCurrentA, double rmsCurrentA, const DesignRules& rules) {
     TurnsAndGapResult result;
 
-    //Real powder toroid materials (MPP/Kool Mu/High Flux/Sendust, etc.) achieve their working permeability
-    //through gapping distributed at the powder-particle level, baked into the catalog AL - there is no
-    //discrete machined air gap to report. Shape alone ("Toroid") is NOT a sufficient signal for this - the
-    //catalog also carries plenty of real ferrite toroids (e.g. N87, T35, T65, and Fair-Rite's 67/77/79/80
-    //grades), which get their permeability from the ferrite chemistry itself, not particle-level gapping,
-    //and need the exact same machined-gap formula as a two-piece core - a real user report (a passing N87
-    //toroid candidate reporting gapMm=0.0/Distributed) caught this. real_cores.csv's own MaterialType column
-    //("ferrite"/"powder", sourced directly from PyOpenMagnetics' material.material field - see
-    //scripts/export_real_data.py) is the real signal: only a Toroid whose material is confirmed "powder" is
-    //distributed-gap. An empty/unknown materialType is treated conservatively - it runs the real formula
-    //below rather than being assumed powder.
-    bool isDistributedGapCore = core.coreShape == "Toroid" && core.materialType == "powder";
+    //Real powder materials (MPP/Kool Mu/High Flux/XFlux/Edge/Sendust, etc.) achieve their working
+    //permeability through gapping distributed at the powder-particle level, baked into the catalog AL -
+    //there is no discrete machined air gap to report, REGARDLESS OF SHAPE. This used to also require
+    //coreShape=="Toroid", which was wrong in the other direction from the original ferrite-toroid bug: real
+    //powder E-cores/blocks/EQ/LP families (e.g. Kool Mu E/U/EER, XFlux Blocks) are just as distributed-gap
+    //as powder toroids - same material, same physics, different mechanical shape - but a real user report
+    //(3000uH/5A RMS/100kHz on a mixed materials search) caught several TwoPieceSet powder parts wrongly
+    //running the ferrite MachinedCenterLeg formula instead, producing physically nonsensical turns counts
+    //(400-700+) and >1.0 "fill factors". Shape alone was never the right signal either direction - the
+    //catalog also carries real ferrite toroids (e.g. N87, T35, T65, Fair-Rite's 67/77/79/80 grades), which
+    //get their permeability from the ferrite chemistry itself and need the real machined-gap formula despite
+    //being toroids (the original bug this logic was written to fix). real_cores.csv's own MaterialType
+    //column ("ferrite"/"powder", sourced directly from PyOpenMagnetics' material.material field - see
+    //scripts/export_real_data.py) is the one real signal that matters, independent of shape: any core whose
+    //material is confirmed "powder" is distributed-gap. An empty/unknown materialType is treated
+    //conservatively - it runs the real machined-gap formula below rather than being assumed powder.
+    bool isDistributedGapCore = core.materialType == "powder";
     result.gapMethod = isDistributedGapCore ? GapMethod::Distributed : rules.gapMethod;
 
     //Only MachinedCenterLeg has a validated formula in Phase 1 (see GapMethod.h) - any other requested
@@ -97,12 +102,14 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
     //target inductance is converted from microhenries to nanohenries (1uH = 1000nH)
     double targetNh = units::uHToNh(targetInductanceUH);
 
-    //Distributed-gap toroids: no center leg exists to machine a discrete gap into, so the McLyman
-    //required-gap iteration below (which solves for an ADDITIONAL air gap on top of the ungapped AL) does
-    //not apply - the only lever available is turns. Reporting a nonzero "gap" here would imply a machinable
-    //dimension that does not physically exist on this part. No gap-tolerance sweep either - there is no gap
-    //dimension for mechanical tolerance to act on; AL manufacturing tolerance is a different, real concern
-    //this Phase 1 dataset does not carry data for (see DATA_FILES.md).
+    //Distributed-gap (powder) cores: even on shapes with a physical center leg (E-cores, blocks, EQ/LP),
+    //that leg is never machined with an air gap - the material itself provides the gap-equivalent property,
+    //distributed through the powder. So the McLyman required-gap iteration below (which solves for an
+    //ADDITIONAL air gap on top of the ungapped AL) does not apply - the only lever available is turns.
+    //Reporting a nonzero "gap" here would imply a machinable dimension that does not physically exist on
+    //this part. No gap-tolerance sweep either - there is no gap dimension for mechanical tolerance to act
+    //on; AL manufacturing tolerance is a different, real concern this Phase 1 dataset does not carry data
+    //for (see DATA_FILES.md).
     //
     //core.al is the material's INITIAL permeability (measured at ~0 A DC bias), not a constant - real
     //powder cores roll off permeability as DC current rises (see PermeabilityRolloff.h; a real user report
