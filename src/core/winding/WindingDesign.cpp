@@ -111,12 +111,24 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
             std::to_string(bareStrandDiameterMm) + " mm, insulated ~" + std::to_string(result.insulatedConductorDiameterMm) + " mm), single strand";
     }
 
-    // Physical window fill: bobbin-wall derate, then subtract margin/lead-exit clearance (both expressed as
-    // area fractions in DesignRules.h - real window width/height now exists for two-piece cores, see
-    // CoreCandidate::windowWidthMm/windowHeightMm, but this formula does not yet switch to a literal-mm
-    // margin for them; toroids still have no linear window dimension at all), then divide the
-    // insulated-conductor area sum by the achievable packing factor to get the physically occupied area.
-    result.physicalWindowAreaMm2 = core.waMm2 * rules.bobbinWindowDerateFactor * (1.0 - rules.marginAllowanceAreaFraction - rules.leadExitAllowanceAreaFraction);
+    // Physical window fill: bobbin-wall derate (non-toroid cores only - see below), then subtract
+    // margin/lead-exit clearance (both expressed as area fractions in DesignRules.h - real window
+    // width/height now exists for two-piece cores, see CoreCandidate::windowWidthMm/windowHeightMm, but this
+    // formula does not yet switch to a literal-mm margin for them; toroids still have no linear window
+    // dimension at all), then divide the insulated-conductor area sum by the achievable packing factor to
+    // get the physically occupied area.
+    //
+    // rules.bobbinWindowDerateFactor models the wall thickness of a physical bobbin former - a real
+    // component that TwoPieceSet cores are wound on, but a Toroid has none: it's hand-wound directly around
+    // the core, with no separate former consuming window space. Applying that derate uniformly to every
+    // core shape overstated how much window a toroid loses - a real user report (a senior magnetics
+    // engineer's hand calculation) caught this, and it was the single largest identifiable cause of powder
+    // toroids (which already need far more turns than ferrite for the same inductance, since powder's real
+    // permeability is 10-100x lower) failing this check. Margin/lead-exit clearance still applies to
+    // toroids - hand winding still needs real clearance space - only the bobbin-specific derate is skipped.
+    bool coreHasPhysicalBobbin = core.coreShape != "Toroid";
+    double bobbinDerate = coreHasPhysicalBobbin ? rules.bobbinWindowDerateFactor : 1.0;
+    result.physicalWindowAreaMm2 = core.waMm2 * bobbinDerate * (1.0 - rules.marginAllowanceAreaFraction - rules.leadExitAllowanceAreaFraction);
     double physicalCopperAreaMm2 = (static_cast<double>(turns) * result.parallelStrands * result.insulatedConductorAreaMm2) / rules.packingFactor;
     result.physicalWindowFillFactor = result.physicalWindowAreaMm2 > 0.0 ? physicalCopperAreaMm2 / result.physicalWindowAreaMm2 : 0.0;
     result.fitsPhysicalWindow = result.physicalWindowFillFactor <= rules.maximumFillFactor;

@@ -163,6 +163,44 @@ void testBundleTooWideForNarrowWindowFailsRealCheck() {
                 result.bundleWidthMm, result.narrowestWindowOpeningMm);
 }
 
+//real Magnetics C055439A2X2 (MPP 60) - a genuine powder toroid from real_cores.csv, the exact core a real
+//user report (a senior magnetics engineer's hand calculation) was filed against.
+CoreCandidate realPowderToroid() {
+    CoreCandidate core;
+    core.partNumber = "C055439A2X2";
+    core.material = "MPP 60";
+    core.mu = 60.0;
+    core.al = 316.9118489299326;
+    core.aeMm2 = 449.4919;
+    core.waMm2 = 419.82233603275705;
+    core.leMm = 106.94106558574245;
+    core.mltMm = 98.27;
+    core.coreShape = "Toroid";
+    core.materialType = "powder";
+    return core;
+}
+
+//9. Regression for a real user report: rules.bobbinWindowDerateFactor models a physical bobbin former, which
+//a Toroid does not have - applying it anyway overstated how much window space a toroid loses. For the exact
+//real core/turns/current combination the report was filed against, removing the inapplicable bobbin derate
+//(margin/lead-exit clearance still applies) must make physicalWindowFillFactor LOWER (less strict) than it
+//was before this fix, by exactly the 1/0.85 factor the derate contributed - not an approximation.
+void testToroidSkipsInapplicableBobbinDerate() {
+    CoreCandidate toroidCore = realPowderToroid();
+    CoreCandidate twoPieceCore = realPowderToroid();
+    twoPieceCore.coreShape = "TwoPieceSet";  // same real core geometry, hypothetically bobbin-wound
+    DesignRules rules = DesignRules::phase1Default();
+
+    WindingDesignResult toroidResult = designWinding(toroidCore, 166, 5.0, rules);
+    WindingDesignResult twoPieceResult = designWinding(twoPieceCore, 166, 5.0, rules);
+
+    assert(toroidResult.physicalWindowFillFactor < twoPieceResult.physicalWindowFillFactor);
+    // exact ratio: the two-piece result still carries the 0.85 bobbin derate the toroid now skips
+    assert(approxEqual(toroidResult.physicalWindowFillFactor, twoPieceResult.physicalWindowFillFactor * rules.bobbinWindowDerateFactor, 1e-6));
+    std::printf("testToroidSkipsInapplicableBobbinDerate: toroid=%.4f vs hypothetical-bobbin-wound=%.4f (ratio matches bobbinWindowDerateFactor=%.2f exactly)\n",
+                toroidResult.physicalWindowFillFactor, twoPieceResult.physicalWindowFillFactor, rules.bobbinWindowDerateFactor);
+}
+
 }  // namespace
 
 void runWindingDesignTests() {
@@ -174,5 +212,6 @@ void runWindingDesignTests() {
     testEstimatedHotDcrExceedsColdDcr();
     testBundleFitsRealWindowOpening();
     testBundleTooWideForNarrowWindowFailsRealCheck();
+    testToroidSkipsInapplicableBobbinDerate();
     std::printf("All WindingDesignTests passed.\n");
 }
