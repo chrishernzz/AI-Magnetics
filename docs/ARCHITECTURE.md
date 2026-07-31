@@ -284,6 +284,21 @@ factors. A real user report (3000µH/5A RMS/100kHz across all materials) caught 
 never the right signal in either direction - only `real_cores.csv`'s own `MaterialType` column
 ("ferrite"/"powder") is. `isDistributedGapCore` is now simply `core.materialType == "powder"`.
 
+**The area-product pre-filter was excluding most powder cores before the real solve ever ran.**
+`CoreEvaluation.cpp`'s `findSuitableCores()` gates candidates on `meetsAreaProduct`, computed from
+`calculateAp()` (McLyman's `Ap = 2E*1e4/(Ku*Bmax*J)`) *before* `TurnsAndGapDesign.cpp`'s real turns/gap/
+DC-bias solve ever runs on them. That formula assumes gap is a free variable - a fair shortcut for gapped
+ferrite ("is this core physically big enough at Bmax, since any AL can be reached by adjusting the gap"),
+but the wrong question for powder cores, whose real constraint is whether enough turns exist that the real
+roll-off-corrected AL still reaches the target inductance - something this closed-form estimate has no
+notion of. A real user report found this meant 61 of 80 powder cores in the database never reached real
+per-candidate evaluation at all when a peak current was supplied. Same fix philosophy as the pre-existing
+`peakSupplied==false` skip in the same function: when a shortcut can't be trusted for a case, skip it and
+let the real per-candidate check decide. `meetsAreaProduct` is now unconditionally `true` for any core
+with `materialType=="powder"`, judged only by the real turns/gap/DC-bias solve and the real
+`DesignValidation` checks downstream - never pre-excluded by a formula that doesn't model how powder
+cores actually work.
+
 ---
 
 ## Data Source: Real Data, Bundled Snapshot — No Live Windows Dependency

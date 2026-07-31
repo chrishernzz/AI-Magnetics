@@ -50,8 +50,21 @@ std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate
         candidate.leMm = core.le;
         candidate.mltMm = core.mlt;
         candidate.areaProductCm4 = apCm4;
-        //this will return true or false based on the checking of apCm4 > requriedAreaProdcutCm4
-        candidate.meetsAreaProduct = apCm4 >= requiredAreaProductCm4 * 0.95;
+        //The Ap requirement above (calculateAp(), McLyman's Ap=2E*1e4/(Ku*Bmax*J)) assumes gap is a free
+        //variable: "is this core physically big enough to hold the required turns/wire at Bmax" is the right
+        //question for GAPPED FERRITE, where GapDesign.cpp can always add whatever gap is needed to hit the
+        //target L once the core is big enough. It is the wrong question for POWDER (distributed-gap) cores -
+        //their real constraint isn't flux-density headroom, it's whether enough turns exist that the real
+        //DC-bias-rolled-off AL (see PermeabilityRolloff.h) still reaches the target inductance without the
+        //design becoming physically absurd - a question this closed-form estimate cannot answer, since it
+        //has no notion of roll-off at all. Applying it to powder cores anyway meant most of them were being
+        //excluded before TurnsAndGapDesign.cpp's real iterative solve (which DOES know about roll-off) ever
+        //got a chance to run - a real user report (61 of 80 powder cores in the DB never reaching real
+        //evaluation at a supplied peak current) caught this. Same fix philosophy already used elsewhere in
+        //this function for peakSupplied==false: when a shortcut can't be trusted for a case, skip it and let
+        //the real per-candidate check decide - so every powder core unconditionally meets this pre-filter and
+        //is judged only by the real turns/gap/DC-bias solve and the real DesignValidation checks downstream.
+        candidate.meetsAreaProduct = (core.materialType == "powder") || (apCm4 >= requiredAreaProductCm4 * 0.95);
 
         //real vendor data, already fetched by magnetics_data.py but previously dropped before reaching this
         //struct - not fabricated, just finally threaded through.

@@ -154,6 +154,7 @@ add_executable(magnetics_engine_tests
     tests/cpp/UnitConversionTests.cpp
     tests/cpp/ValidationTests.cpp
     tests/cpp/AreaProductTests.cpp
+    tests/cpp/CoreEvaluationTests.cpp
     tests/cpp/WindingDesignTests.cpp
     tests/cpp/LossTests.cpp
     tests/cpp/GapToleranceTests.cpp
