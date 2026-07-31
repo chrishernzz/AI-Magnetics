@@ -1,8 +1,134 @@
 MaterialName,A,B,C,D,Vendor,DatasheetUrl
-MPP 60,0.01,1.165E-07,2.436,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
-Kool Mµ 60,0.01,2.142E-06,1.855,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Cores/Kool-Mu-Material-Curves
-High Flux 14,0.01,1.657E-09,2.441,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
-High Flux 26,0.01,4.205E-09,2.426,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
-XFlux 60,0.01,1.489E-08,2.613,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFLUX-Cores/XFLUX-Material-Curves
-Edge 60,0.01,9.202E-10,3.044,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Edge-Cores/Edge-Material-Curves
-Mix 26,1.00E-02,9.70E-06,1.72,0.00,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/2d/6d/2d6d534c-9520-45b8-9bf4-2403b1d2e3b0/mix-26-datasheet.pdf
+75-Series 26,0.01,5.82217231592947e-07,1.658586668319265,0.0,Magnetics,https://www.mag-inc.com/getattachment/Products/Powder-Cores/75-Series-Cores/Magnetics-75-Series-Powder-Cores-(1).pdf
+75-Series 40,0.01,1.3584193306867299e-06,1.650840464696743,0.0,Magnetics,https://www.mag-inc.com/getattachment/Products/Powder-Cores/75-Series-Cores/Magnetics-75-Series-Powder-Cores-(1).pdf
+75-Series 60,0.01,1.1010311917147724e-06,1.818949624018169,0.0,Magnetics,https://www.mag-inc.com/getattachment/Products/Powder-Cores/75-Series-Cores/Magnetics-75-Series-Powder-Cores-(1).pdf
+Edge 125,0.01,1.2288762264951619e-09,3.419022582702909,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Edge-Cores/Edge-Material-Curves
+Edge 14,0.01,1.1728541393616908e-11,3.10628371950539,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Edge-Cores/Edge-Material-Curves
+Edge 19,0.01,6.39341078141801e-11,2.949539694713896,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Edge-Cores/Edge-Material-Curves
+Edge 26,0.01,3.6455655264513e-11,3.192126405849248,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Edge-Cores/Edge-Material-Curves
+Edge 40,0.01,2.5917255804227508e-09,2.683025347976764,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Edge-Cores/Edge-Material-Curves
+Edge 60,0.01,9.202377733735453e-10,3.043619851825779,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Edge-Cores/Edge-Material-Curves
+Edge 75,0.01,1.5801636506699284e-09,3.067123868235906,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Edge-Cores/Edge-Material-Curves
+Edge 90,0.01,1.8463289341525403e-09,3.137599813434331,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Edge-Cores/Edge-Material-Curves
+FS 14,0.01,2.6000000000024257e-07,1.55729320656201,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/de/ac/deace03f-92d7-4f71-b3e6-97b59c087282/fs-014-datasheet.pdf
+FS 26,0.01,9.209538571561548e-08,1.91230276255053,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/7b/1c/7b1cf679-54f4-4dab-9086-7abe89c99eab/fs-026-datasheet.pdf
+FS 40,0.01,6.313737436018697e-08,2.15134267301483,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/70/1a/701aadca-90e3-4b18-869e-1cc2b10f7a40/fs-040-datasheet.pdf
+FS 60,0.01,1.9493913736214112e-07,2.09904436601059,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/8e/6e/8e6e0031-59d6-4472-95dd-a3af39833dcf/fs-060-datasheet.pdf
+FS 75,0.01,1.45189730115257e-07,2.32981169934089,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/9f/b1/9fb1f05b-d633-4148-8cb4-bba4da7c03dc/fs-075-datasheet.pdf
+FS 90,0.01,9.71872103537542e-07,1.99547686952747,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/3c/2f/3c2faa9d-d3e9-4ce4-84e4-824d389903b6/fs-090-datasheet.pdf
+GX 125,0.01,4.575663944083119e-07,2.25924129196039,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/60/1a/601abbc2-caa6-4a42-ae32-e19c7e902a10/gx-125-datasheet.pdf
+GX 60,0.01,3.67646e-09,2.8065,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/5b/79/5b79c229-28a9-4b6a-bcd8-9f56931c66d7/gx-060-datasheet.pdf
+HF 125,0.01,2.848336852604587e-07,2.37135410402686,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/2f/a9/2fa91cd9-48fe-40dc-bc5a-a00b7c3929b2/hf-125-datasheet.pdf
+HF 14,0.01,8.98783713063644e-08,1.78366359326977,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/4c/fd/4cfd0e46-cf2c-43db-9b36-bd2ddd5941f9/hf-014-datasheet.pdf
+HF 147,0.01,1.2478884851211215e-06,2.16892410096653,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/bb/38/bb38aea1-e3fc-4961-9789-f8c62dcdeace/hf-147-datasheet.pdf
+HF 160,0.01,1.4344299037582028e-06,2.16892410096653,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/70/a1/70a19fb2-1e3f-4bff-b359-53a176a92cc2/hf-160-datasheet.pdf
+HF 26,0.01,1.56826992249496e-07,1.83354042886185,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/be/04/be044006-f985-438c-a104-2748053d0a59/hf-026-datasheet.pdf
+HF 40,0.01,5.45e-08,2.195,0.0,Micrometals,
+HF 60,0.01,1.6723539831042542e-07,2.11089867428021,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/4f/14/4f14033f-866c-4c78-bfce-afa4cb14e84c/hf-060-datasheet.pdf
+HF 75,0.01,7.74e-08,2.355,0.0,Micrometals,
+High Flux 125,0.01,1.4027000000020718e-07,2.465366663033853,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 14,0.01,1.6569000000024232e-09,2.441,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 147,0.01,8.154565177757475e-08,2.7138308977134473,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 160,0.01,1.6709244115397e-07,2.571991393701863,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 26,0.01,4.20470000000611e-09,2.426,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 40,0.01,1.8434466820771582e-08,2.358499169678752,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 60,0.01,6.412600000008788e-08,2.290504771041697,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 75,0.01,4.883754615319801e-08,2.4407276777761933,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+Kool Mµ 125,0.01,2.208735576918523e-05,1.636135798202503,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Cores/Kool-Mu-Material-Curves
+Kool Mµ 14,0.01,4.497780000005482e-08,2.034326862,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Cores/Kool-Mu-Material-Curves
+Kool Mµ 26,0.01,5.266213875891499e-07,1.818949624018169,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Cores/Kool-Mu-Material-Curves
+Kool Mµ 40,0.01,2.1772688446741137e-06,1.703915585105366,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Cores/Kool-Mu-Material-Curves
+Kool Mµ 60,0.01,2.1417191961891843e-06,1.855283246313657,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Cores/Kool-Mu-Material-Curves
+Kool Mµ 75,0.01,3.8847047797250804e-06,1.818949624018169,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Cores/Kool-Mu-Material-Curves
+Kool Mµ 90,0.01,5.8295153696797024e-06,1.818949624018169,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Cores/Kool-Mu-Material-Curves
+Kool Mµ Hƒ 26,0.01,3.555649580481985e-08,2.212916454292226,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-HF-Cores/Kool-Mu-HF-Material-Curves
+Kool Mµ Hƒ 40,0.01,1.2819037670568694e-07,2.169203306986408,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-HF-Cores/Kool-Mu-HF-Material-Curves
+Kool Mµ Hƒ 60,0.01,4.0643787278641047e-07,2.130834392274758,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-HF-Cores/Kool-Mu-HF-Material-Curves
+Kool Mµ MAX 14,0.01,8.27376770145604e-09,2.239429009172197,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-MAX-Cores/Kool-Mu-MAX-Material-Curves
+Kool Mµ MAX 19,0.01,3.13564147227632e-08,2.11074536326397,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-MAX-Cores/Kool-Mu-MAX-Material-Curves
+Kool Mµ MAX 26,0.01,3.4443808411248835e-08,2.2053376776478872,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-MAX-Cores/Kool-Mu-MAX-Material-Curves
+Kool Mµ MAX 40,0.01,2.500000000002995e-07,2.0,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-MAX-Cores/Kool-Mu-MAX-Material-Curves
+Kool Mµ MAX 60,0.01,5.9171597633207e-07,2.0,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-MAX-Cores/Kool-Mu-MAX-Material-Curves
+Kool Mµ MAX 75,0.01,1.0000000000011979e-06,2.0,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-MAX-Cores/Kool-Mu-MAX-Material-Curves
+Kool Mµ MAX 90,0.01,3.884700000004234e-06,1.819,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-MAX-Cores/Kool-Mu-MAX-Material-Curves
+Kool Mµ Ultra 26,0.01,7.380000000009329e-08,2.11,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Ultra-Cores/Kool-Mu-Ultra-Material-Curves
+Kool Mµ Ultra 40,0.01,4.940000000005679e-07,1.92,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Ultra-Cores/Kool-Mu-Ultra-Material-Curves
+Kool Mµ Ultra 60,0.01,6.944444444452767e-07,2.0,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Ultra-Cores/Kool-Mu-Ultra-Material-Curves
+MP 125,0.01,6.960000000010218e-07,2.451,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/63/b5/63b52dcc-fed2-4cf0-bf7d-1f6c6faf3ad0/mp-125-datasheet.pdf
+MP 14,0.01,2.14675677949211e-08,2.16406774140861,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/96/1f/961fc3e1-82c4-4e4e-9734-5ea0d5fe73d9/mp-014-datasheet.pdf
+MP 147,0.01,8.1038e-07,2.5194,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/7a/e2/7ae2c385-4aef-40a7-b8bf-82b9192c8338/mp-147-datasheet.pdf
+MP 160,0.01,9.351e-07,2.526,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/72/fc/72fcd648-57f9-4965-9a47-c0a21cb6394c/mp-160-datasheet.pdf
+MP 173,0.01,1.313242659754622e-05,1.93476271834308,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/f9/1c/f91c19f5-2c10-400d-8fe9-52f41085b110/mp-173-datasheet.pdf
+MP 205,0.01,3.821817211713028e-06,2.34896162596327,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/1e/94/1e943509-3b7a-4832-9463-8f51ddeecfb7/mp-205-datasheet.pdf
+MP 26,0.01,6.8935993718956e-09,2.59172380468287,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/a6/37/a6371e46-3735-4c3d-b017-10cc68866291/mp-026-datasheet.pdf
+MP 60,0.01,1.0757500000015908e-07,2.468543015,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/fd/b7/fdb71e30-341e-47c7-9baf-4954673b6415/mp-060-datasheet.pdf
+MPP 125,0.01,4.0608312342800357e-07,2.51757308069497,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
+MPP 14,0.01,4.357346114434758e-09,2.384588614675588,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
+MPP 147,0.01,9.117511035013419e-07,2.429772769915485,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
+MPP 160,0.01,9.524580747877505e-07,2.477225251693333,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
+MPP 173,0.01,8.078101470694001e-07,2.5633835280555033,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
+MPP 19,0.01,1.4991580049710786e-09,2.64524226019233,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
+MPP 200,0.01,1.4962206702070936e-06,2.477225251693333,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
+MPP 26,0.01,1.0896677651880746e-08,2.505116265239042,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
+MPP 300,0.01,4.912592988070203e-06,2.429772769915485,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
+MPP 40,0.01,2.702068630655618e-08,2.511090841910042,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
+MPP 550,0.01,0.0005597119739179644,1.709511291351454,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
+MPP 60,0.01,1.1652679425475977e-07,2.435964999551126,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/MPP-Cores/MPP-Material-Curves
+MS 125,0.01,7.883666686492874e-06,1.88276251483404,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/0e/df/0edf7b29-aa29-4f8a-91dc-d977cd69e679/ms-125-datasheet.pdf
+MS 14,0.01,9.443247495712282e-07,1.53298777541211,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/80/97/80977099-f38a-4ba3-ab0b-fe9cccbae8b3/ms-014-datasheet.pdf
+MS 147,0.01,4.732059078141435e-05,1.53924930051701,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/b7/d0/b7d080e5-0f28-49a0-937e-ad8ff9645231/ms-147-datasheet.pdf
+MS 160,0.01,4.4391748615784566e-05,1.62692796162866,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/60/c5/60c57bd8-8454-44f8-bd49-0c7d7f83cb70/ms-160-datasheet.pdf
+MS 26,0.01,2.0607288234359636e-07,1.9954802976342,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/de/92/de92618b-91fa-4a79-8941-2d876a8140fb/ms-026-datasheet.pdf
+MS 40,0.01,2.6545189512697584e-06,1.70342168419145,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/6a/c3/6ac3f810-10fb-493c-a307-9bcd4f2adf1b/ms-040-datasheet.pdf
+MS 60,0.01,2.1511853201841724e-06,1.84090626432745,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/db/06/db06aae2-7ebf-4690-a80c-cd90e892ac65/ms-060-datasheet.pdf
+MS 75,0.01,3.4141417822154257e-06,1.84090626432745,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/c4/62/c462e8ee-9efd-4bf8-92a5-da94c4962f8e/ms-075-datasheet.pdf
+MS 90,0.01,3.9939858515321745e-06,1.88276251483404,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/e1/9e/e19eebf2-17a4-4b50-b2d3-9193e3a6b7b5/ms-090-datasheet.pdf
+Mix 1,0.01,1.1409828703573245e-06,1.42524422567231,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/2d/ac/2dacb91a-a93c-4d2c-895b-78d2c843b1dc/mix-1-datasheet.pdf
+Mix 10,0.01,5.536362745658813e-09,1.69170671913519,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/b2/3b/b23bda37-b7b1-4549-ad28-e1790d4fd357/mix-10-datasheet.pdf
+Mix 14,0.01,3.901826904638883e-07,1.45939546687604,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/13/af/13af4aff-8099-4751-a76f-ee55a3127232/mix-14-datasheet.pdf
+Mix 15,0.01,1.7827857349333223e-06,1.42524422567231,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/bb/73/bb73135e-ce88-44bb-80bf-00e46f827cf4/mix-15-datasheet.pdf
+Mix 17,0.01,1.3401575014546914e-08,1.54784999558989,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/46/59/4659e250-f325-4b6c-921f-82e11065b92e/mix-17-datasheet.pdf
+Mix 18,0.01,4.718191477886682e-06,1.6513429617722601,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/82/c7/82c741f8-73cc-4518-9ad3-8f744e8a9f1d/mix-18-datasheet.pdf
+Mix 19,0.01,3.603202507565604e-06,1.68815991257138,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/e1/50/e150c222-4da6-4f7a-b27f-fcd07c90382f/mix-19-datasheet.pdf
+Mix 2,0.01,1.8324695484760447e-07,1.46196619102418,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/67/c4/67c4b280-74bf-4705-a796-0f91cfb9833d/mix-2-datasheet.pdf
+Mix 26,0.01,9.704795648257756e-06,1.7197666035188401,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/2d/6d/2d6d534c-9520-45b8-9bf4-2403b1d2e3b0/mix-26-datasheet.pdf
+Mix 3,0.01,3.4942600404693135e-06,1.42524422567231,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/49/78/4978e27d-3bcc-47d0-a20d-b04a31ae7f91/mix-3-datasheet.pdf
+Mix 30,0.01,4.101795996475252e-06,1.3405383657474,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/c5/61/c561b9a2-1a3c-4d3b-aae6-fabdefe827b3/mix-30-datasheet.pdf
+Mix 34,0.01,2.9986223326559873e-06,1.542994109386759,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/0a/91/0a91f98e-11b7-498f-82c0-dc24f0ad35d1/mix-34-datasheet.pdf
+Mix 35,0.01,6.215840271143916e-06,1.38448608436355,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/e2/e0/e2e08057-2fc3-415f-892d-2de322a63c21/mix-35-datasheet.pdf
+Mix 38,0.01,9.781960589724734e-06,1.75680583232754,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/48/7c/487ca063-347f-4d13-b81a-667d42bcfff3/mix-38-datasheet.pdf
+Mix 40,0.01,8.93340978783984e-06,1.61407798306068,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/c4/25/c42521ec-1957-415f-a104-d66e328217cc/mix-40-datasheet.pdf
+Mix 45,0.01,2.437669734755497e-05,1.60697171881873,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/08/1c/081c31f3-5d86-4a63-8502-fe16f7409390/mix-45-datasheet.pdf
+Mix 52,0.01,4.657180568773704e-06,1.8406335926474,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/46/39/4639cc57-2d73-485e-8979-f4d66fb83aff/mix-52-datasheet.pdf
+Mix 6,0.01,4.8697113518047166e-08,1.56889307833502,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/d0/6f/d06f1158-7f2e-490a-a332-bfdb1e197a48/mix-6-datasheet.pdf
+Mix 60,0.01,1.942145122229194e-05,1.36158019230597,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/8c/86/8c86e46f-f433-44b3-80b8-dc0301dedbd4/mix-60-datasheet.pdf
+Mix 61,0.01,7.60070713916535e-06,1.38804814536219,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/12/af/12afd40a-c9c7-4b5e-8f0a-62f852adf59b/mix-61-datasheet.pdf
+Mix 63,0.01,1.2895176224431038e-05,1.242569141368989,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/3c/5d/3c5dd191-30d7-4a73-8629-4163f2f0d0e1/mix-63-datasheet.pdf
+Mix 66,0.01,1.2307666088567145e-05,1.4843099889935,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/15/a9/15a9fd9b-30ea-4034-ad63-e824abe11f51/mix-66-datasheet.pdf
+Mix 7,0.01,1.48430033426559e-07,1.46196619102418,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/8a/7f/8a7f376d-21bd-48f7-9b07-6e8939a0c23b/mix-7-datasheet.pdf
+Mix 70,0.01,1.8530214572940715e-05,1.64133012357639,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/49/81/4981fc4f-9243-406b-8b4c-97c359d85f2e/mix-70-datasheet.pdf
+Mix 8,0.01,3.4942600404693135e-06,1.42524422567231,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/c0/4d/c04d292a-90a1-44d3-8e59-61bb8f916c7d/mix-8-datasheet.pdf
+OC 125,0.01,8.990095568891317e-07,2.22118982306661,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/bf/d2/bfd25e77-67c6-46db-aa4d-70fd3fa7de33/oc-125-datasheet.pdf
+OC 26,0.01,3.2875405891584054e-07,1.777884312931489,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/33/4a/334a7626-32ab-4fbb-88b0-9c0f1c93a0e4/oc-026-datasheet.pdf
+OC 60,0.01,8.573060323538574e-08,2.32550975440056,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/7c/50/7c50c0fb-77c1-4689-9575-e3f8d271b10b/oc-060-datasheet.pdf
+OC 90,0.01,4.5565301168286547e-07,2.17457313810622,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/cb/f6/cbf6faf0-0e0d-4cad-8041-1acbba252656/oc-090-datasheet.pdf
+OD 26,0.01,5.4446802802070983e-08,2.00114471827501,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/6f/8b/6f8b8c66-dcee-4d57-a6c1-462acc3a1a83/od-026-datasheet.pdf
+OD 40,0.01,3.874697532582473e-08,2.22493485409225,0.0,Micrometals,
+OD 60,0.01,2.1114660357357534e-08,2.501,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/e8/6a/e86ad10e-1ffb-4f85-99fd-7213233ad928/od-060-datasheet.pdf
+OD 90,0.01,4.343004096824256e-07,2.12409454701364,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/db/eb/dbeb1a7a-8602-42f2-996a-271150da7223/od-090-datasheet.pdf
+OE 26,0.01,3.080767991298716e-07,1.7536260096785,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/44/f5/44f5ae46-b3a9-47ca-9df8-eb46c417b0b4/oe-026-datasheet.pdf
+OE 40,0.01,1.61937381652493e-07,2.06224491650882,0.0,Micrometals,
+OE 60,0.01,1.0759085235018696e-07,2.3079068032645402,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/a3/aa/a3aaf181-0ac7-454a-bf2c-0161f42b65e5/oe-060-datasheet.pdf
+OE 75,0.01,1.3056802329089899e-05,1.50817530061983,0.0,Micrometals,
+OE 90,0.01,3.156441266414024e-06,1.85823133075277,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/e0/78/e078f563-8468-4675-a931-fab19459365a/oe-090-datasheet.pdf
+SM 26,0.01,6.874485188577336e-08,2.01924064032321,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/b4/d1/b4d1a328-d7fc-4bf9-8cbf-14d493b63225/sm-026-datasheet.pdf
+SM 60,0.01,9.057994804630904e-07,1.903428045818949,0.0,Micrometals,https://s3.amazonaws.com/micrometals-production/filer_public/de/8b/de8bc0b5-617c-449f-bdc4-109bbae7800a/sm-060-datasheet.pdf
+XFlux 125,0.01,2.841190000003331e-06,1.956,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFLUX-Cores/XFLUX-Material-Curves
+XFlux 19,0.01,4.975733547980588e-09,2.235518590379107,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFLUX-Cores/XFLUX-Material-Curves
+XFlux 26,0.01,6.30419882821459e-10,2.7138308977134473,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFLUX-Cores/XFLUX-Material-Curves
+XFlux 40,0.01,1.843446682077158e-08,2.358499169678752,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFLUX-Cores/XFLUX-Material-Curves
+XFlux 60,0.01,1.4887928186564399e-08,2.612552871704276,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFLUX-Cores/XFLUX-Material-Curves
+XFlux 75,0.01,2.2692938993729584e-08,2.649401393277942,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFLUX-Cores/XFLUX-Material-Curves
+XFlux 90,0.01,9.841444097536376e-08,2.477225251693333,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFLUX-Cores/XFLUX-Material-Curves
+XFlux Ultra 26,0.01,2.6987935484104006e-09,2.454083767038844,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFlux-Ultra-Cores/XFLUX-Ultra-Material-Curves
+XFlux Ultra 60,0.01,4.4826134394471105e-09,2.814945287884365,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFlux-Ultra-Cores/XFLUX-Ultra-Material-Curves

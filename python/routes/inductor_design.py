@@ -381,15 +381,6 @@ def _serialize_rules(r) -> dict:
         "skinDepthRiskHighThreshold": r.skinDepthRiskHighThreshold,
     }
 
-#precondition: o is a valid OperatingPointConfidence object
-#postcondition: returns a serializable operating-point-confidence dictionary; both enums are converted to string
-def _serialize_operating_point_confidence(o) -> dict:
-    return {
-        "inputMode": o.inputMode.name,
-        "peakCurrentProvenance": o.peakCurrentProvenance.name,
-        "summary": o.summary,
-    }
-
 #precondition: h is a valid RankingHighlights object
 #postcondition: returns a serializable ranking-highlights dictionary; every *PartNumber field is meaningless
 #when hasCandidates is False (still returned, never omitted, so the shape is always predictable)
@@ -402,19 +393,47 @@ def _serialize_ranking_highlights(h) -> dict:
         "smallestCorePartNumber": h.smallestCorePartNumber,
     }
 
+#precondition: core is a serialized candidate's "core" dict (see _serialize_core)
+#postcondition: returns a technology-family label for grouping candidates in presentation - e.g.
+#"MPP 60" and "MPP 125" both collapse to "MPP" (the numeric suffix is a permeability grade, not a
+#separate technology). Ferrite grade codes (e.g. "3C90", "N87", "77") carry no such suffix and are
+#returned as-is - ferrite's family/grade split isn't structured the same way powder catalogs are, and
+#inventing one here would misrepresent this Phase 1 dataset as more structured than it actually is.
+def _technology_family(core: dict) -> str:
+    material = core["material"].strip()
+    parts = material.rsplit(" ", 1)
+    if len(parts) == 2 and parts[1].isdigit():
+        return parts[0]
+    return material
+
+#precondition: candidates is a list of already-serialized candidate dicts (see _serialize_candidate),
+#in whatever order the caller wants preserved within each group (e.g. the existing ranked order)
+#postcondition: returns candidates grouped by _technology_family, preserving each candidate's relative
+#order within its group - this is a presentation-only grouping (addresses ferrite dominating a single
+#flat ranked list, per the boss's/ChatGPT's redesign discussion); it does not change candidateRanksAhead()
+#or which candidates pass/fail, only how the SAME already-ranked passing candidates are bucketed for display
+def _group_candidates_by_technology(candidates: list[dict]) -> dict[str, list[dict]]:
+    grouped: dict[str, list[dict]] = {}
+    for c in candidates:
+        family = _technology_family(c["core"])
+        grouped.setdefault(family, []).append(c)
+    return grouped
+
 #precondition: rec is a completed design recommendation and the c++ pipeline executed successfully
 #postcondition: returns a fully json-serializable respones, all candidates, rejected candidates, and rules are included
 def serialize_recommendation(rec) -> dict:
+    serialized_candidates = [_serialize_candidate(c) for c in rec.candidates]
+
     return {
         "status": rec.status,
         "message": rec.message,
-        "candidates": [_serialize_candidate(c) for c in rec.candidates],
+        "candidates": serialized_candidates,
+        "candidatesByTechnology": _group_candidates_by_technology(serialized_candidates),
         "rejectedCandidates": [_serialize_candidate(c) for c in rec.rejectedCandidates],
         "activeRules": _serialize_rules(rec.activeRules),
         "requiredAreaProductCm4": rec.requiredAreaProductCm4,
         "largestAvailableAreaProductCm4": rec.largestAvailableAreaProductCm4,
         "versions": _serialize_versions(rec.versions),
-        "operatingPointConfidence": _serialize_operating_point_confidence(rec.operatingPointConfidence),
         "rankingHighlights": _serialize_ranking_highlights(rec.rankingHighlights),
     }
 

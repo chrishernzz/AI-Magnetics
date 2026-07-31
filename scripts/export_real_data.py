@@ -94,24 +94,52 @@ ALLOWED_MATERIAL_TYPES = {"ferrite", "powder"}
 INCLUDE_GAPPED_CORES = False
 MIN_EFFECTIVE_AREA_MM2 = 20.0
 MAX_EFFECTIVE_AREA_MM2 = 3000.0
-MAX_CORES_PER_MATERIAL = 4
-# Capped per (vendor, shape) pair, not per vendor alone - see module
-# docstring for why a flat per-vendor cap silently excluded MPP toroids.
-MAX_CORES_PER_VENDOR_SHAPE = 20
-MAX_CORES_TO_LOAD = 220
+# Real physical sizes per exact material name (e.g. "MPP 60") this snapshot keeps - was 4, taken as
+# the first 4 PyOpenMagnetics happened to return in ITS iteration order (arbitrary w.r.t. size). A
+# real user report (3000uH/5A RMS/100kHz) found every MPP/Kool Mu/High Flux material name in the
+# snapshot capped at mu<=125 with mostly small physical sizes, while PyOpenMagnetics itself carries
+# real MPP up to mu=550 and dozens of sizes per material - see _select_size_diverse_cores() below,
+# which replaced "first N encountered" with an evenly-spaced-by-size sample so a material's real size
+# range (and therefore its real current-carrying capability) survives into the snapshot.
+MAX_CORES_PER_MATERIAL = 8
+# Capped per (vendor, shape) pair, not per vendor alone - see module docstring for why a flat
+# per-vendor cap silently excluded MPP toroids. Magnetics Inc. alone makes 25+ distinct powder
+# MATERIAL NAMES on Toroid shape (MPP has 12 permeability grades - 14 through 550 - Kool Mu/Kool Mu
+# Hf/Kool Mu MAX/Kool Mu Ultra another ~19 between them, plus XFlux/Edge/High Flux) - at
+# MAX_CORES_PER_MATERIAL=8 each, that one (vendor, shape) pair alone wants 300+ slots. A cap much
+# below that recreates the exact same exclusion this cap was originally introduced to fix, just one
+# level up (material families starving each other instead of individual materials) - a real user
+# report found every real MPP permeability grade above 60 completely absent because a 40-then-200
+# cap here was reached partway through lower-numbered materials before the higher grades were ever
+# reached in iteration order. MAX_CORES_TO_LOAD below is the real backstop on total snapshot size;
+# this cap only needs to prevent one (vendor, shape) pair from consuming that entire budget alone,
+# not to actually bite in the common case.
+# Real backstop on total snapshot size - not meant to bite under normal conditions. At
+# MAX_CORES_PER_MATERIAL=8 across every real material name PyOpenMagnetics carries for
+# ferrite+powder/power/ungapped (~165 as of this writing), the full size-diverse sample is ~1300
+# candidates; a real cap below that would silently reintroduce the same per-material-name
+# starvation this file already fixed twice (see the two comments above) at a third level -
+# whichever material names happen to be inserted into candidates_by_material last. Set with real
+# headroom above that count rather than an arbitrary round number.
+MAX_CORES_PER_VENDOR_SHAPE = 600
+MAX_CORES_TO_LOAD = 1500
 
 # Specific manufacturer references that must be included whenever they
 # exist upstream and pass the real material-type/application/gapping/area
-# filters below, regardless of the per-material-name cap. Without this, a
-# real qualifying part can still lose out to an arbitrary earlier same-name
-# sibling purely because of upstream iteration order (discovered from a
-# real user-submitted reference design that used Magnetics C055439A2, an
-# MPP-60 toroid - one of 50 different physical sizes PyOpenMagnetics
-# carries under that exact material name, only 4 of which fit under
-# MAX_CORES_PER_MATERIAL). Add real reference-design part numbers here as
-# they come up - never used to insert a part that doesn't actually exist
-# upstream.
-PRIORITY_CORE_REFERENCES = {"C055439A2X2"}
+# filters below, regardless of the per-material-name cap or size-diverse
+# sampling. Without this, a real qualifying part can still lose out to an
+# arbitrary same-name sibling purely because of upstream iteration order or
+# size-bucket rounding (discovered from a real user-submitted reference
+# design that used Magnetics C055439A2, an MPP-60 toroid - one of 50
+# different physical sizes PyOpenMagnetics carries under that exact
+# material name, only 4 of which fit under the old MAX_CORES_PER_MATERIAL).
+# E100/60/28-3C90 is this project's own real ferrite reference core -
+# tests/python/test_golden_reference_designs.py and several tests/cpp files
+# assert against its exact real geometry/behavior, so it must always survive
+# _select_size_diverse_cores() rounding to a different 8 sizes for "3C90."
+# Add real reference-design part numbers here as they come up - never used
+# to insert a part that doesn't actually exist upstream.
+PRIORITY_CORE_REFERENCES = {"C055439A2X2", "E100/60/28-3C90"}
 
 
 def _core_shape_and_family(functional_description: dict) -> tuple[str, str]:
@@ -275,10 +303,125 @@ def fetch_materials(available_core_material_names=None,) -> list:
     return results
 
 
+# 1 Oe = 1000/(4*pi) A/m (exact, by definition of the Oersted).
+AM_PER_OE = 1000.0 / (4.0 * math.pi)
+
+
+def _dc_bias_curve(material: dict) -> dict | None:
+    """Real DC-bias permeability roll-off coefficients (%mu = 1/(a + b*H^c) + d, H in Oersteds - see
+    src/core/magnetics/PermeabilityRolloff.h), sourced directly from PyOpenMagnetics'
+    magneticFieldDcBiasFactor field - not fitted, estimated, or guessed by this project. Point
+    selection (closest-to-25C, then lowest frequency) mirrors _pick_representative_permeability()'s
+    policy exactly, since this factor lives on the same permeability point.
+
+    PyOpenMagnetics fits that field for H in A/m, not Oe: confirmed by converting all 6 materials this
+    project previously hand-transcribed from Magnetics'/Micrometals' own datasheets (MPP 60, Kool Mu
+    60, High Flux 14/26, XFlux 60, Edge 60) plus Mix 26 through b_Oe = b_Am * AM_PER_OE^c (a and d pass
+    through unconverted - they're the H^0 terms, unaffected by a change of H's unit) and finding every
+    one matches the hand-transcribed value to 4+ significant figures. That verified conversion is what
+    lets this function safely generate curves for every powder material PyOpenMagnetics carries this
+    factor for, not just the 7 this project could find published datasheet pages for by hand.
+
+    Returns None if this material has no such factor upstream (not every powder material is
+    characterized this way) - callers must treat that as "no roll-off curve available," never
+    fabricate one."""
+    raw_points = (material.get("permeability") or {}).get("initial") or []
+    points = [raw_points] if isinstance(raw_points, dict) else raw_points
+    if not points:
+        return None
+
+    temps = sorted({p["temperature"] for p in points if p.get("temperature") is not None})
+    at_temp = points
+    if temps:
+        closest_temp = min(temps, key=lambda t: abs(t - 25.0))
+        at_temp = [p for p in points if p.get("temperature") == closest_temp] or points
+    at_temp = sorted(at_temp, key=lambda p: p.get("frequency") or 0)
+
+    mods = (at_temp[0].get("modifiers") or {}).get("default") or {}
+    dcf = mods.get("magneticFieldDcBiasFactor")
+    if not dcf:
+        return None
+
+    a, b, c, d = dcf.get("a"), dcf.get("b"), dcf.get("c"), dcf.get("d")
+    if a is None or b is None or c is None:
+        return None
+
+    return {"A": a, "B": b * (AM_PER_OE ** c), "C": c, "D": d if d is not None else 0.0}
+
+
+def fetch_dc_bias_curves(available_core_material_names: set) -> list[dict]:
+    """Real manufacturer-published DC-bias curves for every powder material actually present in this
+    snapshot's cores (available_core_material_names) that PyOpenMagnetics carries a
+    magneticFieldDcBiasFactor for - see _dc_bias_curve() above. Materials with no such factor upstream
+    are simply absent here (TurnsAndGapDesign.cpp's distributed-gap branch already falls back to the
+    flat catalog AL for any powder material with no row - see DCBiasCurveDatabase.h), never a
+    fabricated curve."""
+    PyOpenMagnetics.load_databases({})
+    raw_materials = PyOpenMagnetics.get_core_materials()
+
+    results = []
+    seen_names = set()
+    for m in raw_materials:
+        name = m.get("name")
+        if name not in available_core_material_names or name in seen_names:
+            continue
+        if m.get("material") != "powder":
+            continue
+
+        curve = _dc_bias_curve(m)
+        if curve is None:
+            continue
+
+        mfr = m.get("manufacturerInfo") or {}
+        results.append(
+            {
+                "MaterialName": name,
+                "A": curve["A"],
+                "B": curve["B"],
+                "C": curve["C"],
+                "D": curve["D"],
+                "Vendor": mfr.get("name", ""),
+                "DatasheetUrl": mfr.get("datasheetUrl", "") or "",
+            }
+        )
+        seen_names.add(name)
+
+    return results
+
+
 def _is_priority_reference(core: dict) -> bool:
     mfr = core.get("manufacturerInfo") or {}
     ref = mfr.get("reference") or core.get("name")
     return ref in PRIORITY_CORE_REFERENCES
+
+
+def _evenly_spaced_indices(n: int, k: int) -> list[int]:
+    """Picks k indices (0-based) spread across a sequence of length n,
+    always including index 0 and n-1 (smallest and largest) when k >= 2 -
+    e.g. n=50, k=4 -> [0, 16, 33, 49]. Used to sample a material's real size
+    range instead of "first k encountered" (see _select_size_diverse_cores()
+    below for why that mattered)."""
+    if n <= k:
+        return list(range(n))
+    if k <= 1:
+        return [0]
+    return sorted({round(i * (n - 1) / (k - 1)) for i in range(k)})
+
+
+def _select_size_diverse_cores(candidates: list[dict], cap: int) -> list[dict]:
+    """Real user report (3000uH/5A RMS/100kHz): every MPP/Kool Mu/High Flux
+    material name in the snapshot was capped at mu<=125, almost all small
+    physical sizes, even though PyOpenMagnetics carries real MPP up to mu=550
+    with dozens of sizes each - because the old per-material cap kept
+    whichever `cap` cores happened to come first in PyOpenMagnetics' own
+    iteration order (arbitrary w.r.t. size), not a size-representative
+    sample. Sorting by real effective area (Ae) and sampling evenly spaced
+    indices keeps this material's real small-to-large range (and therefore
+    its real current-carrying capability) instead of an arbitrary cluster."""
+    if len(candidates) <= cap:
+        return candidates
+    by_size = sorted(candidates, key=lambda c: c["Ae"])
+    return [by_size[i] for i in _evenly_spaced_indices(len(by_size), cap)]
 
 
 def fetch_cores() -> list[dict]:
@@ -286,17 +429,11 @@ def fetch_cores() -> list[dict]:
     PyOpenMagnetics.load_cores(None, True, False)
     raw_cores = PyOpenMagnetics.get_available_cores()
 
-    # Priority references go through the filters/caps first so they win
-    # their slot instead of losing to an arbitrary same-name sibling that
-    # happens to come first in PyOpenMagnetics' own iteration order - see
-    # PRIORITY_CORE_REFERENCES above. Everything else keeps its original
-    # relative order.
-    raw_cores = sorted(raw_cores, key=lambda c: 0 if _is_priority_reference(c) else 1)
-
-    results = []
-
-    per_material_count: dict = {}
-    per_vendor_shape_count: dict = {}
+    # Priority references always survive into their material's final sample,
+    # regardless of where they'd otherwise rank by size - see
+    # PRIORITY_CORE_REFERENCES above.
+    candidates_by_material: dict = {}
+    priority_candidates: list = []
 
     for c in raw_cores:
         fd = c.get("functionalDescription") or {}
@@ -344,23 +481,10 @@ def fetch_cores() -> list[dict]:
 
         material_name = mat.get("name", "Unknown")
 
-        if (
-            per_material_count.get(material_name, 0)
-            >= MAX_CORES_PER_MATERIAL
-        ):
-            continue
-
         mfr = c.get("manufacturerInfo") or {}
         vendor_name = mfr.get("name", "Unknown")
 
         core_shape, shape_family = _core_shape_and_family(fd)
-
-        vendor_shape_key = (vendor_name, core_shape)
-        if (
-            per_vendor_shape_count.get(vendor_shape_key, 0)
-            >= MAX_CORES_PER_VENDOR_SHAPE
-        ):
-            continue
 
         mu_r = _pick_representative_permeability(mat)
 
@@ -393,35 +517,54 @@ def fetch_cores() -> list[dict]:
         window_width_mm = window_width_mm * 1000.0 if window_width_mm is not None else ""
         window_height_mm = window_height_mm * 1000.0 if window_height_mm is not None else ""
 
-        results.append(
-            {
-                "PartNumber": part_number,
-                "Material": material_name,
-                "Mu": mu_r,
-                "AL": al_nh,
-                "Ae": ae_mm2,
-                "Wa": wa_mm2,
-                "Le": le_mm,
-                "Mlt": mlt_mm,
-                "PartCost": 0.0,
-                "Vendor": vendor_name,
-                "MaxCurrent_A": 0.0,
-                "MaxFreq_kHz": (
-                    rec_freq.get("maximumFrequency") or 0.0
-                )
-                / 1000.0,
-                "CoreShape": core_shape,
-                "ShapeFamily": shape_family,
-                "MaterialType": mat.get("material", ""),
-                "DatasheetUrl": mfr.get("datasheetUrl", "") or "",
-                "WindowWidthMm": window_width_mm,
-                "WindowHeightMm": window_height_mm,
-            }
-        )
+        record = {
+            "PartNumber": part_number,
+            "Material": material_name,
+            "Mu": mu_r,
+            "AL": al_nh,
+            "Ae": ae_mm2,
+            "Wa": wa_mm2,
+            "Le": le_mm,
+            "Mlt": mlt_mm,
+            "PartCost": 0.0,
+            "Vendor": vendor_name,
+            "MaxCurrent_A": 0.0,
+            "MaxFreq_kHz": (
+                rec_freq.get("maximumFrequency") or 0.0
+            )
+            / 1000.0,
+            "CoreShape": core_shape,
+            "ShapeFamily": shape_family,
+            "MaterialType": mat.get("material", ""),
+            "DatasheetUrl": mfr.get("datasheetUrl", "") or "",
+            "WindowWidthMm": window_width_mm,
+            "WindowHeightMm": window_height_mm,
+        }
 
-        per_material_count[material_name] = (
-            per_material_count.get(material_name, 0) + 1
-        )
+        if _is_priority_reference(c):
+            priority_candidates.append(record)
+        else:
+            candidates_by_material.setdefault(material_name, []).append(record)
+
+    # Downsample each material to a real size-representative spread (not an
+    # arbitrary first-N cluster), then priority references first so they
+    # always win their vendor-shape/total-budget slot below.
+    sampled = list(priority_candidates)
+    for material_name, candidates in candidates_by_material.items():
+        sampled.extend(_select_size_diverse_cores(candidates, MAX_CORES_PER_MATERIAL))
+
+    results = []
+    per_vendor_shape_count: dict = {}
+
+    for record in sampled:
+        vendor_shape_key = (record["Vendor"], record["CoreShape"])
+        if (
+            per_vendor_shape_count.get(vendor_shape_key, 0)
+            >= MAX_CORES_PER_VENDOR_SHAPE
+        ):
+            continue
+
+        results.append(record)
 
         per_vendor_shape_count[vendor_shape_key] = (
             per_vendor_shape_count.get(vendor_shape_key, 0) + 1
@@ -588,10 +731,35 @@ def main():
                 )
                 n_coefficient_rows += 1
 
+    dc_bias_curves = fetch_dc_bias_curves(used_material_names)
+
+    with open(
+        data_dir / "dc_bias_curves.csv",
+        "w",
+        newline="",
+    ) as f:
+        w = csv.writer(f)
+
+        w.writerow(["MaterialName", "A", "B", "C", "D", "Vendor", "DatasheetUrl"])
+
+        for curve in dc_bias_curves:
+            w.writerow(
+                [
+                    curve["MaterialName"],
+                    curve["A"],
+                    curve["B"],
+                    curve["C"],
+                    curve["D"],
+                    curve["Vendor"],
+                    curve["DatasheetUrl"],
+                ]
+            )
+
     print(
         f"Wrote {len(materials)} materials, "
         f"{len(cores)} cores, "
-        f"{n_coefficient_rows} core-loss coefficient rows to {data_dir}"
+        f"{n_coefficient_rows} core-loss coefficient rows, "
+        f"{len(dc_bias_curves)} DC-bias curve rows to {data_dir}"
     )
 
 

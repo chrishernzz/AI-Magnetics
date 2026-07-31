@@ -17,7 +17,6 @@
 #include "RequirementDerivationService.h"
 #include "core/units/UnitConversions.h"
 #include "backend/services/RankingExplanationService.h"
-#include "backend/services/OperatingPointConfidenceService.h"
 #include "backend/services/CandidateRankingHelpers.h"
 #include "backend/services/BottleneckAnalysisService.h"
 #include "backend/services/RankingHighlightsService.h"
@@ -190,7 +189,6 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
 
     //what the inductor MUST have, so it goes to the derivation to get the correct information
     InductorRequirements requirements = RequirementDerivationService::derive(request, rules);
-    recommendation.operatingPointConfidence = classifyOperatingPointConfidence(requirements.operatingPoint);
 
     //this will loop through the material database and grab the materials that are within the range of the frequency
     std::vector<MaterialCandidate> materials = findSuitableMaterials(requirements.operatingPoint);
