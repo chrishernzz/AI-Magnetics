@@ -3,6 +3,7 @@ const TOPOLOGY_ENDPOINT = "/topology-design/buck";
 
 let lastResult = null;
 let currentShapeFilter = "all"; // all | Toroid | TwoPieceSet
+let currentMaterialTypeFilter = "all"; // all | ferrite | powder
 
 // Set when Mode 1 (Buck converter) has derived requirements - holds the
 // averageCurrentA/rippleCurrentPeakToPeakA pair so buildPayload() sends
@@ -914,8 +915,8 @@ function gapCellLabel(turnsAndGap) {
 function turnsRaisedSubLine(turnsAndGap) {
     if (!turnsAndGap.turnsRaisedForSaturationMargin) return "";
     const basis = turnsAndGap.turnsRaisedUsingRmsFloor
-        ? '<span class="chip chip-tag" title="Raised using RMS current as a guaranteed lower bound on peak - real (unsupplied) peak current could still require more margin than this floor guarantees">RMS floor</span>'
-        : '<span class="chip chip-tag" title="Raised against a real, directly supplied peak current">peak-based</span>';
+        ? '<span class="tag-text" title="Raised using RMS current as a guaranteed lower bound on peak - real (unsupplied) peak current could still require more margin than this floor guarantees">RMS floor</span>'
+        : '<span class="tag-text" title="Raised against a real, directly supplied peak current">peak-based</span>';
     return `<div class="detail-kpi-sub" title="${turnsAndGap.turnsRaisedForSaturationMarginReason}">raised for saturation margin ${basis}</div>`;
 }
 
@@ -943,58 +944,16 @@ function renderSourcesDetail(candidate) {
     return `<details class="detail-group"><summary>Sources</summary><ul class="detail-group-list">${rows}</ul></details>`;
 }
 
-// AC-loss risk chip (spec section 8) - qualitative skin-depth heuristic, never a
+// AC-loss risk (spec section 8) - qualitative skin-depth heuristic, never a
 // watts figure (SkinDepthRisk.h). The full reason (what was/wasn't evaluated) is
-// the tooltip rather than inline text, to keep the KPI strip scannable.
+// the tooltip rather than inline text, to keep the KPI strip scannable. Plain
+// colored text, not a bounded chip - a pill here read as competing for attention
+// with the real PASS/FAIL chips elsewhere in the panel, when this is a softer,
+// informational signal.
 function acLossRiskChip(acLossRisk) {
     const level = acLossRisk.riskLevel;
-    const chipClass = level === "Low" ? "chip-pass" : level === "Moderate" ? "chip-warn" : "chip-fail";
-    return `<span class="chip ${chipClass}" title="${acLossRisk.reason}">AC risk: ${level}</span>`;
-}
-
-// Which real, user-suppliable input would let a NotEvaluated check actually
-// run - only for the 5 checks that can ever report NotEvaluated (confirmed
-// against DesignValidation.cpp). ThermalValidation/BundleFitValidation are
-// deliberately absent: their real missing-data reason varies per candidate
-// (a database gap, a winding-geometry fact) and isn't a single fixed input
-// the user can type in, so no additional-input hint is fabricated for them -
-// their own explanation text (already shown per-check below) is the honest
-// answer instead.
-const ADDITIONAL_INPUT_NEEDED = {
-    CurrentConsistencyValidation: "Peak current and ripple current (both, mutually consistent)",
-    PeakFluxValidation: "Peak current",
-    SaturationValidation: "Peak current",
-};
-
-// Compact Evaluated/Not-Evaluated summary, positioned right under the status
-// chips - complements rather than duplicates the full Validation Checks list
-// below (which has each check's calculated value and full explanation).
-function renderValidationCoverage(candidate) {
-    const evaluated = candidate.validations.filter((v) => v.status === "Evaluated");
-    const notEvaluated = candidate.validations.filter((v) => v.status === "NotEvaluated");
-    if (notEvaluated.length === 0) {
-        return `<div class="coverage-block coverage-block-full">Validation coverage: every mandatory check ran (${evaluated.length}/${evaluated.length}).</div>`;
-    }
-    return `
-        <div class="coverage-block">
-            <div class="coverage-block-title">Validation Coverage</div>
-            <div class="coverage-columns">
-                <div class="coverage-col">
-                    <div class="coverage-col-label">Evaluated (${evaluated.length})</div>
-                    <ul>${evaluated.map((v) => `<li>${v.checkName}</li>`).join("")}</ul>
-                </div>
-                <div class="coverage-col coverage-col-not-eval">
-                    <div class="coverage-col-label">Not Evaluated (${notEvaluated.length})</div>
-                    <ul>${notEvaluated
-                        .map((v) => {
-                            const needed = ADDITIONAL_INPUT_NEEDED[v.checkName];
-                            return `<li><strong>${v.checkName}</strong>${needed ? `<br><span class="coverage-needs">needs: ${needed}</span>` : ""}</li>`;
-                        })
-                        .join("")}</ul>
-                </div>
-            </div>
-        </div>
-    `;
+    const riskClass = level === "Low" ? "risk-text-low" : level === "Moderate" ? "risk-text-moderate" : "risk-text-high";
+    return `<span class="risk-text ${riskClass}" title="${acLossRisk.reason}">AC risk: ${level}</span>`;
 }
 
 function renderCandidateDetail(candidate) {
@@ -1037,10 +996,9 @@ function renderCandidateDetail(candidate) {
         <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong> &nbsp; ${acLossRiskChip(candidate.acLossRisk)}</p>
     `;
 
-    // One-line status for a rejection only - the pass/conditional-pass case
-    // used to restate "N of M checks passed, K not evaluated" here too, but
-    // that's now the Validation Coverage block right below (same facts, more
-    // detail); repeating it here was the same sentence twice. Tier comes
+    // One-line status for a rejection only - the same "N passed/failed/not
+    // evaluated" facts are already in the Validation Checks list right below,
+    // repeating them here was the same sentence twice. Tier comes
     // from the real backend classification - only "Recommended" ever
     // renders a chip here (see recommendationTierChip), so this stays empty
     // whenever tier isn't Pass (currently always, since Pass is
@@ -1049,7 +1007,6 @@ function renderCandidateDetail(candidate) {
     const statusLine = candidate.rejectionReasons.length
         ? `<div class="detail-status detail-status-fail">
             <div class="detail-status-chips"><span class="chip chip-fail">REJECTED</span></div>
-            <div class="detail-status-sub">${candidate.rejectionReasons.length} of ${candidate.validations.length} checks failed</div>
         </div>`
         : tierChip
         ? `<div class="detail-status detail-status-pass"><div class="detail-status-chips">${tierChip}</div></div>`
@@ -1071,8 +1028,6 @@ function renderCandidateDetail(candidate) {
     return `
         ${kpis}
         ${statusLine}
-        ${renderValidationCoverage(candidate)}
-        ${candidate.designNarrative ? `<p class="detail-next-step"><strong>Suggested next step:</strong> ${candidate.designNarrative}</p>` : ""}
         <details class="detail-group" open>
             <summary>Validation Checks <span class="detail-group-count">(${passCount} passed, ${failCount} failed, ${notEvalCount} not evaluated)</span></summary>
             <ul class="validation-list">${renderValidationList(candidate.validations)}</ul>
@@ -1153,13 +1108,14 @@ function wireCandidateRowClicks(table, rows, passed) {
 function renderPassingTable(result) {
     const table = document.getElementById("candidateTable");
     const emptyState = document.getElementById("candidatesEmptyState");
-    const summary = document.getElementById("passingSectionSummary");
+    const tabCount = document.getElementById("passingTabCount");
     if (!table) return;
 
-    if (summary) summary.textContent = `Passing Candidates (${result.candidates.length})`;
+    if (tabCount) tabCount.textContent = String(result.candidates.length);
 
     let rows = result.candidates;
     if (currentShapeFilter !== "all") rows = rows.filter((c) => c.core.coreShape === currentShapeFilter);
+    if (currentMaterialTypeFilter !== "all") rows = rows.filter((c) => c.core.materialType === currentMaterialTypeFilter);
 
     if (rows.length === 0) {
         table.innerHTML = "";
@@ -1168,7 +1124,7 @@ function renderPassingTable(result) {
             emptyState.innerHTML =
                 result.candidates.length === 0
                     ? '<p class="candidates-empty-title">No candidate passed every mandatory check.</p><p>See Rejected Candidates below for why.</p>'
-                    : '<p class="candidates-empty-title">No passing candidate matches the selected shape filter.</p>';
+                    : '<p class="candidates-empty-title">No passing candidate matches the selected filters.</p>';
         }
         return;
     }
@@ -1183,29 +1139,35 @@ function renderPassingTable(result) {
     wireCandidateRowClicks(table, rows, true);
 }
 
-// Rejected candidates live in a collapsed <details> below the passing table -
-// de-emphasized by default (closed, quieter styling - see .candidates-section
-// in styles.css) since they're the "why not" record, not the primary answer,
-// but never hidden entirely - every evaluated candidate is still one click away.
+// Rejected candidates live behind their own tab, not stacked under the
+// passing table - de-emphasized by default (the Rejected tab isn't shown at
+// all unless there's at least one, and switching to it is never the default
+// after a run - see switchCandidatesTab()) since they're the "why not"
+// record, not the primary answer, but never hidden entirely - every
+// evaluated candidate is still one click away.
 function renderRejectedSection(result) {
-    const section = document.getElementById("rejectedSection");
-    const summary = document.getElementById("rejectedSectionSummary");
+    const rejectedBtn = document.getElementById("rejectedTabBtn");
+    const tabCount = document.getElementById("rejectedTabCount");
     const table = document.getElementById("rejectedTable");
-    if (!section || !table) return;
+    if (!table) return;
 
     if (result.rejectedCandidates.length === 0) {
-        section.hidden = true;
+        if (rejectedBtn) rejectedBtn.hidden = true;
         table.innerHTML = "";
+        // This run has no rejected candidates at all - if a previous run left the Rejected tab
+        // active, fall back to Passing so the user is never looking at a hidden, unreachable tab.
+        if (currentCandidatesTab === "rejected") switchCandidatesTab("passing");
         return;
     }
-    section.hidden = false;
-    if (summary) summary.textContent = `Rejected Candidates (${result.rejectedCandidates.length})`;
+    if (rejectedBtn) rejectedBtn.hidden = false;
+    if (tabCount) tabCount.textContent = String(result.rejectedCandidates.length);
 
     let rows = result.rejectedCandidates;
     if (currentShapeFilter !== "all") rows = rows.filter((c) => c.core.coreShape === currentShapeFilter);
+    if (currentMaterialTypeFilter !== "all") rows = rows.filter((c) => c.core.materialType === currentMaterialTypeFilter);
 
     if (rows.length === 0) {
-        table.innerHTML = `<tbody><tr><td class="table-empty">No rejected candidates match the selected shape filter.</td></tr></tbody>`;
+        table.innerHTML = `<tbody><tr><td class="table-empty">No rejected candidates match the selected filters.</td></tr></tbody>`;
         return;
     }
 
@@ -1215,22 +1177,57 @@ function renderRejectedSection(result) {
     wireCandidateRowClicks(table, rows, false);
 }
 
-// Real accordion: opening one of Passing/Rejected closes the other, so a long
-// list in one never keeps the other permanently scrolled out of view below
-// it. Wired once against the static <details> elements in the page (their
+// Passing/Rejected as real tabs (one panel visible at a time) instead of the
+// old stacked <details> accordion - a real user report: switching back and
+// forth meant scrolling to find the collapsed section's <summary> bar each
+// time. Wired once against the static tab buttons/panels in the page (their
 // contents get replaced on every render, but the elements themselves never
-// do), listening to the native `toggle` event so this also catches a user
-// clicking the <summary> directly, not just a script-driven open/close.
-function wireCandidatesAccordion() {
-    const passing = document.getElementById("passingSection");
-    const rejected = document.getElementById("rejectedSection");
-    if (!passing || !rejected) return;
+// do) - clicking a tab just toggles which panel is hidden, no scrolling
+// required to reach the other one.
+let currentCandidatesTab = "passing"; // passing | rejected
 
-    passing.addEventListener("toggle", () => {
-        if (passing.open) rejected.open = false;
-    });
-    rejected.addEventListener("toggle", () => {
-        if (rejected.open) passing.open = false;
+function switchCandidatesTab(tab) {
+    currentCandidatesTab = tab;
+    const passingBtn = document.getElementById("passingTabBtn");
+    const rejectedBtn = document.getElementById("rejectedTabBtn");
+    const passingPanel = document.getElementById("passingSection");
+    const rejectedPanel = document.getElementById("rejectedSection");
+    if (!passingBtn || !rejectedBtn || !passingPanel || !rejectedPanel) return;
+
+    const showPassing = tab === "passing";
+    passingBtn.classList.toggle("active", showPassing);
+    passingBtn.setAttribute("aria-selected", String(showPassing));
+    passingPanel.hidden = !showPassing;
+
+    rejectedBtn.classList.toggle("active", !showPassing);
+    rejectedBtn.setAttribute("aria-selected", String(!showPassing));
+    rejectedPanel.hidden = showPassing;
+}
+
+function wireCandidatesTabs() {
+    const passingBtn = document.getElementById("passingTabBtn");
+    const rejectedBtn = document.getElementById("rejectedTabBtn");
+    if (!passingBtn || !rejectedBtn) return;
+
+    passingBtn.addEventListener("click", () => switchCandidatesTab("passing"));
+    rejectedBtn.addEventListener("click", () => switchCandidatesTab("rejected"));
+}
+
+// The side panel body can have several independent <details class="detail-group">
+// blocks (Validation Checks, Sources, Missing-data warnings) - a real user report:
+// opening one (e.g. Sources) left an already-open one (e.g. Validation Checks,
+// open by default) expanded too, so both fought for space in the same panel.
+// Wired fresh each time openCandidateSidePanel() replaces body.innerHTML, since
+// these elements are recreated on every candidate, not reused like the panel itself.
+function wireDetailGroupAccordion(body) {
+    const groups = body.querySelectorAll("details.detail-group");
+    groups.forEach((group) => {
+        group.addEventListener("toggle", () => {
+            if (!group.open) return;
+            groups.forEach((other) => {
+                if (other !== group) other.open = false;
+            });
+        });
     });
 }
 
@@ -1249,6 +1246,7 @@ function openCandidateSidePanel(candidate, passed) {
     title.textContent = candidate.core.partNumber;
     subtitle.innerHTML = `${shapeCellLabel(candidate.core)} <span>${candidate.material.materialFamily}</span> <span>·</span> <span>${passed ? "Passing" : "Rejected"}</span>`;
     body.innerHTML = renderCandidateDetail(candidate);
+    wireDetailGroupAccordion(body);
 
     panel.hidden = false;
     panel.setAttribute("aria-hidden", "false");
@@ -1299,6 +1297,57 @@ function renderShapeFilter(result) {
     };
 }
 
+// Same pattern as renderShapeFilter() above, one filter dimension over -
+// material FAMILY (ferrite vs powder), not the specific grade (e.g. "MPP 60"
+// vs "N87"). A real user report: with 150+ candidates now that the core
+// database covers real MPP/Kool Mu/High Flux permeability grades (not just
+// the handful that used to survive the old sampling bug), ferrite still
+// crowds out powder in the ranked list - shape alone doesn't let an engineer
+// isolate "just show me the powder options." Filtering by the specific grade
+// name instead of family would mean 30+ options (one per real MPP/Kool
+// Mu/... permeability grade) - too granular to be a useful dropdown; the
+// grade itself is still visible in the Material column per row.
+function renderMaterialTypeFilter(result) {
+    const element = document.getElementById("materialTypeFilter");
+    if (!element) return;
+
+    const allCandidates = result.candidates.concat(result.rejectedCandidates);
+    const typesPresent = new Set(allCandidates.map((c) => c.core.materialType).filter(Boolean));
+
+    if (typesPresent.size === 0) {
+        element.hidden = true;
+        return;
+    }
+    element.hidden = false;
+
+    const typeLabels = { all: "All types", ferrite: "Ferrite", powder: "Powder" };
+    const options = ["all", ...Array.from(typesPresent)]
+        .map((key) => `<option value="${key}"${key === currentMaterialTypeFilter ? " selected" : ""}>${typeLabels[key] || key}</option>`)
+        .join("");
+    element.innerHTML = options;
+
+    element.onchange = () => {
+        currentMaterialTypeFilter = element.value;
+        renderPassingTable(lastResult);
+        renderRejectedSection(lastResult);
+    };
+}
+
+// Plain scrollIntoView({block: "start"}) aligns the target's top edge with the
+// top of the viewport - but .topbar is position:sticky and sits on top of that
+// same spot, so the target's own heading/icon ends up clipped behind it (a
+// real user report: the "Recommended Candidate" title was invisible right
+// after Generate). Scrolls to leave room for the sticky header's real height
+// instead of assuming a fixed pixel offset that could drift if the header's
+// content ever changes.
+function scrollToResultsCard(target) {
+    if (!target) return;
+    const header = document.querySelector(".topbar");
+    const headerHeight = header ? header.getBoundingClientRect().height : 0;
+    const targetTop = target.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top: targetTop - headerHeight - 12, behavior: "smooth" });
+}
+
 async function generateRecommendation() {
     // Hard block - re-check even though the button is already disabled when
     // invalid, since this function is the single entry point regardless of
@@ -1320,6 +1369,7 @@ async function generateRecommendation() {
         const result = await postRequest(ENDPOINT, payload);
         lastResult = result;
         currentShapeFilter = "all";
+        currentMaterialTypeFilter = "all";
 
         console.log("DesignRecommendation", result);
 
@@ -1328,13 +1378,27 @@ async function generateRecommendation() {
         renderTriageStrip(result);
         renderRecommendedCandidate(result);
         renderShapeFilter(result);
+        renderMaterialTypeFilter(result);
         renderPassingTable(result);
         renderRejectedSection(result);
+        // Every fresh run opens back on the Passing tab, even if a previous run left
+        // Rejected active - same reset policy as the shape/material-type filters above.
+        switchCandidatesTab("passing");
 
         // The ranking policy only means anything once there's something to
         // rank - showing it before any run just reads as unexplained noise.
         const rankingNote = document.getElementById("rankingNote");
         if (rankingNote) rankingNote.hidden = result.candidates.length + result.rejectedCandidates.length === 0;
+
+        // Jump straight to the results instead of leaving the user to scroll past the
+        // (often tall) requirements form and diagnostics panel to find them - a real
+        // complaint once candidate counts grew into the hundreds (see
+        // candidatesByTechnology/material-type-filter work above for why). Prefers the
+        // Recommended Candidate card (the actual answer) when there is one; falls back
+        // to the candidates table itself when there's no passing candidate to recommend.
+        const recommendedCard = document.getElementById("recommendedCandidateCard");
+        const scrollTarget = recommendedCard && !recommendedCard.hidden ? recommendedCard : document.querySelector(".candidates-card");
+        scrollToResultsCard(scrollTarget);
 
         setStatus(
             result.status === "ok"
@@ -1394,7 +1458,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
 
     document.querySelectorAll(".field-tabs").forEach(initFieldTabs);
-    wireCandidatesAccordion();
+    wireCandidatesTabs();
 
     document.getElementById("sidePanelClose").addEventListener("click", closeCandidateSidePanel);
     document.getElementById("sidePanelOverlay").addEventListener("click", closeCandidateSidePanel);

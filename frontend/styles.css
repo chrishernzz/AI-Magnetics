@@ -945,97 +945,6 @@ button:hover {
     flex-wrap: wrap;
 }
 
-.detail-status-sub {
-    margin-top: 4px;
-    color: var(--ink-soft);
-    font-weight: 400;
-    font-size: 0.82rem;
-}
-
-/* Validation Coverage - compact Evaluated/Not-Evaluated summary
-   (renderValidationCoverage()), sitting between the status line and the
-   full Validation Checks list below it. */
-.coverage-block {
-    margin: 14px 0;
-    padding: 12px 14px;
-    background: var(--paper-sunk);
-    border-radius: 8px;
-}
-
-.coverage-block-full {
-    color: var(--ink-soft);
-    font-size: 0.85rem;
-    font-weight: 600;
-}
-
-.coverage-block-title {
-    font-weight: 700;
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: var(--brand-black);
-    margin-bottom: 8px;
-}
-
-.coverage-columns {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-}
-
-@media (max-width: 480px) {
-    .coverage-columns {
-        grid-template-columns: 1fr;
-    }
-}
-
-.coverage-col-label {
-    font-weight: 600;
-    font-size: 0.75rem;
-    color: var(--ink-soft);
-    margin-bottom: 4px;
-}
-
-.coverage-col ul {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.coverage-col li {
-    font-size: 0.8rem;
-    color: var(--ink);
-    line-height: 1.4;
-}
-
-.coverage-col-not-eval .coverage-col-label {
-    color: #b45309;
-}
-
-.coverage-needs {
-    color: #b45309;
-    font-size: 0.75rem;
-}
-
-/* Design-improvement suggestion (candidate.designNarrative, real rule-based
-   backend text from RankingExplanationService.cpp - never a generic
-   "increase turns" guess when the real blocker is missing data). */
-.detail-next-step {
-    margin: 0 0 14px;
-    padding: 10px 14px;
-    background: #fff8ec;
-    border-left: 3px solid #b45309;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    color: var(--ink);
-    line-height: 1.5;
-}
-
-.detail-next-step strong {
-    color: var(--brand-black);
-}
-
 /* Validation checks - the single place every check is explained, each one
    exactly once: a status chip, the check name, its actual value against
    its limit (labeled, not a bare ratio), and - only for a check that
@@ -1231,6 +1140,12 @@ summary {
     border: 1px solid var(--line);
 }
 
+.candidates-filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .shape-filter {
     background: var(--paper);
     color: var(--ink-soft);
@@ -1411,6 +1326,34 @@ summary {
     font-size: 0.68rem;
     text-transform: none;
     letter-spacing: 0;
+}
+
+/* Plain-text (no pill/border/background) variant of the same informational
+   tag - used where a bounded chip competed for attention with real PASS/FAIL
+   signals nearby (see turnsRaisedSubLine() in app.js). */
+.tag-text {
+    color: var(--ink-soft);
+    font-weight: 600;
+    font-size: 0.85em;
+}
+
+/* AC-loss risk (acLossRiskChip() in app.js) - plain colored text instead of a
+   bounded chip, same reasoning as .tag-text above: this is a softer,
+   informational signal, not a pass/fail chip. */
+.risk-text {
+    font-weight: 700;
+}
+
+.risk-text-low {
+    color: #15803d;
+}
+
+.risk-text-moderate {
+    color: #b45309;
+}
+
+.risk-text-high {
+    color: var(--brand-red-dark);
 }
 
 /* Slide-in candidate detail panel - replaces the old inline accordion row,
@@ -1673,52 +1616,50 @@ summary {
     100% { background-position: 0 50%; }
 }
 
-/* Passing/Rejected Candidates - both real accordion sections now (see
-   wireCandidatesAccordion() in app.js): opening one closes the other, so
-   a long passing list and a long rejected list never both take up the
-   whole card's height at once. Passing starts open (it's the answer);
-   Rejected starts closed (it's the "why not" record) - same collapsed-
-   strip visual pattern as .rules-strip either way. */
-.candidates-section {
-    margin-top: 6px;
-}
-
-.candidates-section-rejected {
-    margin-top: 18px;
-    border-top: 1px solid var(--line);
-    padding-top: 4px;
-}
-
-.candidates-section summary {
-    cursor: pointer;
-    padding: 12px 0;
+/* Passing/Rejected Candidates - real tabs now (see switchCandidatesTab() in
+   app.js), not a stacked accordion: only one panel is ever visible, and
+   switching is a single click on a tab that's always in the same place,
+   instead of scrolling to find and click a <summary> bar. Rejected tab is
+   hidden entirely when there are no rejected candidates this run. */
+.candidates-tabs {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    list-style: none;
-    color: var(--ink-soft);
+    gap: 4px;
+    margin-top: 10px;
+    border-bottom: 1px solid var(--line);
 }
 
-.candidates-section summary::-webkit-details-marker {
-    display: none;
-}
-
-.candidates-section-marker::before {
-    content: "▸";
-    color: var(--ink-soft);
-    display: inline-block;
-    transition: transform 0.15s ease;
-}
-
-.candidates-section[open] .candidates-section-marker::before {
-    transform: rotate(90deg);
-}
-
-.candidates-section-summary {
+.candidates-tab {
+    appearance: none;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 4px;
+    margin-right: 18px;
     font-weight: 700;
     font-size: 0.85rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
+    color: var(--ink-soft);
+    cursor: pointer;
+}
+
+.candidates-tab:hover {
+    color: var(--ink);
+}
+
+.candidates-tab.active {
+    color: var(--brand-red);
+    border-bottom-color: var(--brand-red);
+}
+
+.candidates-tab-count {
+    color: inherit;
+    font-weight: 700;
+    opacity: 0.75;
+}
+
+.candidates-panel {
+    margin-top: 14px;
 }
 
 .candidate-table-rejected {

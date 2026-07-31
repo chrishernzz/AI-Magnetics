@@ -351,15 +351,23 @@
                     <span class="card-subtitle">Every evaluated candidate - passing and rejected</span>
                 </div>
             </div>
-            <select id="shapeFilter" class="shape-filter" aria-label="Filter by core shape" hidden></select>
+            <div class="candidates-filters">
+                <select id="shapeFilter" class="shape-filter" aria-label="Filter by core shape" hidden></select>
+                <select id="materialTypeFilter" class="shape-filter" aria-label="Filter by core material type" hidden></select>
+            </div>
         </div>
         <div id="triageStrip" class="triage-strip"></div>
 
-        <details id="passingSection" class="candidates-section" open>
-            <summary>
-                <span class="candidates-section-marker" aria-hidden="true"></span>
-                <span id="passingSectionSummary" class="candidates-section-summary">Passing Candidates</span>
-            </summary>
+        <div id="candidatesTabs" class="candidates-tabs" role="tablist">
+            <button type="button" id="passingTabBtn" class="candidates-tab" data-tab="passing" role="tab" aria-selected="true">
+                Passing <span id="passingTabCount" class="candidates-tab-count">0</span>
+            </button>
+            <button type="button" id="rejectedTabBtn" class="candidates-tab" data-tab="rejected" role="tab" aria-selected="false" hidden>
+                Rejected <span id="rejectedTabCount" class="candidates-tab-count">0</span>
+            </button>
+        </div>
+
+        <div id="passingSection" class="candidates-panel" role="tabpanel">
             <p id="rankingNote" class="ranking-note" hidden>
                 Passing candidates are ranked by <strong>recommendation tier</strong> first, then by <strong>known partial loss</strong>
                 (DC copper + core loss, whichever are evaluated), predicted temperature rise, manufacturability margin, saturation margin, and current-density margin, in that order.
@@ -369,17 +377,13 @@
             <div class="table-scroll">
                 <table id="candidateTable" class="candidate-table"></table>
             </div>
-        </details>
+        </div>
 
-        <details id="rejectedSection" class="candidates-section candidates-section-rejected" hidden>
-            <summary>
-                <span class="candidates-section-marker" aria-hidden="true"></span>
-                <span id="rejectedSectionSummary" class="candidates-section-summary">Rejected Candidates</span>
-            </summary>
+        <div id="rejectedSection" class="candidates-panel candidates-panel-rejected" role="tabpanel" hidden>
             <div class="table-scroll">
                 <table id="rejectedTable" class="candidate-table candidate-table-rejected"></table>
             </div>
-        </details>
+        </div>
     </div>
 
     <div id="candidateSidePanel" class="side-panel" hidden aria-hidden="true">
