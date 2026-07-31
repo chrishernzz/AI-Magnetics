@@ -167,6 +167,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("copperTempCoefficientPerC", &DesignRules::copperTempCoefficientPerC)
         .def_readwrite("assumedWindingTempCWhenThermalNotEvaluated", &DesignRules::assumedWindingTempCWhenThermalNotEvaluated)
         .def_readwrite("defaultThermalResistanceCPerW", &DesignRules::defaultThermalResistanceCPerW)
+        .def_readwrite("naturalConvectionCoefficientWPerM2K", &DesignRules::naturalConvectionCoefficientWPerM2K)
+        .def_readwrite("compactSolidSurfaceAreaShapeFactor", &DesignRules::compactSolidSurfaceAreaShapeFactor)
         .def_readwrite("thermalConvergenceThresholdC", &DesignRules::thermalConvergenceThresholdC)
         .def_readwrite("maxThermalIterations", &DesignRules::maxThermalIterations)
         .def_readwrite("skinDepthRiskModerateThreshold", &DesignRules::skinDepthRiskModerateThreshold)
@@ -361,7 +363,9 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("coldDcrOhmsAt20C", &ThermalIterationInputs::coldDcrOhmsAt20C)
         .def_readwrite("copperLossGeometryKnown", &ThermalIterationInputs::copperLossGeometryKnown)
         .def_readwrite("coreLossW", &ThermalIterationInputs::coreLossW)
-        .def_readwrite("coreLossKnown", &ThermalIterationInputs::coreLossKnown);
+        .def_readwrite("coreLossKnown", &ThermalIterationInputs::coreLossKnown)
+        .def_readwrite("coreEffectiveAreaMm2", &ThermalIterationInputs::coreEffectiveAreaMm2)
+        .def_readwrite("coreMagneticPathLengthMm", &ThermalIterationInputs::coreMagneticPathLengthMm);
 
     py::class_<ThermalEvaluationResult>(m, "ThermalEvaluationResult")
         .def(py::init<>())
@@ -375,6 +379,7 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("iterationsUsed", &ThermalEvaluationResult::iterationsUsed)
         .def_readwrite("converged", &ThermalEvaluationResult::converged)
         .def_readwrite("thermalResistanceCPerWUsed", &ThermalEvaluationResult::thermalResistanceCPerWUsed)
+        .def_readwrite("thermalResistanceIsGeometryDerived", &ThermalEvaluationResult::thermalResistanceIsGeometryDerived)
         .def_readwrite("missingDataExplanation", &ThermalEvaluationResult::missingDataExplanation);
     m.def("evaluate_thermal", &evaluateThermal, "Run the real iterative thermal convergence loop (temp -> hot DCR -> copper loss -> temp rise -> repeat)");
 

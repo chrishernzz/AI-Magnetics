@@ -1,6 +1,31 @@
 #include "core/thermal/ThermalEvaluation.h"
 #include <cmath>
 
+namespace {
+
+//precondition: none
+//postcondition: returns rules.defaultThermalResistanceCPerW (and sets isGeometryDerivedOut=false) when
+//aeMm2 or leMm is not positive - geometry unknown, never divide by zero or fabricate a number. Otherwise
+//returns a Newton's-law-of-cooling estimate, Rth = 1/(h*surfaceAreaM2), where surfaceAreaM2 approximates
+//the core's total external surface area as a compact solid of the same real magnetic volume (Ae*Le) - see
+//DesignRules.h for the sourcing of h and the shape-factor simplification.
+double estimateThermalResistanceCPerW(double aeMm2, double leMm, const DesignRules& rules, bool& isGeometryDerivedOut) {
+    isGeometryDerivedOut = false;
+    if (aeMm2 <= 0.0 || leMm <= 0.0) {
+        return rules.defaultThermalResistanceCPerW;
+    }
+    constexpr double kMm3ToM3 = 1e-9;
+    double volumeM3 = aeMm2 * leMm * kMm3ToM3;
+    double surfaceAreaM2 = rules.compactSolidSurfaceAreaShapeFactor * std::pow(volumeM3, 2.0 / 3.0);
+    if (surfaceAreaM2 <= 0.0 || rules.naturalConvectionCoefficientWPerM2K <= 0.0) {
+        return rules.defaultThermalResistanceCPerW;
+    }
+    isGeometryDerivedOut = true;
+    return 1.0 / (rules.naturalConvectionCoefficientWPerM2K * surfaceAreaM2);
+}
+
+}  // namespace
+
 //precondition: none
 //postcondition: see header
 ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, const DesignRules& rules) {
@@ -11,6 +36,10 @@ ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, co
         result.missingDataExplanation = "cannot seed a hot-DCR estimate without known winding DCR geometry (see WindingDesignResult::resistanceStatus)";
         return result;
     }
+
+    bool thermalResistanceIsGeometryDerived = false;
+    double thermalResistanceCPerWUsed = estimateThermalResistanceCPerW(
+        inputs.coreEffectiveAreaMm2, inputs.coreMagneticPathLengthMm, rules, thermalResistanceIsGeometryDerived);
 
     double windingTempC = inputs.ambientTemperatureC;
     double hotDcrOhms = inputs.coldDcrOhmsAt20C;
@@ -25,7 +54,7 @@ ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, co
         hotDcrOhms = inputs.coldDcrOhmsAt20C * (1.0 + rules.copperTempCoefficientPerC * (windingTempC - 20.0));
         copperLossW = inputs.rmsCurrentA * inputs.rmsCurrentA * hotDcrOhms;
         knownLossW = copperLossW + (inputs.coreLossKnown ? inputs.coreLossW : 0.0);
-        riseC = knownLossW * rules.defaultThermalResistanceCPerW;
+        riseC = knownLossW * thermalResistanceCPerWUsed;
         double newWindingTempC = inputs.ambientTemperatureC + riseC;
 
         bool stabilized = std::abs(newWindingTempC - windingTempC) < rules.thermalConvergenceThresholdC;
@@ -60,6 +89,7 @@ ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, co
     result.predictedHotspotTempC = windingTempC;
     result.iterationsUsed = iteration;
     result.converged = true;
-    result.thermalResistanceCPerWUsed = rules.defaultThermalResistanceCPerW;
+    result.thermalResistanceCPerWUsed = thermalResistanceCPerWUsed;
+    result.thermalResistanceIsGeometryDerived = thermalResistanceIsGeometryDerived;
     return result;
 }

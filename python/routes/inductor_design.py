@@ -283,6 +283,7 @@ def _serialize_thermal(t) -> dict:
         "iterationsUsed": t.iterationsUsed,
         "converged": t.converged,
         "thermalResistanceCPerWUsed": t.thermalResistanceCPerWUsed,
+        "thermalResistanceIsGeometryDerived": t.thermalResistanceIsGeometryDerived,
         "missingDataExplanation": t.missingDataExplanation,
     }
 
@@ -368,6 +369,8 @@ def _serialize_rules(r) -> dict:
         "copperTempCoefficientPerC": r.copperTempCoefficientPerC,
         "assumedWindingTempCWhenThermalNotEvaluated": r.assumedWindingTempCWhenThermalNotEvaluated,
         "defaultThermalResistanceCPerW": r.defaultThermalResistanceCPerW,
+        "naturalConvectionCoefficientWPerM2K": r.naturalConvectionCoefficientWPerM2K,
+        "compactSolidSurfaceAreaShapeFactor": r.compactSolidSurfaceAreaShapeFactor,
         "thermalConvergenceThresholdC": r.thermalConvergenceThresholdC,
         "maxThermalIterations": r.maxThermalIterations,
         "skinDepthRiskModerateThreshold": r.skinDepthRiskModerateThreshold,

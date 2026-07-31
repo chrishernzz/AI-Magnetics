@@ -11,21 +11,25 @@ convergence loop (temp -> hot DCR -> copper loss -> temp rise -> repeat), mirror
 TurnsAndGapDesign.cpp's existing convergence-loop pattern (same seed/iterate/check-stability shape,
 same iteration-cap safety net).
 
-ThermalStatus deliberately has no "fully evaluated" value - defaultThermalResistanceCPerW (DesignRules.h)
-is always one coarse Phase 1 constant, never per-core measured or simulated data, so this loop can only
-ever produce a PreliminaryThermalEstimate, never a full pass, no matter how complete the upstream loss
-coverage is. ThermalValidation (DesignValidation.h) still runs a real pass/fail comparison against
-allowableTempRiseC when a PreliminaryThermalEstimate is available - carried by
-ValidationResult::isPreliminaryEstimate, not a fake third status.
+ThermalStatus deliberately has no "fully evaluated" value. The thermal resistance used each run is now a
+size-aware estimate derived from the candidate's own real core geometry (Ae*Le -> an estimated external
+surface area -> Rth = 1/(h*A), Newton's law of cooling - see estimateThermalResistanceCPerW() below and
+DesignRules.h for the sourcing of h and the shape-factor simplification), falling back to the flat
+rules.defaultThermalResistanceCPerW only when that geometry is unavailable. Either way it is still an
+estimate, never per-core measured or simulated Rth data, so this loop can only ever produce a
+PreliminaryThermalEstimate, never a full pass, no matter how complete the upstream loss coverage is.
+ThermalValidation (DesignValidation.h) still runs a real pass/fail comparison against allowableTempRiseC
+when a PreliminaryThermalEstimate is available - carried by ValidationResult::isPreliminaryEstimate, not a
+fake third status.
 
 Positive-feedback note: copper resistance rises with temperature, temperature rises with loss, and loss
 rises with resistance - a real feedback loop, not just a numerical convergence exercise. For a low-DCR,
 high-current design this loop's local iteration gain (rmsCurrentA^2 * coldDcrOhmsAt20C *
-copperTempCoefficientPerC * defaultThermalResistanceCPerW) can reach or exceed 1, in which case the
-iteration diverges rather than converges - a real, reachable case (not a fabricated one) for high-current
-designs, and the honest reading of a non-converging case here is "this heuristic can't produce a stable
-estimate," not "assume it's fine and report the last number anyway." See evaluateThermal()'s non-converged
-branch below.
+copperTempCoefficientPerC * the Rth estimate in use for this candidate) can reach or exceed 1, in which
+case the iteration diverges rather than converges - a real, reachable case (not a fabricated one) for
+high-current designs, and the honest reading of a non-converging case here is "this heuristic can't
+produce a stable estimate," not "assume it's fine and report the last number anyway." See
+evaluateThermal()'s non-converged branch below.
 
 */
 
@@ -46,6 +50,12 @@ struct ThermalIterationInputs {
     //mirrors LossEvaluationResult::coreLossStatus == Evaluated - when false, the loop still runs on
     //copper loss alone (a real, if partial, estimate) rather than refusing to run at all.
     bool coreLossKnown = false;
+
+    //CoreCandidate::aeMm2/leMm - this candidate's own real magnetic-circuit geometry, used to derive a
+    //size-aware thermal resistance (see estimateThermalResistanceCPerW() in ThermalEvaluation.cpp).
+    //0.0 means unknown, in which case the loop falls back to rules.defaultThermalResistanceCPerW.
+    double coreEffectiveAreaMm2 = 0.0;
+    double coreMagneticPathLengthMm = 0.0;
 };
 
 struct ThermalEvaluationResult {
@@ -63,9 +73,13 @@ struct ThermalEvaluationResult {
     double predictedHotspotTempC = 0.0;
     int iterationsUsed = 0;
     bool converged = false;
-    //rules.defaultThermalResistanceCPerW at the time this was computed - carried alongside the result so a
-    //caller never has to re-derive which Rth assumption produced it.
+    //the thermal resistance actually used for this run - carried alongside the result so a caller never
+    //has to re-derive which Rth assumption produced it.
     double thermalResistanceCPerWUsed = 0.0;
+    //true when thermalResistanceCPerWUsed came from this candidate's own real Ae/Le geometry (Newton's
+    //law of cooling over an estimated compact-solid surface area) rather than the flat
+    //rules.defaultThermalResistanceCPerW fallback (used only when geometry was unavailable).
+    bool thermalResistanceIsGeometryDerived = false;
 
     std::string missingDataExplanation;
 };

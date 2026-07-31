@@ -291,7 +291,11 @@ ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, doubl
     result.isPreliminaryEstimate = true;
     result.explanation = "predicted temperature rise " + std::to_string(thermal.predictedTempRiseC) + " C vs allowable " +
                           std::to_string(allowableTempRiseC) + " C (Rth=" +
-                          std::to_string(thermal.thermalResistanceCPerWUsed) + " C/W is a Phase 1 default, not per-core measured data)";
+                          std::to_string(thermal.thermalResistanceCPerWUsed) + " C/W is " +
+                          (thermal.thermalResistanceIsGeometryDerived
+                               ? "a Phase 1 size-aware estimate derived from this core's own Ae/Le geometry via Newton's law of cooling, not measured or simulated data"
+                               : "a Phase 1 flat default - this core's geometry was unavailable to derive a size-aware estimate") +
+                          ")";
     return result;
 }
 

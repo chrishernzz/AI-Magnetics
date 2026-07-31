@@ -117,7 +117,7 @@ above instead - it fills these in for you.
 ### 5. Ambient Temperature (°C)
 **What it is:** The environment temperature the inductor operates in.
 **Example:** `25`
-**Current status:** accepted and threaded through to `ThermalEvaluation`, which runs a real iterative convergence loop (temp → hot DCR → copper loss → temp rise → repeat) and caps at `PreliminaryThermalEstimate` since `defaultThermalResistanceCPerW` is always a Phase 1 default, never per-core data; reports `not_evaluated` only when DCR geometry is unknown or the loop diverges.
+**Current status:** accepted and threaded through to `ThermalEvaluation`, which runs a real iterative convergence loop (temp → hot DCR → copper loss → temp rise → repeat) using a size-aware Rth estimated from each candidate's own real core geometry (Newton's law of cooling; falls back to a flat Phase 1 default only when geometry is unavailable) and caps at `PreliminaryThermalEstimate` either way, never per-core measured data; reports `not_evaluated` only when DCR geometry is unknown or the loop diverges.
 
 ### 6. Allowable Temperature Rise (°C)
 **What it is:** How much hotter than ambient the core can get.

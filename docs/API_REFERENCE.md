@@ -110,8 +110,11 @@ just a console warning:
 **Data-gap fields you may still see today:** `thermal.status` is
 `"PreliminaryThermalEstimate"` at best, never a "fully evaluated" value —
 `ThermalStatus` has no such value at all, since the loop always runs on
-`DesignRules.defaultThermalResistanceCPerW` (a Phase 1 default, never
-per-core measured data). `acLossRisk.acLossWattsStatus` is permanently
+an estimated `thermal.thermalResistanceCPerWUsed` (size-aware, derived
+from each candidate's own real Ae/Le geometry when available - see
+`thermal.thermalResistanceIsGeometryDerived` - falling back to the flat
+`DesignRules.defaultThermalResistanceCPerW` only when it isn't), never
+per-core measured data either way. `acLossRisk.acLossWattsStatus` is permanently
 `"NotEvaluated"` — the skin-depth heuristic produces a risk *level*, never
 a watts figure. `winding.resistanceStatus` and `losses.copperLossStatus`
 are `"Evaluated"` for most candidates (real, geometry-derived
@@ -277,12 +280,16 @@ FastAPI also auto-generates interactive docs at **http://127.0.0.1:8000/docs** �
 `/inductor-design` is a complete pipeline; two result areas are always
 capped for lack of real measured/simulated data, by construction, not by
 oversight — see [DATA_FILES.md](DATA_FILES.md) and FORMULAS.md sections 10-11:
-- **Thermal rise** (`thermal.status`) — a real iterative loop runs, but
-  `defaultThermalResistanceCPerW` is always a Phase 1 default constant, so
-  the result caps at `"PreliminaryThermalEstimate"`, never a fully-evaluated
-  value. Reports `"NotEvaluated"` instead when winding DCR geometry is
-  unknown, or when the loop's positive-feedback iteration genuinely
-  diverges (a real possibility for high-current, low-DCR designs).
+- **Thermal rise** (`thermal.status`) — a real iterative loop runs using a
+  size-aware Rth estimate derived from each candidate's own real Ae/Le core
+  geometry via Newton's law of cooling (falls back to a flat
+  `defaultThermalResistanceCPerW` constant only when that geometry is
+  unavailable), but even the size-aware estimate is never per-core
+  measured/simulated data, so the result caps at
+  `"PreliminaryThermalEstimate"`, never a fully-evaluated value. Reports
+  `"NotEvaluated"` instead when winding DCR geometry is unknown, or when
+  the loop's positive-feedback iteration genuinely diverges (a real
+  possibility for high-current, low-DCR designs).
 - **AC-loss watts** (`acLossRisk.acLossWattsStatus`) — a real qualitative
   skin-depth risk level (`Low`/`Moderate`/`High`) is computed, but no
   AC-loss watts model exists, so this status is permanently `"NotEvaluated"`.

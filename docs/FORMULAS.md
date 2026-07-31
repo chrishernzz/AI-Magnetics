@@ -720,35 +720,62 @@ temperature it's used to predict. This is solved the same way turns/gap
 (Section 4) is: seed, compute, check for stability, repeat.
 
 ```
+thermalResistanceCPerWUsed = estimateThermalResistanceCPerW(aeMm2, leMm)  // see below, computed once
 windingTempC = ambientTemperatureC
 repeat:
   hotDcrOhms  = coldDcrOhmsAt20C * (1 + copperTempCoefficientPerC * (windingTempC - 20))
   copperLossW = rmsCurrentA^2 * hotDcrOhms
   knownLossW  = copperLossW + (coreLossW if known)
-  riseC       = knownLossW * defaultThermalResistanceCPerW
+  riseC       = knownLossW * thermalResistanceCPerWUsed
   newWindingTempC = ambientTemperatureC + riseC
 until |newWindingTempC - windingTempC| < thermalConvergenceThresholdC (or maxThermalIterations reached)
 ```
 
-`defaultThermalResistanceCPerW` (15°C/W) is a single **Phase 1 default**
-constant — a generic natural-convection order-of-magnitude for a
-small/medium ferrite power inductor, never per-core measured or simulated
-data. Because of that, this loop can only ever produce a
-`PreliminaryThermalEstimate`, never a "fully evaluated" thermal result —
-`ThermalStatus` has no such value at all. `ThermalValidation` still runs a
-real pass/fail comparison against `allowableTempRiseC` on a preliminary
-result, flagged via `ValidationResult.isPreliminaryEstimate: true`.
+**Thermal resistance is now size-aware**, not one flat number for every
+core. `estimateThermalResistanceCPerW()` (`ThermalEvaluation.cpp`) uses
+Newton's law of cooling (`Rth = 1 / (h * surfaceAreaM2)`) over a surface
+area estimated from the candidate's own real magnetic-circuit geometry:
+
+```
+volumeM3      = aeMm2 * leMm * 1e-9
+surfaceAreaM2 = compactSolidSurfaceAreaShapeFactor * volumeM3^(2/3)   // cube approximation, factor=6
+thermalResistanceCPerWUsed = 1 / (naturalConvectionCoefficientWPerM2K * surfaceAreaM2)
+```
+
+`naturalConvectionCoefficientWPerM2K` (10 W/(m²·K)) is a real, citable
+natural-convection-in-still-air value (standard heat-transfer references
+put the range at ~5–25 W/(m²·K)); `compactSolidSurfaceAreaShapeFactor`
+(6, the real cube surface-to-volume relation) is a documented
+order-of-magnitude simplification that does not yet differentiate real
+shape families (a toroid's real surface-to-volume ratio is higher than a
+cube's, so this under-states — i.e. is conservative about — a toroid's
+real surface area). When a candidate's `aeMm2`/`leMm` are unavailable, the
+loop falls back to the flat `defaultThermalResistanceCPerW` (15°C/W)
+constant this replaced. Either way, this is still an estimate, never
+per-core measured or simulated Rth data, so this loop can only ever
+produce a `PreliminaryThermalEstimate`, never a "fully evaluated" thermal
+result — `ThermalStatus` has no such value at all. `ThermalValidation`
+still runs a real pass/fail comparison against `allowableTempRiseC` on a
+preliminary result, flagged via `ValidationResult.isPreliminaryEstimate:
+true`.
 
 ### Genuine non-convergence (positive-feedback divergence)
 
 Because hotter winding → higher DCR → more loss → hotter winding is a real
 positive-feedback loop, its local iteration gain
-(`rmsCurrentA^2 * coldDcrOhmsAt20C * copperTempCoefficientPerC * defaultThermalResistanceCPerW`)
+(`rmsCurrentA^2 * coldDcrOhmsAt20C * copperTempCoefficientPerC * thermalResistanceCPerWUsed`)
 can reach or exceed 1 for a high-current, low-DCR design — in which case
 the loop genuinely diverges rather than converges (confirmed against an
 independent hand-simulation of the identical formula before writing
 `tests/cpp/ThermalTests.cpp`'s divergence test). A non-converged result
-reports `not_evaluated`, never a stale intermediate number.
+reports `not_evaluated`, never a stale intermediate number. Because the
+gain scales with `thermalResistanceCPerWUsed`, moving from the flat 15°C/W
+constant to a real per-core estimate can change whether a *specific*
+candidate's loop is even stable — a large core with a real, low geometry-
+derived Rth is *less* likely to diverge than the flat constant implied,
+which can surface a genuine, previously-hidden thermal failure that used
+to sit silently at `NotEvaluated` (see the case-6 golden reference test
+for a documented real example: E100/60/28-3C90 at 28A RMS).
 
 ### Feeds into
 
