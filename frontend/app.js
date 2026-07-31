@@ -956,51 +956,6 @@ function acLossRiskChip(acLossRisk) {
     return `<span class="risk-text ${riskClass}" title="${acLossRisk.reason}">AC risk: ${level}</span>`;
 }
 
-// Which real, user-suppliable input would let a NotEvaluated check actually
-// run - only for the 5 checks that can ever report NotEvaluated (confirmed
-// against DesignValidation.cpp). ThermalValidation/BundleFitValidation are
-// deliberately absent: their real missing-data reason varies per candidate
-// (a database gap, a winding-geometry fact) and isn't a single fixed input
-// the user can type in, so no additional-input hint is fabricated for them -
-// their own explanation text (already shown per-check below) is the honest
-// answer instead.
-const ADDITIONAL_INPUT_NEEDED = {
-    CurrentConsistencyValidation: "Peak current and ripple current (both, mutually consistent)",
-    PeakFluxValidation: "Peak current",
-    SaturationValidation: "Peak current",
-};
-
-// Compact Evaluated/Not-Evaluated summary, positioned right under the status
-// chips - complements rather than duplicates the full Validation Checks list
-// below (which has each check's calculated value and full explanation).
-function renderValidationCoverage(candidate) {
-    const evaluated = candidate.validations.filter((v) => v.status === "Evaluated");
-    const notEvaluated = candidate.validations.filter((v) => v.status === "NotEvaluated");
-    if (notEvaluated.length === 0) {
-        return `<div class="coverage-block coverage-block-full">Validation coverage: every mandatory check ran (${evaluated.length}/${evaluated.length}).</div>`;
-    }
-    return `
-        <div class="coverage-block">
-            <div class="coverage-block-title">Validation Coverage</div>
-            <div class="coverage-columns">
-                <div class="coverage-col">
-                    <div class="coverage-col-label">Evaluated (${evaluated.length})</div>
-                    <ul>${evaluated.map((v) => `<li>${v.checkName}</li>`).join("")}</ul>
-                </div>
-                <div class="coverage-col coverage-col-not-eval">
-                    <div class="coverage-col-label">Not Evaluated (${notEvaluated.length})</div>
-                    <ul>${notEvaluated
-                        .map((v) => {
-                            const needed = ADDITIONAL_INPUT_NEEDED[v.checkName];
-                            return `<li><strong>${v.checkName}</strong>${needed ? `<br><span class="coverage-needs">needs: ${needed}</span>` : ""}</li>`;
-                        })
-                        .join("")}</ul>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
 function renderCandidateDetail(candidate) {
     const warnings = candidate.material.missingDataWarnings
         .concat(candidate.winding.missingData || [])
@@ -1041,10 +996,9 @@ function renderCandidateDetail(candidate) {
         <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong> &nbsp; ${acLossRiskChip(candidate.acLossRisk)}</p>
     `;
 
-    // One-line status for a rejection only - the pass/conditional-pass case
-    // used to restate "N of M checks passed, K not evaluated" here too, but
-    // that's now the Validation Coverage block right below (same facts, more
-    // detail); repeating it here was the same sentence twice. Tier comes
+    // One-line status for a rejection only - the same "N passed/failed/not
+    // evaluated" facts are already in the Validation Checks list right below,
+    // repeating them here was the same sentence twice. Tier comes
     // from the real backend classification - only "Recommended" ever
     // renders a chip here (see recommendationTierChip), so this stays empty
     // whenever tier isn't Pass (currently always, since Pass is
@@ -1074,8 +1028,6 @@ function renderCandidateDetail(candidate) {
     return `
         ${kpis}
         ${statusLine}
-        ${renderValidationCoverage(candidate)}
-        ${candidate.designNarrative ? `<p class="detail-next-step"><strong>Suggested next step:</strong> ${candidate.designNarrative}</p>` : ""}
         <details class="detail-group" open>
             <summary>Validation Checks <span class="detail-group-count">(${passCount} passed, ${failCount} failed, ${notEvalCount} not evaluated)</span></summary>
             <ul class="validation-list">${renderValidationList(candidate.validations)}</ul>
@@ -1381,6 +1333,21 @@ function renderMaterialTypeFilter(result) {
     };
 }
 
+// Plain scrollIntoView({block: "start"}) aligns the target's top edge with the
+// top of the viewport - but .topbar is position:sticky and sits on top of that
+// same spot, so the target's own heading/icon ends up clipped behind it (a
+// real user report: the "Recommended Candidate" title was invisible right
+// after Generate). Scrolls to leave room for the sticky header's real height
+// instead of assuming a fixed pixel offset that could drift if the header's
+// content ever changes.
+function scrollToResultsCard(target) {
+    if (!target) return;
+    const header = document.querySelector(".topbar");
+    const headerHeight = header ? header.getBoundingClientRect().height : 0;
+    const targetTop = target.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo({ top: targetTop - headerHeight - 12, behavior: "smooth" });
+}
+
 async function generateRecommendation() {
     // Hard block - re-check even though the button is already disabled when
     // invalid, since this function is the single entry point regardless of
@@ -1431,7 +1398,7 @@ async function generateRecommendation() {
         // to the candidates table itself when there's no passing candidate to recommend.
         const recommendedCard = document.getElementById("recommendedCandidateCard");
         const scrollTarget = recommendedCard && !recommendedCard.hidden ? recommendedCard : document.querySelector(".candidates-card");
-        if (scrollTarget) scrollTarget.scrollIntoView({ behavior: "smooth", block: "start" });
+        scrollToResultsCard(scrollTarget);
 
         setStatus(
             result.status === "ok"
