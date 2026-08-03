@@ -36,11 +36,20 @@ isn't offered at that permeability (several grades — e.g. 173μ, 300μ, 550μ 
 are C0-only). E-cores only ever have a `00` grading code (Magnetics doesn't
 offer graded E-cores).
 
-Known gap: E-core rows have no real winding-window data (Wa/Mlt/
-WindowWidthMm/WindowHeightMm are 0.0/"" — genuinely missing, not zero) —
-mag-inc.com's part search returns external Length/LegLength/Width, not
-bobbin window dimensions, so this project doesn't have real data for those
-fields yet.
+E-core Wa (winding-window area) is now real data too: mag-inc.com's bulk part
+search doesn't expose it (only external Length/LegLength/Width), but each
+part's individual datasheet PDF does. Wa is a property of the physical body
+only — verified by hand across every material/permeability variant sharing a
+given (Le, Ae) pair (e.g. all of 1808's 26/40/60μ Kool Mu MAX variants report
+the identical Wa=51.5mm2) — so one datasheet per unique physical size (18
+sizes cover all 323 E-core rows) was enough, not one per part.
+
+Remaining known gap: Mlt (mean-length-per-turn) is still 0.0/not real for
+E-cores — the datasheets do carry the leg width/depth dimensions needed to
+estimate it the same way scripts/export_real_data.py estimated it from
+PyOpenMagnetics' central-column data, but that hasn't been pulled and applied
+yet. DCR/resistanceStatus already handles this gracefully (NotEvaluated, not
+a fabricated number) — see WindingDesign.cpp.
 
 DO NOT re-run scripts/export_real_data.py and blindly overwrite these files —
 that script re-samples from PyOpenMagnetics again and would silently discard
