@@ -82,4 +82,4 @@ See [WORKFLOW.md](WORKFLOW.md) for formulas and the current status of each stage
 ## Resources
 - **Design Reference:** McLyman, *Transformer and Inductor Design Handbook*
 - **Data Format:** See [DATA_FILES.md](DATA_FILES.md) for CSV structure
-- **Vendor References:** Core geometry sourced from real manufacturer data (Ferroxcube, TDK, Magnetics, Fair-Rite, and others), originally via PyOpenMagnetics/MAS, bundled as a snapshot in `data/real_cores.csv` (see [ARCHITECTURE.md](ARCHITECTURE.md)); one reference design (`i77006`, an IntelliPower part) used for validation
+- **Vendor References:** Core geometry sourced from Magnetics Inc.'s own live catalog (mag-inc.com), transcribed by hand part-by-part into `data/real_cores.csv` (see [ARCHITECTURE.md](ARCHITECTURE.md)) — no third-party magnetics library involved

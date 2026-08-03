@@ -5,23 +5,19 @@ Loads real core and material data from a bundled snapshot file
 (data/real_materials.csv, data/real_cores.csv) and maps it into the same
 field names your C++ engine already expects.
 
-WHY A BUNDLED FILE INSTEAD OF A LIVE PYOPENMAGNETICS QUERY:
-PyOpenMagnetics does not support native Windows (only Linux/macOS, or
-Windows via WSL2 — see the project's own docs/compatibility.md), and has
-no published wheel for Python 3.14 on any platform. Since this project
-runs on native Windows Python 3.14, importing PyOpenMagnetics at runtime
-is not currently possible here.
-
-CURRENT SNAPSHOT PROVENANCE (changed — read this before touching the CSVs):
-As of this snapshot, data/real_cores.csv and data/real_materials.csv are no
-longer PyOpenMagnetics-sampled output. A database review found real errors in
-the old PyOpenMagnetics-derived snapshot for this project's actual scope
-(MPP toroids + Magnetics E-cores) — missing permeability grades, and cores
-whose catalog number didn't actually correspond to the geometry/permeability
-recorded. The snapshot was rebuilt by hand from Magnetics' own live catalog
-(mag-inc.com Advanced Part Number Finder: Powder Cores Search, Material=MPP
-+ Shape=Toroid, and Material=All + Shape=E Core, Permeability=All each time),
-transcribed part-by-part, not filtered/sampled by an external library.
+DATA PROVENANCE: this project no longer uses PyOpenMagnetics/MAS in any
+form, at build time or runtime - not as a dependency, not as a data source.
+Every row in data/real_cores.csv and data/real_materials.csv was transcribed
+by hand, part-by-part, from Magnetics Inc.'s own live catalog (mag-inc.com's
+Advanced Part Number Finder: Powder Cores Search, Material=MPP + Shape=Toroid,
+and Material=All + Shape=E Core, Permeability=All each time), after a database
+review found real errors in the old PyOpenMagnetics-sampled snapshot this
+project used to ship (missing permeability grades, and cores whose catalog
+number didn't actually correspond to the geometry/permeability recorded).
+There is no PyOpenMagnetics import anywhere in this codebase anymore, and no
+script that regenerates this data from it - if you need to refresh this
+snapshot, you re-pull it from mag-inc.com by hand the same way, there's no
+automated substitute.
 
 Scope was deliberately narrowed to Magnetics powder MPP toroids and Magnetics
 powder E-cores only (755 cores, 34 materials) — every other family the old
@@ -46,17 +42,9 @@ sizes cover all 323 E-core rows) was enough, not one per part.
 
 Remaining known gap: Mlt (mean-length-per-turn) is still 0.0/not real for
 E-cores — the datasheets do carry the leg width/depth dimensions needed to
-estimate it the same way scripts/export_real_data.py estimated it from
-PyOpenMagnetics' central-column data, but that hasn't been pulled and applied
-yet. DCR/resistanceStatus already handles this gracefully (NotEvaluated, not
-a fabricated number) — see WindingDesign.cpp.
-
-DO NOT re-run scripts/export_real_data.py and blindly overwrite these files —
-that script re-samples from PyOpenMagnetics again and would silently discard
-this hand-curated, verified-against-mag-inc.com snapshot, reintroducing the
-exact errors this rebuild fixed. That script's docstring/logic has not been
-updated to reflect the new scope; treat it as stale until someone rewrites it
-to match (or deletes it).
+estimate it (see each part's Dimensions table), but that hasn't been pulled
+and applied yet. DCR/resistanceStatus already handles this gracefully
+(NotEvaluated, not a fabricated number) — see WindingDesign.cpp.
 
 Trade-off, stated plainly: this data is a snapshot, not live. If Magnetics'
 catalog changes, someone has to re-pull it by hand the same way — this file
@@ -139,19 +127,22 @@ def fetch_cores() -> list[dict]:
     PartNumber, Material, Mu, AL, Ae, Wa, Le, Mlt,
     PartCost, Vendor, MaxCurrent_A, MaxFreq_kHz, CoreShape, ShapeFamily
 
-    Mlt (mean-length-per-turn, mm) is a real-geometry estimate as of this
-    snapshot - see scripts/export_real_data.py's module docstring for
-    exactly what it does and doesn't account for.
+    Mlt (mean-length-per-turn, mm) is real for MPP toroids (derived by hand
+    from each part's real OD/ID/HT per mag-inc.com's own catalog data) and
+    still a known gap for E-cores (see this file's module docstring).
 
-    CoreShape ("Toroid"/"TwoPieceSet") and ShapeFamily (e.g. "T", "ETD",
-    "PQ") are real geometry classifications from PyOpenMagnetics - see
-    scripts/export_real_data.py's _core_shape_and_family().
+    CoreShape ("Toroid"/"TwoPieceSet") and ShapeFamily ("T" for toroids, "E"
+    for E-cores) are assigned by hand from each part's real mag-inc.com shape
+    category - every row in this snapshot is one or the other, since scope is
+    narrowed to just those two Magnetics powder shapes.
 
-    MaterialType ("ferrite"/"powder") is PyOpenMagnetics' own real material
-    classification - the C++ engine uses it (not CoreShape alone) to decide
-    whether a toroid's permeability is a distributed-gap material property
-    (powder) or needs the real machined-gap formula (ferrite toroids, e.g.
-    N87, do not get distributed gapping) - see TurnsAndGapDesign.cpp.
+    MaterialType is always "powder" in this snapshot (MPP and every E-core
+    material family - Kool Mu, Edge, XFlux, High Flux, etc. - are all
+    distributed-gap powder materials) - the C++ engine uses this field (not
+    CoreShape alone) to decide whether a core's permeability is a
+    distributed-gap material property or needs the real machined-gap formula
+    (ferrite only, none of which remains in this snapshot's scope) - see
+    TurnsAndGapDesign.cpp.
 
     DatasheetUrl is real (~99% populated in this snapshot). WindowWidthMm/
     WindowHeightMm are the real rectangular winding-window dimensions,

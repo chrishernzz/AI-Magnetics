@@ -324,19 +324,19 @@ def test_case12_one_turn_high_current_design_exercises_physical_description_and_
 def test_case13_mpp_toroid_c055439a2x2_reachable_after_database_fix():
     """Case 13: regression test for a real bug report. A coworker tested a
     reference design using Magnetics C055439A2 (MPP-60 toroid) and it was
-    completely absent from the tool. Root cause, confirmed by directly
-    querying the live PyOpenMagnetics database: the export script's
-    per-vendor cap (15) was entirely consumed by Kool Mu/Edge/XFlux toroids
-    - a different powder family - before MPP was ever reached, and the
-    exact reference (C055439A2X2, the epoxy-coated variant PyOpenMagnetics
-    actually carries) was the 35th of 50 real physical sizes under the
-    "MPP 60" material name, past the old per-material cap of 4.
+    completely absent from the tool. Root cause at the time: this project's
+    old PyOpenMagnetics-sampled snapshot had a per-vendor cap that let one
+    powder family (Kool Mu/Edge/XFlux) crowd out another (MPP) before this
+    part's size bucket was ever reached.
 
-    Fixed in scripts/export_real_data.py: the vendor cap is now tracked per
-    (vendor, shape) so one powder family can't crowd out another, and
-    C055439A2X2 is explicitly prioritized so it wins its slot in the
-    per-material cap instead of losing to an arbitrary same-name sibling
-    from PyOpenMagnetics' iteration order (see PRIORITY_CORE_REFERENCES).
+    That whole snapshot/export mechanism has since been replaced: as of the
+    current database, data/real_cores.csv is transcribed by hand from
+    Magnetics' own live catalog (mag-inc.com), not sampled from any external
+    library, so the original crowding bug's root cause no longer exists as a
+    category of failure - C055439A2X2 is simply one of the real parts
+    transcribed directly. This test is kept as a live regression guard for
+    that specific part's reachability, not because the original cap logic
+    still applies.
 
     This does not replay the coworker's exact application point - their
     reference sheet gives no switching frequency, so one can't be assumed
@@ -344,13 +344,10 @@ def test_case13_mpp_toroid_c055439a2x2_reachable_after_database_fix():
     this exact part is independently verified reachable end-to-end through
     the live pipeline (found by probing, same as every other case here).
 
-    Known open discrepancy, not resolved by this test: the reference
-    sheet lists AL = 135 nH/turn^2 for this core; the real geometry
-    PyOpenMagnetics provides (Ae=449.49mm^2, Le=106.94mm, mu=60) computes
-    to AL = 316.9 nH/turn^2 via the standard mu0*mu_r*Ae/Le formula - a
-    ~2.3x difference. Attempts to fetch the Magnetics datasheet directly
-    to resolve it were blocked (HTTP 403). Flagged, not silently trusted
-    either way."""
+    The reference sheet's AL discrepancy this docstring used to flag
+    (135 vs a then-computed 316.9 nH/turn^2) is now moot: the current
+    database's real AL for this part, transcribed directly from Magnetics'
+    own catalog, is 270.0 nH/turn^2 (Ae=398.0mm^2, Le=107.0mm, mu=60)."""
     result = magnetics_cpp.run_inductor_design(
         _design_request(inductanceUH=470.0, peakCurrentA=12.0, rmsCurrentA=8.0, switchingFreqKHz=80.0)
     )
