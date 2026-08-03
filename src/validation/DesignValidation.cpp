@@ -51,7 +51,7 @@ std::string conductionModeName(ConductionMode mode) {
     return "unknown";
 }
 
-}  // namespace
+}  //namespace
 
 //precondition: none
 //postcondition: passes only if peakCurrentA/rmsCurrentA/rippleCurrentPeakToPeakA describe one physically consistent waveform (spec: current-consistency validation). NotEvaluated whenever peak or ripple is missing, OR when both are present but genuinely contradict each other (implied DCM, or an out-of-envelope rmsCurrentA) - 

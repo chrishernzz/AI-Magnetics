@@ -60,7 +60,7 @@ double inductanceAtGapUH(int turns, double gapMm, double aeCm2, double leCm, dou
     double actualNh = static_cast<double>(turns) * turns * alEff;
     return units::nHToUh(actualNh);
 }
-}  // namespace
+}  //namespace
 
 //precondition: core.aeMm2 > 0, core.leMm > 0, core.mu > 0, targetInductanceUH > 0
 //postcondition: iterates turns and gap together until the integer turns count stabilizes (2-4 iterations typical for ferrite gap ranges), then sweeps gap +-rules.gapTolerancePercent

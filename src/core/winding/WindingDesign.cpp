@@ -36,7 +36,7 @@ const AwgEntry* finestAwgMeetingArea(double requiredAreaMm2) {
     return best;
 }
 
-}  // namespace
+}  //namespace
 
 //precondition: core.waMm2 > 0, turns > 0, rmsCurrentA > 0
 //postcondition: see header
@@ -50,13 +50,13 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
     int selectedAwg = 0;
 
     if (singleStrand == nullptr || singleStrand->awg < rules.minimumSingleStrandAwg) {
-        // Either no single strand in the table is large enough, or the
-        // implied gauge is thicker than practical for hand-winding -
-        // switch to parallel strands of the minimum practical single-strand
-        // gauge instead of one very thick solid wire.
+        //Either no single strand in the table is large enough, or the
+        //implied gauge is thicker than practical for hand-winding -
+        //switch to parallel strands of the minimum practical single-strand
+        //gauge instead of one very thick solid wire.
         const AwgEntry* strandGauge = findEntry(rules.minimumSingleStrandAwg);
         if (strandGauge == nullptr) {
-            strandGauge = &kAwgTable[0];  // fallback to the thickest table entry
+            strandGauge = &kAwgTable[0];  //fallback to the thickest table entry
         }
 
         int strands = std::max(1, static_cast<int>(std::ceil(requiredAreaMm2 / strandGauge->areaMm2)));
@@ -82,7 +82,7 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
 
     result.constructionType = result.parallelStrands > 1 ? WindingConstructionType::ParallelRoundWires : WindingConstructionType::SingleRoundWire;
 
-    // Bare-strand diameter for whichever gauge was actually selected (single or parallel-strand case).
+    //Bare-strand diameter for whichever gauge was actually selected (single or parallel-strand case).
     double bareStrandDiameterMm = 2.0 * std::sqrt(result.conductorAreaMm2 / kPi);
     result.insulatedConductorDiameterMm = bareStrandDiameterMm + rules.singleBuildInsulationBuildUpMm;
     result.insulatedConductorAreaMm2 = (kPi / 4.0) * result.insulatedConductorDiameterMm * result.insulatedConductorDiameterMm;
@@ -92,10 +92,10 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
             " magnet wire (bare " + std::to_string(bareStrandDiameterMm) + " mm, insulated ~" +
             std::to_string(result.insulatedConductorDiameterMm) + " mm each), wound as a single bundle";
 
-        // Real check, only possible for two-piece cores (real window width/height - see
-        // CoreCandidate::windowWidthMm/windowHeightMm). Toroids have no flat width/height at all (radial
-        // window geometry instead), so they - and any two-piece core still missing this data - stay
-        // permanently NotEvaluated here, never assumed to fit.
+        //Real check, only possible for two-piece cores (real window width/height - see
+        //CoreCandidate::windowWidthMm/windowHeightMm). Toroids have no flat width/height at all (radial
+        //window geometry instead), so they - and any two-piece core still missing this data - stay
+        //permanently NotEvaluated here, never assumed to fit.
         if (core.windowWidthMm > 0.0 && core.windowHeightMm > 0.0) {
             result.bundleWidthMm = static_cast<double>(result.parallelStrands) * result.insulatedConductorDiameterMm;
             result.narrowestWindowOpeningMm = std::min(core.windowWidthMm, core.windowHeightMm);
@@ -111,21 +111,21 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
             std::to_string(bareStrandDiameterMm) + " mm, insulated ~" + std::to_string(result.insulatedConductorDiameterMm) + " mm), single strand";
     }
 
-    // Physical window fill: bobbin-wall derate (non-toroid cores only - see below), then subtract
-    // margin/lead-exit clearance (both expressed as area fractions in DesignRules.h - real window
-    // width/height now exists for two-piece cores, see CoreCandidate::windowWidthMm/windowHeightMm, but this
-    // formula does not yet switch to a literal-mm margin for them; toroids still have no linear window
-    // dimension at all), then divide the insulated-conductor area sum by the achievable packing factor to
-    // get the physically occupied area.
+    //Physical window fill: bobbin-wall derate (non-toroid cores only - see below), then subtract
+    //margin/lead-exit clearance (both expressed as area fractions in DesignRules.h - real window
+    //width/height now exists for two-piece cores, see CoreCandidate::windowWidthMm/windowHeightMm, but this
+    //formula does not yet switch to a literal-mm margin for them; toroids still have no linear window
+    //dimension at all), then divide the insulated-conductor area sum by the achievable packing factor to
+    //get the physically occupied area.
     //
-    // rules.bobbinWindowDerateFactor models the wall thickness of a physical bobbin former - a real
-    // component that TwoPieceSet cores are wound on, but a Toroid has none: it's hand-wound directly around
-    // the core, with no separate former consuming window space. Applying that derate uniformly to every
-    // core shape overstated how much window a toroid loses - a real user report (a senior magnetics
-    // engineer's hand calculation) caught this, and it was the single largest identifiable cause of powder
-    // toroids (which already need far more turns than ferrite for the same inductance, since powder's real
-    // permeability is 10-100x lower) failing this check. Margin/lead-exit clearance still applies to
-    // toroids - hand winding still needs real clearance space - only the bobbin-specific derate is skipped.
+    //rules.bobbinWindowDerateFactor models the wall thickness of a physical bobbin former - a real
+    //component that TwoPieceSet cores are wound on, but a Toroid has none: it's hand-wound directly around
+    //the core, with no separate former consuming window space. Applying that derate uniformly to every
+    //core shape overstated how much window a toroid loses - a real user report (a senior magnetics
+    //engineer's hand calculation) caught this, and it was the single largest identifiable cause of powder
+    //toroids (which already need far more turns than ferrite for the same inductance, since powder's real
+    //permeability is 10-100x lower) failing this check. Margin/lead-exit clearance still applies to
+    //toroids - hand winding still needs real clearance space - only the bobbin-specific derate is skipped.
     bool coreHasPhysicalBobbin = core.coreShape != "Toroid";
     double bobbinDerate = coreHasPhysicalBobbin ? rules.bobbinWindowDerateFactor : 1.0;
     result.physicalWindowAreaMm2 = core.waMm2 * bobbinDerate * (1.0 - rules.marginAllowanceAreaFraction - rules.leadExitAllowanceAreaFraction);
@@ -134,8 +134,8 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
     result.fitsPhysicalWindow = result.physicalWindowFillFactor <= rules.maximumFillFactor;
 
     if (core.mltMm > 0.0) {
-        // Length of one strand's path all the way around the core, turns
-        // times over - not yet divided by parallel strands.
+        //Length of one strand's path all the way around the core, turns
+        //times over - not yet divided by parallel strands.
         result.coreWindingLengthM = units::mmToM(static_cast<double>(turns) * core.mltMm);
         result.leadLengthM = units::mmToM(rules.totalLeadLengthAllowanceMm);
         result.routingLengthM = units::mmToM(rules.routingLengthAllowanceMm);
@@ -146,13 +146,13 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
         result.connectionResistanceOhms = units::milliOhmToOhm(rules.connectionResistanceMilliOhm);
 
         result.totalWireLengthM = result.coreWindingLengthM * result.parallelStrands;
-        // Paralleling N identical strands divides resistance by N; the termination joint is a single
-        // connection, not itself paralleled across strands.
+        //Paralleling N identical strands divides resistance by N; the termination joint is a single
+        //connection, not itself paralleled across strands.
         result.coldDcrOhmsAt20C = singleStrandResistanceOhms / result.parallelStrands + result.connectionResistanceOhms;
         result.dcrOhms = result.coldDcrOhmsAt20C;
 
-        // Conservative sanity-check estimate only - not a converged answer. Overwritten by the real
-        // iterative thermal loop's converged hot DCR once that loop exists (see ThermalEvaluation.h).
+        //Conservative sanity-check estimate only - not a converged answer. Overwritten by the real
+        //iterative thermal loop's converged hot DCR once that loop exists (see ThermalEvaluation.h).
         result.estimatedHotDcrOhms = result.coldDcrOhmsAt20C *
             (1.0 + rules.copperTempCoefficientPerC * (rules.assumedWindingTempCWhenThermalNotEvaluated - 20.0));
 

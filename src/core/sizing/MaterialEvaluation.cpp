@@ -13,7 +13,7 @@ bool hasAnyCoreLossCoefficients(const std::string& materialName) {
     }
     return false;
 }
-}  // namespace
+}  //namespace
 
 //precondition: Materials::load() has been populated
 //postcondition: returns every material whose declared frequency range, contains the requested switching frequency, each as an independent candidate - no material is dropped just because another also matches.

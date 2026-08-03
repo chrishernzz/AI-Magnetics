@@ -49,14 +49,14 @@ MaterialCandidate materialFor(const std::string& name) {
     return material;
 }
 
-}  // namespace
+}  //namespace
 
 //1. A ferrite core with a required Ap far beyond what its real geometry provides must still be correctly
 //rejected by the pre-filter - the powder bypass below must not have accidentally widened to ferrite too.
 void testFerriteCoreStillGatedByAreaProduct() {
     CoreDatabase::setData({realFerriteCore()});
     std::vector<MaterialCandidate> materials{materialFor("3C90")};
-    // real Ap for this core is ~14.85 cm^4 (735.05mm2 * 2020mm2 * 1e-4) - require far more than that.
+    //real Ap for this core is ~14.85 cm^4 (735.05mm2 * 2020mm2 * 1e-4) - require far more than that.
     std::unordered_map<std::string, double> required{{"3C90", 1000.0}};
 
     std::vector<CoreCandidate> cores = findSuitableCores(materials, required);
@@ -70,7 +70,7 @@ void testFerriteCoreStillGatedByAreaProduct() {
 void testFerriteCorePassesWhenRealAreaProductSuffices() {
     CoreDatabase::setData({realFerriteCore()});
     std::vector<MaterialCandidate> materials{materialFor("3C90")};
-    std::unordered_map<std::string, double> required{{"3C90", 1.0}};  // trivially small vs real ~14.85 cm^4
+    std::unordered_map<std::string, double> required{{"3C90", 1.0}};  //trivially small vs real ~14.85 cm^4
 
     std::vector<CoreCandidate> cores = findSuitableCores(materials, required);
     assert(cores.size() == 1);
@@ -86,7 +86,7 @@ void testFerriteCorePassesWhenRealAreaProductSuffices() {
 void testPowderCoreBypassesAreaProductPreFilter() {
     CoreDatabase::setData({realPowderCore()});
     std::vector<MaterialCandidate> materials{materialFor("MPP 60")};
-    // deliberately astronomical - no real core would ever satisfy this via the raw Ap formula.
+    //deliberately astronomical - no real core would ever satisfy this via the raw Ap formula.
     std::unordered_map<std::string, double> required{{"MPP 60", 1.0e9}};
 
     std::vector<CoreCandidate> cores = findSuitableCores(materials, required);

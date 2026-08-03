@@ -24,11 +24,11 @@ struct AreaProductInput {
     double switchingFreqHz;
     double allowableTempRiseC;
 
-    // Ku = Window utilization factor
+    //Ku = Window utilization factor
     double windowUtilization;
-    // Bm = maximum flun density
+    //Bm = maximum flun density
     double fluxDensityT;
-    // J = current density
+    //J = current density
     double currentDensityAPerCm2;
 };
 

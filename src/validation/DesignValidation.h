@@ -54,7 +54,7 @@ ValidationResult CurrentDensityValidation(const WindingDesignResult& winding, co
 ValidationResult BundleFitValidation(const WindingDesignResult& winding);
 
 //checks thermal.predictedTempRiseC against allowableTempRiseC when thermal.status == Evaluated; always not_evaluated (passed=false, never an assumed pass) in Phase 1 since evaluateThermal() never produces an
-// Evaluated result today.
+//Evaluated result today.
 ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, double allowableTempRiseC);
 
 /*

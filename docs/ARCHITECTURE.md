@@ -103,7 +103,7 @@ CMake builds this as a Python extension module and places the compiled `.pyd`/`.
 | RecommendationStatus | `src/validation/RecommendationStatus.cpp` | ✅ Implemented — 3-tier `Pass`/`ConditionalPass`/`Reject` classification replacing the old frontend-only "Recommended" sugar; `Pass` currently unreachable in practice (ThermalValidation always flags isPreliminaryEstimate) |
 | DataCache<T> | `src/data/DataCache.h` | ✅ Implemented — shared template holding the "cache once, warn if empty" logic that `CoreDatabase`, `MaterialDatabase`, and `CoreLossCoefficientDatabase` all use, instead of each repeating it |
 | CoreDatabase | `src/data/CoreDatabase.h` | ✅ Implemented — real data loaded once at startup from a bundled snapshot (`data/real_cores.csv`, sourced from PyOpenMagnetics — see "Data Source" below); no CSV fallback, startup fails loudly if this fails. `load()` returns by `const&`, not by value |
-| MaterialDatabase | `src/data/MaterialDatabase.h` | ✅ Implemented — same pattern as CoreDatabase; `MaterialData` now also carries a real, material-specific `bmaxT` for all 81 materials |
+| MaterialDatabase | `src/data/MaterialDatabase.h` | ✅ Implemented — same pattern as CoreDatabase; `MaterialData` now also carries a real, material-specific `bmaxT` for all 165 materials |
 | Validation | `src/validation/Validation.h` | ✅ Implemented — `ValidationResult{passed, checkName, calculatedValue, limitValue, unit, explanation, usesDefaultAssumption}`, compiled via `VALIDATION_SOURCES` |
 | DesignRules | `src/rules/DesignRules.h`/`.cpp` | ✅ Implemented — `DesignRules::phase1Default()` is the single source of Ku/Bmax/J/tolerance defaults, compiled via `RULES_SOURCES` |
 | RequirementDerivationService | `backend/services/RequirementDerivationService.cpp` | ✅ Implemented — unit conversion + RMS-current-from-ripple derivation (triangular ripple only) |
@@ -197,14 +197,6 @@ always labeled as derived, never presented as a directly measured value. When th
 mathematically impossible for a triangular waveform (`Irms^2 < ripple^2/12`), it never throws -
 `peakCurrentA` simply stays absent, matching this file's existing soften-don't-crash policy.
 
-**`OperatingPointConfidence`** (`core/model/OperatingPointConfidence.h`,
-`OperatingPointConfidenceService`): classifies what a request originally supplied - `RmsOnly` /
-`RmsPlusRipple` / `RmsPlusPeak` / `FullOperatingPoint` - and separately, where the peak current now
-in use came from (`NotSupplied` / `Derived` / `DirectlySupplied`). Computed once per request from
-the inputs alone, attached to `DesignRecommendation` (the same "one blob per run" pattern as
-`activeRules`/`versions`). Critically, `inputMode` classifies the *original* request, so a
-successful Mode 2 derivation is never misreported as a directly-supplied peak.
-
 **`BottleneckAnalysis`** (`core/model/BottleneckAnalysis.h`, `BottleneckAnalysisService`):
 identifies the single check most responsible for a candidate's current standing - the failed check
 closest to passing (rejected candidates), the mandatory check that couldn't run at all because
@@ -233,8 +225,8 @@ on every result it ever produces, since no fully-validated thermal model exists 
 requires every mandatory check to rest on measured (never preliminary/default) data. This is
 documented directly in `RecommendationStatus.h` and is a correct, honest constraint - every real
 candidate this engine produces today is capped at `ConditionalPass` at best, which is exactly why
-`OperatingPointConfidence`/`BottleneckAnalysis` exist: to make clear *why* a candidate is capped
-there, not to pretend the cap doesn't exist.
+`BottleneckAnalysis` exists: to make clear *why* a candidate is capped there, not to pretend the cap
+doesn't exist.
 
 ---
 

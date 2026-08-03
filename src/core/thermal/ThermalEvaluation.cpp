@@ -24,7 +24,7 @@ double estimateThermalResistanceCPerW(double aeMm2, double leMm, const DesignRul
     return 1.0 / (rules.naturalConvectionCoefficientWPerM2K * surfaceAreaM2);
 }
 
-}  // namespace
+}  //namespace
 
 //precondition: none
 //postcondition: see header
@@ -50,7 +50,7 @@ ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, co
     int iteration = 0;
 
     for (; iteration < rules.maxThermalIterations; ++iteration) {
-        // Hot DCR at the current winding-temperature estimate, then the loss and rise it implies.
+        //Hot DCR at the current winding-temperature estimate, then the loss and rise it implies.
         hotDcrOhms = inputs.coldDcrOhmsAt20C * (1.0 + rules.copperTempCoefficientPerC * (windingTempC - 20.0));
         copperLossW = inputs.rmsCurrentA * inputs.rmsCurrentA * hotDcrOhms;
         knownLossW = copperLossW + (inputs.coreLossKnown ? inputs.coreLossW : 0.0);
@@ -68,9 +68,9 @@ ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, co
     }
 
     if (!converged) {
-        // Genuine positive-feedback divergence (see header) for a high-current/low-DCR design is a real,
-        // reachable case here, not just a numerical edge case - the last computed intermediate temperature
-        // is not a meaningful estimate in that case, so it is not reported as one.
+        //Genuine positive-feedback divergence (see header) for a high-current/low-DCR design is a real,
+        //reachable case here, not just a numerical edge case - the last computed intermediate temperature
+        //is not a meaningful estimate in that case, so it is not reported as one.
         result.status = ThermalStatus::NotEvaluated;
         result.missingDataExplanation =
             "thermal loop did not converge within " + std::to_string(rules.maxThermalIterations) +

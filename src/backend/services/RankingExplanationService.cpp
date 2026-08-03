@@ -12,7 +12,7 @@ const char* tierName(RecommendationTier tier) {
             return "REJECT";
     }
 }
-}  // namespace
+}  //namespace
 
 //precondition: see header
 //postcondition: see header

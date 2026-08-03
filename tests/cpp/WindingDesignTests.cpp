@@ -91,8 +91,8 @@ void testColdDcrIncludesLeadRoutingAndConnectionResistance() {
     WindingDesignResult result = designWinding(core, 20, 5.0, rules);
     assert(result.resistanceStatus == EvaluationStatus::Evaluated);
 
-    // Hand-computed core-winding-only resistance (the pre-Commit-8 formula), using the same real resistivity
-    // constant WindingDesign.cpp uses internally.
+    //Hand-computed core-winding-only resistance (the pre-Commit-8 formula), using the same real resistivity
+    //constant WindingDesign.cpp uses internally.
     constexpr double kCopperResistivityOhmMAt20C = 1.724e-8;
     double conductorAreaM2 = result.conductorAreaMm2 * 1e-6;
     double coreWindingOnlyResistanceOhms =
@@ -188,20 +188,20 @@ CoreCandidate realPowderToroid() {
 void testToroidSkipsInapplicableBobbinDerate() {
     CoreCandidate toroidCore = realPowderToroid();
     CoreCandidate twoPieceCore = realPowderToroid();
-    twoPieceCore.coreShape = "TwoPieceSet";  // same real core geometry, hypothetically bobbin-wound
+    twoPieceCore.coreShape = "TwoPieceSet";  //same real core geometry, hypothetically bobbin-wound
     DesignRules rules = DesignRules::phase1Default();
 
     WindingDesignResult toroidResult = designWinding(toroidCore, 166, 5.0, rules);
     WindingDesignResult twoPieceResult = designWinding(twoPieceCore, 166, 5.0, rules);
 
     assert(toroidResult.physicalWindowFillFactor < twoPieceResult.physicalWindowFillFactor);
-    // exact ratio: the two-piece result still carries the 0.85 bobbin derate the toroid now skips
+    //exact ratio: the two-piece result still carries the 0.85 bobbin derate the toroid now skips
     assert(approxEqual(toroidResult.physicalWindowFillFactor, twoPieceResult.physicalWindowFillFactor * rules.bobbinWindowDerateFactor, 1e-6));
     std::printf("testToroidSkipsInapplicableBobbinDerate: toroid=%.4f vs hypothetical-bobbin-wound=%.4f (ratio matches bobbinWindowDerateFactor=%.2f exactly)\n",
                 toroidResult.physicalWindowFillFactor, twoPieceResult.physicalWindowFillFactor, rules.bobbinWindowDerateFactor);
 }
 
-}  // namespace
+}  //namespace
 
 void runWindingDesignTests() {
     testSingleStrandSelectedForModerateCurrent();

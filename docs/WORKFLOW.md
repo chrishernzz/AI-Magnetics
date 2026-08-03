@@ -109,7 +109,7 @@ E_max = 0.5 × 250µ × 25 = 3.125 mJ
 Ap ≈ 3 cm⁴ (core must satisfy this minimum)
 ```
 
-**Note:** `windowUtilization`, `fluxDensityT`, and `currentDensityAPerCm2` are sourced from `DesignRules::phase1Default()` (Ku=0.4, Bmax=0.30 T, J=400 A/cm²) - a named C++ ruleset, not a hard-coded Python constant (spec section 7; see `src/rules/DesignRules.cpp`). The Phase 1 pipeline's `PeakFluxValidation`/`SaturationValidation` checks prefer a material-specific `BmaxT` over this default when one exists - `data/real_materials.csv`'s `BmaxT` is real, material-specific data for all 81 materials, so the default is now only a fallback for a material with no measured value, and every check that uses the default flags `usesDefaultAssumption: true` rather than presenting 0.30 T as a material fact.
+**Note:** `windowUtilization`, `fluxDensityT`, and `currentDensityAPerCm2` are sourced from `DesignRules::phase1Default()` (Ku=0.4, Bmax=0.30 T, J=400 A/cm²) - a named C++ ruleset, not a hard-coded Python constant (spec section 7; see `src/rules/DesignRules.cpp`). The Phase 1 pipeline's `PeakFluxValidation`/`SaturationValidation` checks prefer a material-specific `BmaxT` over this default when one exists - `data/real_materials.csv`'s `BmaxT` is real, material-specific data for all 165 materials, so the default is now only a fallback for a material with no measured value, and every check that uses the default flags `usesDefaultAssumption: true` rather than presenting 0.30 T as a material fact.
 
 ---
 
@@ -176,7 +176,7 @@ Computed whenever `WindingDesign` produced a real DCR - real for most candidates
 Pv (W/m^3) = k * f^alpha * B^beta
 Bswing (T) = calculatedInductanceH * ripplePeakToPeakA / (turns * Ae_m2)
 ```
-Real for candidates whose material has coefficients in `data/real_core_loss_coefficients.csv` (25 of 81) AND whose request supplied `rippleCurrentPeakToPeakA` - `MaterialCandidate.hasCoreLossData` now reflects real coefficient availability, not the retired `CuLossFactor` field. No ripple current means no flux-density swing to compute Bswing from, so `losses.coreLossStatus` stays `not_evaluated` rather than approximating it from peak flux. Coefficients' temperature-correction terms (ct0/ct1/ct2) are not yet applied.
+Real for candidates whose material has coefficients in `data/real_core_loss_coefficients.csv` (29 of 165) AND whose request supplied `rippleCurrentPeakToPeakA` - `MaterialCandidate.hasCoreLossData` now reflects real coefficient availability, not the retired `CuLossFactor` field. No ripple current means no flux-density swing to compute Bswing from, so `losses.coreLossStatus` stays `not_evaluated` rather than approximating it from peak flux. Coefficients' temperature-correction terms (ct0/ct1/ct2) are not yet applied.
 
 **Skin-depth AC-loss risk (`src/core/losses/SkinDepthRisk.cpp`, renamed from the dead `HighFrequencyLosses.cpp` stub):** a real, qualitative Low/Moderate/High risk level based on the selected strand's bare radius vs. the classical skin depth at the switching frequency - never a watts figure (`acLossWattsStatus` is permanently `not_evaluated`, since no AC-loss watts model exists). Named explicitly what it evaluates (single-strand skin effect) and what it doesn't (bundle proximity effect, proximity to the air gap). See FORMULAS.md section 11.
 
@@ -225,7 +225,7 @@ an engine bug. See [DATA_FILES.md](DATA_FILES.md).
 | Frequency | kHz | 25 – 1000 | Higher f → smaller core, ferrite better |
 | Temp Rise (ΔT) | °C | 25 – 60 | Checked by ThermalValidation against a real iterative loop's converged result - `PreliminaryThermalEstimate` at best (never fully evaluated), `not_evaluated` if DCR geometry is unknown or the loop diverges |
 | Window Utilization (Ku) | – | 0.4, from `DesignRules::phase1Default()` | Not yet configurable per-request |
-| Flux Density (Bmax) | T | 0.30 default, from `DesignRules::phase1Default()` | Used unless a material carries its own `BmaxT` (real, material-specific data in `real_materials.csv` for all 81 materials) |
+| Flux Density (Bmax) | T | 0.30 default, from `DesignRules::phase1Default()` | Used unless a material carries its own `BmaxT` (real, material-specific data in `real_materials.csv` for all 165 materials) |
 | Current Density (J) | A/cm² | 400, from `DesignRules::phase1Default()` | Not yet configurable per-request |
 
 ---

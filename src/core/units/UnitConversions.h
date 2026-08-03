@@ -23,7 +23,7 @@ own inline unit conversion" holds for either unit system.
 */
 namespace units {
 
-// ---- SI boundary conversions ----
+//---- SI boundary conversions ----
 constexpr double uHToH(double v) { return v * 1e-6; }
 constexpr double hToUH(double v) { return v * 1e6; }
 constexpr double kHzToHz(double v) { return v * 1e3; }
@@ -39,7 +39,7 @@ constexpr double ohmToMilliOhm(double v) { return v * 1e3; }
 constexpr double aPerCm2ToAPerMm2(double v) { return v / 100.0; }
 constexpr double aPerMm2ToAPerCm2(double v) { return v * 100.0; }
 
-// ---- CGS conversions (GapDesign/TurnsAndGapDesign/TurnsCalculation domain only) ----
+//---- CGS conversions (GapDesign/TurnsAndGapDesign/TurnsCalculation domain only) ----
 constexpr double mmToCm(double v) { return v * 0.1; }
 constexpr double cmToMm(double v) { return v * 10.0; }
 constexpr double mm2ToCm2(double v) { return v * 0.01; }
@@ -47,4 +47,4 @@ constexpr double cm2ToMm2(double v) { return v * 100.0; }
 constexpr double uHToNh(double v) { return v * 1000.0; }
 constexpr double nHToUh(double v) { return v * 1e-3; }
 
-}  // namespace units
+}  //namespace units

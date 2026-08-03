@@ -66,7 +66,7 @@ void testEarlyReturnNonConvergenceFallback() {
     InductorCandidate candidate;
     candidate.passed = false;
     candidate.rejectionReasons = {{"TurnsAndGapDesign", "required gap exceeds the practical bound"}};
-    // candidate.validations left empty
+    //candidate.validations left empty
 
     BottleneckAnalysis result = analyzeBottleneck(candidate);
 
@@ -157,7 +157,7 @@ void testCurrentConsistencyExcludedFromMarginComparison() {
                 result.limitingCheckName.c_str());
 }
 
-}  // namespace
+}  //namespace
 
 void runBottleneckAnalysisTests() {
     testRejectedWithOneFailure();

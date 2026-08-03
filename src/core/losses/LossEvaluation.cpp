@@ -51,15 +51,15 @@ LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const Cor
                 return result;
             }
 
-            // The CSV's own minFluxSwingT/maxFluxSwingT columns don't exist yet (see the guard just
-            // above, currently always a no-op), but a real per-material bound already does: the
-            // Steinmetz power law (Pv = k*f^alpha*B^beta) is only a valid small-signal fit below the
-            // material's own saturation flux density - past that point the core's real B-H curve goes
-            // nonlinear and the "loss density" this formula would report explodes into physically
-            // meaningless territory (confirmed empirically: candidates with fluxDensitySwingT computed
-            // at 1-2+ T, in materials whose real BmaxT is ~0.4-0.5T, were reporting tens of thousands
-            // of watts of "core loss" for a small inductor). Gate on the same real BmaxT that
-            // SaturationValidation/PeakFluxValidation already use - never a new fabricated bound.
+            //The CSV's own minFluxSwingT/maxFluxSwingT columns don't exist yet (see the guard just
+            //above, currently always a no-op), but a real per-material bound already does: the
+            //Steinmetz power law (Pv = k*f^alpha*B^beta) is only a valid small-signal fit below the
+            //material's own saturation flux density - past that point the core's real B-H curve goes
+            //nonlinear and the "loss density" this formula would report explodes into physically
+            //meaningless territory (confirmed empirically: candidates with fluxDensitySwingT computed
+            //at 1-2+ T, in materials whose real BmaxT is ~0.4-0.5T, were reporting tens of thousands
+            //of watts of "core loss" for a small inductor). Gate on the same real BmaxT that
+            //SaturationValidation/PeakFluxValidation already use - never a new fabricated bound.
             if (material.hasBmaxData && fluxDensitySwingT > material.bmaxT) {
                 result.coreLossStatus = EvaluationStatus::NotEvaluated;
                 result.missingData.push_back(
@@ -71,12 +71,12 @@ LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const Cor
                 return result;
             }
 
-            // PyOpenMagnetics/MAS sources these coefficients from a field literally named
-            // "volumetricLosses" - SI convention, so Pv comes out in W/m^3, not W/cm^3 (confirmed
-            // empirically: treating it as W/cm^3 produced ~300 W/cm^3 for a 20 mT swing, which is
-            // physically absurd - W/m^3 gives a normal few-tens-of-milliwatt result instead).
+            //PyOpenMagnetics/MAS sources these coefficients from a field literally named
+            //"volumetricLosses" - SI convention, so Pv comes out in W/m^3, not W/cm^3 (confirmed
+            //empirically: treating it as W/cm^3 produced ~300 W/cm^3 for a 20 mT swing, which is
+            //physically absurd - W/m^3 gives a normal few-tens-of-milliwatt result instead).
             double coreLossDensityWPerM3 = calculateCoreLossDensity(lookup.coefficients, fluxDensitySwingT, switchingFreqHz);
-            // Effective core volume: Ae (mm^2) * Le (mm) = mm^3, converted to m^3.
+            //Effective core volume: Ae (mm^2) * Le (mm) = mm^3, converted to m^3.
             double coreVolumeM3 = units::mm3ToM3(core.aeMm2 * core.leMm);
 
             result.coreLossStatus = EvaluationStatus::Evaluated;
