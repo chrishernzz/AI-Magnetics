@@ -40,7 +40,7 @@ void testAreaProduct() {
     std::printf("testCalculateAp: Ap=%.10f (expected ~%.10f)\n", actualAp, expectedAp);
 }
 
-} // namespace 
+} //namespace 
 
 
 void runAreaProductTests() {

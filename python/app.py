@@ -109,10 +109,10 @@ def load_real_magnetics_data():
         "ct1" : "Ct1",
         "ct2" : "Ct2",
     })
-    # Unlike materials/cores/core-loss-coefficients above, an empty DC-bias curve database is not fatal -
-    # TurnsAndGapDesign.cpp's distributed-gap branch already falls back to the flat catalog AL (the original
-    # Phase 1 behavior) for any powder material with no published curve, so this data is a real accuracy
-    # improvement for the materials it covers, not a hard dependency for the app to start.
+    #Unlike materials/cores/core-loss-coefficients above, an empty DC-bias curve database is not fatal -
+    #TurnsAndGapDesign.cpp's distributed-gap branch already falls back to the flat catalog AL (the original
+    #Phase 1 behavior) for any powder material with no published curve, so this data is a real accuracy
+    #improvement for the materials it covers, not a hard dependency for the app to start.
     cpp_dc_bias_curves = _build_cpp_record(dc_bias_curves, magnetics_cpp.DCBiasCurveData, {
         "materialName" : "MaterialName",
         "a" : "A",
@@ -127,9 +127,9 @@ def load_real_magnetics_data():
     magnetics_cpp.set_core_loss_coefficient_database(cpp_core_loss_coefficients)
     magnetics_cpp.set_dc_bias_curve_database(cpp_dc_bias_curves)
 
-    # Real, reproducible version identifiers - a content hash of the exact CSV bytes actually loaded,
-    # not an invented semver for data whose upstream (PyOpenMagnetics/MAS) release version isn't tracked
-    # anywhere in this snapshot mechanism. Changes if and only if the underlying data actually changes.
+    #Real, reproducible version identifiers - a content hash of the exact CSV bytes actually loaded,
+    #not an invented semver for data whose upstream (PyOpenMagnetics/MAS) release version isn't tracked
+    #anywhere in this snapshot mechanism. Changes if and only if the underlying data actually changes.
     core_db_version = f"{len(cpp_cores)} rows, sha256:{hashlib.sha256(CORES_FILE.read_bytes()).hexdigest()[:12]}"
     material_db_version = f"{len(cpp_materials)} rows, sha256:{hashlib.sha256(MATERIALS_FILE.read_bytes()).hexdigest()[:12]}"
     magnetics_cpp.set_engine_versions(core_db_version, material_db_version)

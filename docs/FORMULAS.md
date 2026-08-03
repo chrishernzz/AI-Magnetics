@@ -365,7 +365,7 @@ margin% = 100 * (Blimit - Bpk) / Blimit
 | Symbol | Meaning | Unit | Source |
 |---|---|---|---|
 | `margin%` | How much headroom exists below the flux limit | % | **Output** — must be >= `DesignRules.minimumSaturationMarginPercent` (default 10%) |
-| `Blimit` | The applicable flux density limit | T | Material-specific `BmaxT` if the material has one (real data for all 81 materials as of the current snapshot), otherwise `DesignRules.defaultFluxDensityLimitT` |
+| `Blimit` | The applicable flux density limit | T | Material-specific `BmaxT` if the material has one (real data for all 165 materials as of the current snapshot), otherwise `DesignRules.defaultFluxDensityLimitT` |
 
 **Important:** whenever `Blimit` falls back to the Phase 1 default instead
 of a real material-specific number, the result explicitly flags
@@ -519,7 +519,7 @@ saturation guideline** — real ferrite materials often saturate well above
 this, but 0.30 T is a commonly used safe design point when a material's
 actual measured saturation curve isn't available. As of this data
 snapshot, `data/real_materials.csv`'s `BmaxT` is real, material-specific
-saturation flux density for all 81 materials (source: PyOpenMagnetics/MAS),
+saturation flux density for all 165 materials (source: PyOpenMagnetics/MAS),
 so this default is now the exception rather than the rule - it's only
 used as a fallback for a material with no measured value. The engine never
 presents it as if it were a measured fact about a specific material —
@@ -631,7 +631,7 @@ by ripple current instead of peak current. No ripple current supplied →
 
 ### Current data coverage
 
-Real Steinmetz coefficients exist for 25 of the 81 materials in use — the
+Real Steinmetz coefficients exist for 29 of the 165 materials in use — the
 ferrite families (3C9x, 78/79/80/95/98, N-series). The powder/Kool
 Mµ/XFlux materials aren't characterized as Steinmetz upstream at all (a
 real absence, not an export bug) and correctly stay `not_evaluated`

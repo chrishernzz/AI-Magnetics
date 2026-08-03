@@ -84,7 +84,7 @@ void testSuggestImprovementNoneReasonNeverEmpty() {
     std::printf("testSuggestImprovementNoneReasonNeverEmpty: %s\n", result.c_str());
 }
 
-}  // namespace
+}  //namespace
 
 void runRankingExplanationTests() {
     testExplainRankingBaselineShape();

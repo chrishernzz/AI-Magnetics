@@ -33,9 +33,9 @@ InductorCandidate makeCandidate(const std::string& partNumber, double thermalRis
 void testHighlightsPickCorrectCandidatePerCriterion() {
     std::vector<InductorCandidate> candidates = {
         makeCandidate("CoreA", 50.0, 2.0, 5.0, 10.0),
-        makeCandidate("CoreB", 20.0, 3.0, 8.0, 8.0),   // best thermal
-        makeCandidate("CoreC", 30.0, 1.0, 6.0, 12.0),  // lowest loss
-        makeCandidate("CoreD", 40.0, 2.5, 15.0, 3.0),  // highest sat margin AND smallest core
+        makeCandidate("CoreB", 20.0, 3.0, 8.0, 8.0),   //best thermal
+        makeCandidate("CoreC", 30.0, 1.0, 6.0, 12.0),  //lowest loss
+        makeCandidate("CoreD", 40.0, 2.5, 15.0, 3.0),  //highest sat margin AND smallest core
     };
 
     RankingHighlights result = computeRankingHighlights(candidates);
@@ -75,7 +75,7 @@ void testSingleCandidateWinsEveryCategory() {
     std::printf("testSingleCandidateWinsEveryCategory: all four fields correctly point at the only candidate\n");
 }
 
-}  // namespace
+}  //namespace
 
 void runRankingHighlightsTests() {
     testHighlightsPickCorrectCandidatePerCriterion();

@@ -67,7 +67,7 @@ void testDerivedPeakStillPopulatedWhenImpliesDcm() {
 void testBoundaryIavgZero() {
     InductorDesignRequest req = baseRequest();
     double ripple = 4.0;
-    double irms = ripple / std::sqrt(12.0);  // makes Irms^2 exactly ripple^2/12
+    double irms = ripple / std::sqrt(12.0);  //makes Irms^2 exactly ripple^2/12
     req.rmsCurrentA = irms;
     req.rippleCurrentPeakToPeakA = ripple;
     DesignRules rules = DesignRules::phase1Default();
@@ -86,7 +86,7 @@ void testBoundaryIavgZero() {
 void testDerivationFailsHonestlyWhenPhysicallyInconsistent() {
     InductorDesignRequest req = baseRequest();
     req.rmsCurrentA = 1.0;
-    req.rippleCurrentPeakToPeakA = 10.0;  // ripple^2/12 = 8.333 > Irms^2 = 1.0
+    req.rippleCurrentPeakToPeakA = 10.0;  //ripple^2/12 = 8.333 > Irms^2 = 1.0
     DesignRules rules = DesignRules::phase1Default();
 
     InductorRequirements result = RequirementDerivationService::derive(req, rules);
@@ -174,7 +174,7 @@ void testDerivedPeakNeverLessThanRms() {
     std::printf("testDerivedPeakNeverLessThanRms: property holds across all swept combinations\n");
 }
 
-}  // namespace
+}  //namespace
 
 void runRequirementDerivationServiceTests() {
     testDerivesPeakFromRmsAndRippleWhenConsistent();

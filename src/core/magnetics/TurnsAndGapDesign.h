@@ -93,16 +93,16 @@ struct TurnsAndGapResult {
     bool dcBiasRolloffUsedRmsFloor = false;
 };
 
-// precondition: core.aeMm2 > 0, core.leMm > 0, core.mu > 0, targetInductanceUH > 0
-// postcondition: returns turns/gap that realize targetInductanceUH on this core within tolerancePercent,
-// or converged=false with rejectionReasons explaining why. When peakCurrentA is supplied, the starting
-// turns count is raised (never lowered) above the plain inductance-matching minimum when needed to
-// respect rules.minimumSaturationMarginPercent - see TurnsAndGapResult::turnsRaisedForSaturationMargin.
-// When peakCurrentA is absent but rmsCurrentA > 0.0, the same seed uses rmsCurrentA as a mathematically
-// guaranteed LOWER BOUND on the real (unsupplied) peak current (RMS <= peak always, for any unidirectional
-// inductor-current waveform) - never a substitute for the real peak, only a floor that keeps the solver
-// away from designs that are already broken in the best possible case. rmsCurrentA <= 0.0 with no
-// peakCurrentA leaves the seed exactly as it was before this parameter existed.
+//precondition: core.aeMm2 > 0, core.leMm > 0, core.mu > 0, targetInductanceUH > 0
+//postcondition: returns turns/gap that realize targetInductanceUH on this core within tolerancePercent,
+//or converged=false with rejectionReasons explaining why. When peakCurrentA is supplied, the starting
+//turns count is raised (never lowered) above the plain inductance-matching minimum when needed to
+//respect rules.minimumSaturationMarginPercent - see TurnsAndGapResult::turnsRaisedForSaturationMargin.
+//When peakCurrentA is absent but rmsCurrentA > 0.0, the same seed uses rmsCurrentA as a mathematically
+//guaranteed LOWER BOUND on the real (unsupplied) peak current (RMS <= peak always, for any unidirectional
+//inductor-current waveform) - never a substitute for the real peak, only a floor that keeps the solver
+//away from designs that are already broken in the best possible case. rmsCurrentA <= 0.0 with no
+//peakCurrentA leaves the seed exactly as it was before this parameter existed.
 TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCandidate& material,
                                      double targetInductanceUH, double tolerancePercent,
                                      const std::optional<double>& peakCurrentA, double rmsCurrentA, const DesignRules& rules);

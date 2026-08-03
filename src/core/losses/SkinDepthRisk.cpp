@@ -10,14 +10,14 @@ constexpr double kPi = 3.14159265358979323846;
 constexpr double kCopperResistivityOhmMAt20C = 1.724e-8;
 //Vacuum permeability, H/m - a real physical constant.
 constexpr double kMu0HPerM = 4.0 * kPi * 1e-7;
-}  // namespace
+}  //namespace
 
 //precondition: see header
 //postcondition: see header
 SkinDepthRiskResult evaluateSkinDepthRisk(double switchingFreqHz, double conductorAreaMm2, const DesignRules& rules) {
     SkinDepthRiskResult result;
 
-    // delta = sqrt(rho / (pi * f * mu0)) - classical skin depth, SI (meters), then converted to mm.
+    //delta = sqrt(rho / (pi * f * mu0)) - classical skin depth, SI (meters), then converted to mm.
     double skinDepthM = std::sqrt(kCopperResistivityOhmMAt20C / (kPi * switchingFreqHz * kMu0HPerM));
     result.skinDepthMm = units::mToMm(skinDepthM);
 

@@ -65,7 +65,7 @@ void testCopperLossNotEvaluatedWhenResistanceUnknown() {
     MaterialCandidate material = testMaterial();
     CoreCandidate core = realCore();
     TurnsAndGapResult turnsAndGap = convergedTurnsAndGap(20, 100.0);
-    WindingDesignResult winding;  // resistanceStatus defaults to NotEvaluated
+    WindingDesignResult winding;  //resistanceStatus defaults to NotEvaluated
 
     LossEvaluationResult result = evaluateLosses(material, core, turnsAndGap, winding, 5.0, 100000.0, std::nullopt);
     assert(result.copperLossStatus == EvaluationStatus::NotEvaluated);
@@ -111,7 +111,7 @@ void testCoreLossEvaluatedWithRealCoefficientsAndRippleCurrent() {
     LossEvaluationResult result = evaluateLosses(material, core, turnsAndGap, winding, 5.0, switchingFreqHz, rippleA);
     assert(result.coreLossStatus == EvaluationStatus::Evaluated);
 
-    // Independent hand-computation of the exact same formula, mirroring LossEvaluation.cpp's own math.
+    //Independent hand-computation of the exact same formula, mirroring LossEvaluation.cpp's own math.
     double inductanceH = inductanceUH * 1e-6;
     double aeM2 = core.aeMm2 * 1e-6;
     double expectedFluxSwingT = (inductanceH * rippleA) / (static_cast<double>(turns) * aeM2);
@@ -139,8 +139,8 @@ void testCoreLossFluxSwingOutsideValidatedRangeIsNotEvaluated() {
     coefficients.k = 1.0;
     coefficients.alpha = 1.0;
     coefficients.beta = 2.0;
-    // The real flux swing for this scenario is ~0.0136 T (see test 4 above) - setting the validated
-    // minimum far above that forces the guard to trigger.
+    //The real flux swing for this scenario is ~0.0136 T (see test 4 above) - setting the validated
+    //minimum far above that forces the guard to trigger.
     coefficients.minFluxSwingT = 0.5;
     coefficients.maxFluxSwingT = 1.0;
     CoreLossCoefficientDatabase::setData({coefficients});
@@ -171,18 +171,18 @@ void testCoreLossNotEvaluatedWhenFluxSwingExceedsMaterialSaturation() {
     coefficients.k = 1.0;
     coefficients.alpha = 1.0;
     coefficients.beta = 2.0;
-    // No minFluxSwingT/maxFluxSwingT set - this is the realistic case (every material in the
-    // current CSV), so fluxSwingWithinValidatedRange() alone would NOT catch this.
+    //No minFluxSwingT/maxFluxSwingT set - this is the realistic case (every material in the
+    //current CSV), so fluxSwingWithinValidatedRange() alone would NOT catch this.
     CoreLossCoefficientDatabase::setData({coefficients});
 
     MaterialCandidate material;
     material.materialFamily = "TestMatSaturating";
     material.hasBmaxData = true;
-    material.bmaxT = 0.4;  // real material Bsat, e.g. a typical ferrite
+    material.bmaxT = 0.4;  //real material Bsat, e.g. a typical ferrite
 
     CoreCandidate core = realCore();
-    // Few turns + large ripple current drives a large flux swing - the same real mechanism that
-    // triggered the live bug (see LossEvaluation.cpp comment for the exact numbers found).
+    //Few turns + large ripple current drives a large flux swing - the same real mechanism that
+    //triggered the live bug (see LossEvaluation.cpp comment for the exact numbers found).
     int turns = 3;
     double inductanceUH = 250.0;
     TurnsAndGapResult turnsAndGap = convergedTurnsAndGap(turns, inductanceUH);
@@ -190,7 +190,7 @@ void testCoreLossNotEvaluatedWhenFluxSwingExceedsMaterialSaturation() {
     double rippleA = 9.0;
     double switchingFreqHz = 100000.0;
 
-    // Confirm the scenario really does exceed Bsat before asserting on the gate.
+    //Confirm the scenario really does exceed Bsat before asserting on the gate.
     double inductanceH = inductanceUH * 1e-6;
     double aeM2 = core.aeMm2 * 1e-6;
     double fluxSwingT = (inductanceH * rippleA) / (static_cast<double>(turns) * aeM2);
@@ -206,7 +206,7 @@ void testCoreLossNotEvaluatedWhenFluxSwingExceedsMaterialSaturation() {
 //7. A thin strand at a modest switching frequency (radius well below the skin depth) must classify as Low risk.
 void testSkinDepthRiskLowForThinStrandAtModestFrequency() {
     DesignRules rules = DesignRules::phase1Default();
-    // AWG28 bare area (~0.081 mm^2, radius ~0.16 mm) at 50 kHz.
+    //AWG28 bare area (~0.081 mm^2, radius ~0.16 mm) at 50 kHz.
     SkinDepthRiskResult result = evaluateSkinDepthRisk(50000.0, 0.0810, rules);
     assert(result.riskLevel == AcLossRiskLevel::Low);
     assert(result.radiusToSkinDepthRatio <= rules.skinDepthRiskModerateThreshold);
@@ -218,7 +218,7 @@ void testSkinDepthRiskLowForThinStrandAtModestFrequency() {
 //8. A thick strand at a high switching frequency (radius well beyond the skin depth) must classify as High risk.
 void testSkinDepthRiskHighForThickStrandAtHighFrequency() {
     DesignRules rules = DesignRules::phase1Default();
-    // AWG10 bare area (~5.261 mm^2, radius ~1.29 mm) at 500 kHz.
+    //AWG10 bare area (~5.261 mm^2, radius ~1.29 mm) at 500 kHz.
     SkinDepthRiskResult result = evaluateSkinDepthRisk(500000.0, 5.261, rules);
     assert(result.riskLevel == AcLossRiskLevel::High);
     assert(result.radiusToSkinDepthRatio > rules.skinDepthRiskHighThreshold);
@@ -239,7 +239,7 @@ void testSkinDepthRiskNeverProducesAWattsFigure() {
     std::printf("testSkinDepthRiskNeverProducesAWattsFigure: ok\n");
 }
 
-}  // namespace
+}  //namespace
 
 void runLossTests() {
     testCopperLossEvaluatedWhenResistanceKnown();

@@ -1,10 +1,10 @@
 #include "DesignRules.h"
 
-// precondition: none
-// postcondition: returns the single named Phase 1 ruleset. These were
-// previously hard-coded inside python/routes/core_selection.py
-// (Ku=0.4, Bmax=0.30, J=400) - moved here per spec section 7 so the API
-// route layer contains no hidden magnetic-design constants.
+//precondition: none
+//postcondition: returns the single named Phase 1 ruleset. These were
+//previously hard-coded inside python/routes/core_selection.py
+//(Ku=0.4, Bmax=0.30, J=400) - moved here per spec section 7 so the API
+//route layer contains no hidden magnetic-design constants.
 DesignRules DesignRules::phase1Default() {
     DesignRules rules;
     rules.windowUtilization = 0.4;

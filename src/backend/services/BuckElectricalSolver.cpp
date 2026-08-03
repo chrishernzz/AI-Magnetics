@@ -33,7 +33,7 @@ BuckOperatingPointResult evaluateAtVin(double vinV, double voutV, double ioutA, 
     r.minInductorCurrentA = ioutA - r.rippleCurrentPeakToPeakA / 2.0;
     return r;
 }
-}  // namespace
+}  //namespace
 
 //precondition: input.topology == Topology::Buck; every numeric field is finite; vinMinV, vinMaxV, ioutA, switchingFreqKHz, rippleCurrentPercent are all positive; vinMinV <= vinMaxV; vinMinV > voutV > 0 (a buck converter cannot regulate Vout >= Vin_min - see header)
 //postcondition: returns a BuckSolveResult with the derived InductorDesignRequest (sized at Vin_max), real electrical quantities at both Vin_min and Vin_max, which operating point is worst per quantity,

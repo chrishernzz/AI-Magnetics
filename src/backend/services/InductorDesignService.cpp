@@ -177,7 +177,7 @@ bool candidateRanksAhead(const InductorCandidate& a, const InductorCandidate& b)
     return a.core.partNumber < b.core.partNumber; 
 }
 
-}  // namespace
+}  //namespace
 
 //precondition: Materials::load()/CoreDatabase::load() have been populated
 //postcondition: returns an explainable DesignRecommendation - either at least one fully-passing candidate, or status="no_feasible_design" with the reason (never a silent fallback to an unsafe design).

@@ -42,7 +42,7 @@ const std::array<const char*, 8> kNotEvaluatedPriority = {
     "CurrentConsistencyValidation", "InductanceValidation", "WindingFitValidation", "CurrentDensityValidation",
 };
 
-}  // namespace
+}  //namespace
 
 //precondition: see header
 //postcondition: see header

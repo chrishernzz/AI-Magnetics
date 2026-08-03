@@ -23,12 +23,12 @@ struct CoreCandidate {
     //garbage. See MaterialCandidate::hasBmaxData for the real g++-11-specific test failure this exact pattern
     //caused elsewhere in this codebase.
     double mu = 0.0;
-    // nH/turn^2, ungapped catalog value
+    //nH/turn^2, ungapped catalog value
     double al = 0.0;
     double aeMm2 = 0.0;
     double waMm2 = 0.0;
     double leMm = 0.0;
-    // Mean-length-per-turn, mm. 0.0 means no data - see CoreData::mlt.
+    //Mean-length-per-turn, mm. 0.0 means no data - see CoreData::mlt.
     double mltMm = 0.0;
     double areaProductCm4 = 0.0;
     bool meetsAreaProduct = false;
@@ -66,6 +66,6 @@ struct CoreCandidate {
 //requiredAreaProductCm4 (with a 5% margin) - looked up per-core by material, not a single value applied to every material alike (a flat ferrite-typical flux limit was
 //silently under-crediting higher-Bsat powder cores like MPP/Kool Mu, which can legitimately need less area product than the same request would demand of ferrite - see AreaProduct.h
 //caller in InductorDesignService.cpp for how each materials own applicableFluxLimit() now feeds this map). Cores that do not meet the requirment are still returned (meetsAreaProduct=false)
-// so callers can build an honest no_feasible_desing report (largest available Ap) instead of a silent oversized fallback - it is the callers responsibilty to reject teh deisng, not this
+//so callers can build an honest no_feasible_desing report (largest available Ap) instead of a silent oversized fallback - it is the callers responsibilty to reject teh deisng, not this
 //functions to keep teh "why did this fail" data available
 std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate>& compatibleMaterials, const std::unordered_map<std::string, double>& requiredAreaProductCm4ByMaterial);

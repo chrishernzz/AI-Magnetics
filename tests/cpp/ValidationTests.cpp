@@ -172,7 +172,7 @@ void testWindingFitValidationGatesOnPhysicalFillNotRawFill() {
 void testCurrentDensityValidationConvertsAllowableToAPerMm2() {
     DesignRules rules = DesignRules::phase1Default();
     WindingDesignResult winding;
-    winding.currentDensityAperMm2 = rules.allowableCurrentDensityAperCm2 / 100.0;  // exactly at the allowable limit
+    winding.currentDensityAperMm2 = rules.allowableCurrentDensityAperCm2 / 100.0;  //exactly at the allowable limit
     ValidationResult result = CurrentDensityValidation(winding, rules);
     assert(result.passed);
     assert(approxEqual(result.limitValue, rules.allowableCurrentDensityAperCm2 / 100.0, 1e-9));
@@ -183,7 +183,7 @@ void testCurrentDensityValidationConvertsAllowableToAPerMm2() {
 //(bundleFitStatus defaults to NotEvaluated - single-strand winding, or a core with no real window
 //width/height), and must genuinely pass/fail on the real numbers once WindingDesign has computed it.
 void testBundleFitValidationNotEvaluatedByDefault() {
-    WindingDesignResult winding;  // bundleFitStatus defaults to NotEvaluated
+    WindingDesignResult winding;  //bundleFitStatus defaults to NotEvaluated
     ValidationResult result = BundleFitValidation(winding);
     assert(result.status == EvaluationStatus::NotEvaluated);
     assert(!result.passed);
@@ -320,7 +320,7 @@ void testDetermineRecommendationStatusPassWhenEverythingClean() {
     std::printf("testDetermineRecommendationStatusPassWhenEverythingClean: %s\n", result.explanation.c_str());
 }
 
-}  // namespace
+}  //namespace
 
 void runValidationTests() {
     testFluxLimitTiersUsesMaterialBmaxWhenAvailable();

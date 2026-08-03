@@ -30,7 +30,7 @@ void loadRealCurves() {
     DCBiasCurveDatabase::setData(std::move(rows));
 }
 
-}  // namespace
+}  //namespace
 
 //1. Cross-check against Magnetics Inc.'s own published worked example (their DC Inductor Design Guide's
 //stated result): a 60mu Kool Mu core at H=57.5 Oe retains 72% of initial permeability. Confirms both the
@@ -43,7 +43,7 @@ void testPercentInitialPermeabilityMatchesKoolMu60DatasheetExample() {
     curve.d = 0.0;
 
     double percent = percentInitialPermeability(57.5, curve);
-    assert(approxEqual(percent, 72.0, 1.0));  // within 1 percentage point of the datasheet's stated 72%
+    assert(approxEqual(percent, 72.0, 1.0));  //within 1 percentage point of the datasheet's stated 72%
     std::printf("testPercentInitialPermeabilityMatchesKoolMu60DatasheetExample: %.2f%% (datasheet says 72%%)\n", percent);
 }
 
@@ -57,7 +57,7 @@ void testPercentInitialPermeabilityMatchesMix26DatasheetExample() {
     curve.d = 0.00;
 
     double percent = percentInitialPermeability(50.0, curve);
-    assert(percent >= 40.0 && percent <= 60.0);  // brackets both the datasheet's min (47.4%) and nom (55.2%)
+    assert(percent >= 40.0 && percent <= 60.0);  //brackets both the datasheet's min (47.4%) and nom (55.2%)
     std::printf("testPercentInitialPermeabilityMatchesMix26DatasheetExample: %.2f%% (datasheet: 55.2%% nom / 47.4%% min)\n", percent);
 }
 
@@ -79,10 +79,10 @@ void testPercentInitialPermeabilityIsFullAtZeroBias() {
 //the clamp exists rather than relying on the formula never overshooting on some future material's coefficients).
 void testPercentInitialPermeabilityNeverExceeds100() {
     DCBiasCurveData curve;
-    curve.a = 0.001;  // deliberately below every real material's 0.01, to probe the clamp
+    curve.a = 0.001;  //deliberately below every real material's 0.01, to probe the clamp
     curve.b = 1e-09;
     curve.c = 2.0;
-    curve.d = 5.0;  // deliberately nonzero to push the raw formula above 100
+    curve.d = 5.0;  //deliberately nonzero to push the raw formula above 100
 
     double percent = percentInitialPermeability(0.0, curve);
     assert(percent <= 100.0);
@@ -92,7 +92,7 @@ void testPercentInitialPermeabilityNeverExceeds100() {
 //5. H = 0.4*pi*N*I/le - verified against a simple hand-computed case (N=100, I=1A, le=10cm):
 //H = 0.4*pi*100*1/10 = 4*pi ~= 12.566 Oe.
 void testDcMagnetizingForceFormula() {
-    double h = dcMagnetizingForceOe(100, 1.0, 100.0);  // le=100mm=10cm
+    double h = dcMagnetizingForceOe(100, 1.0, 100.0);  //le=100mm=10cm
     assert(approxEqual(h, 4.0 * 3.14159265358979323846, 1e-6));
     std::printf("testDcMagnetizingForceFormula: H=%.6f Oe (expected 4*pi=%.6f)\n", h, 4.0 * 3.14159265358979323846);
 }

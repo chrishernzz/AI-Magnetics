@@ -75,13 +75,19 @@ which is never physically possible for any real waveform.
       "rejectionReasons": []
     }
   ],
+  "candidatesByTechnology": { "3C90": ["... same candidate objects as candidates[], grouped by technology family (e.g. \"MPP\", \"Kool Mu\", \"3C90\") for presentation - see routes/inductor_design.py's _technology_family() ..."] },
   "rejectedCandidates": ["... same shape, passed=false, rejectionReasons populated, recommendation.tier=Rejected ..."],
   "activeRules": { "windowUtilization": 0.4, "allowableCurrentDensityAperCm2": 400.0, "defaultFluxDensityLimitT": 0.30, "minimumSaturationMarginPercent": 10.0, "maximumFillFactor": 0.6, "defaultInductanceTolerancePercent": 10.0, "minimumSingleStrandAwg": 18, "gapTolerancePercent": 10.0, "defaultThermalResistanceCPerW": 15.0, "...": "30 fields total - see DesignRules.h" },
   "requiredAreaProductCm4": 0.0,
   "largestAvailableAreaProductCm4": 0.0,
-  "versions": { "calculationEngineVersion": "1.1.0", "designRulesVersion": "1.1.0", "coreDatabaseVersion": "60 rows, sha256:...", "materialDatabaseVersion": "32 rows, sha256:..." }
+  "versions": { "calculationEngineVersion": "1.1.0", "designRulesVersion": "1.1.0", "coreDatabaseVersion": "1276 rows, sha256:...", "materialDatabaseVersion": "165 rows, sha256:..." },
+  "rankingHighlights": { "hasCandidates": true, "thermalBestPartNumber": "E100/60/28-3C90", "lowestLossPartNumber": "B65919A0000R088 (N88)", "highestSaturationMarginPartNumber": "...", "smallestCorePartNumber": "..." }
 }
 ```
+
+`candidatesByTechnology` groups the same candidate objects in `candidates` by technology family - e.g. `"MPP 60"` and `"MPP 125"` both bucket under `"MPP"`, while ferrite grade codes (no permeability-grade suffix, e.g. `"3C90"`, `"N87"`) are used as-is. Presentation-only - it doesn't change ranking, and the flat `candidates` array is still the source of truth for order. Added after a real report that a single ranked list let ferrite dominate the top of the results even when powder candidates existed further down.
+
+`rankingHighlights` identifies, among the already-ranked `candidates`, the single best-in-category core (by `partNumber`) for a few individual criteria an engineer might care about even when it isn't the overall top-ranked pick - thermal rise, known partial loss, saturation margin, and area product. Purely additive; doesn't change `candidates`' own sort order. `hasCandidates: false` when `candidates` is empty - every `*PartNumber` field is meaningless in that case, never a fabricated part number.
 
 `activeRules` is always returned — this is the entire `DesignRules::phase1Default()`
 ruleset (30 fields as of this pass), so no assumption (Ku, Bmax, J,
@@ -298,7 +304,7 @@ The rest are conditionally real, never fabricated:
 - **Core loss** (`losses.coreLossStatus`) — `Evaluated` when the material
   has real Steinmetz coefficients for the request's frequency AND the
   request supplied `rippleCurrentPeakToPeakA`; `not_evaluated` otherwise
-  (25 of 81 materials have coefficients; ripple current is optional on
+  (29 of 165 materials have coefficients; ripple current is optional on
   every request; run `scripts/audit_material_core_database.py` for the
   current live count).
 - **DCR / total wire length** (`winding.resistanceStatus`) and **DC

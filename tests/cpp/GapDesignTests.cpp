@@ -52,7 +52,7 @@ void testNoGapNeededIsNotAnError() {
     assert(gapCm <= 0.0);
     std::printf("testNoGapNeededIsNotAnError: gap=%.4f cm (negative/zero as expected)\n", gapCm);
 }
-} // namespace
+} //namespace
 
 void runGapDesignTests() {
     testUngappedAlMatchesCatalog();

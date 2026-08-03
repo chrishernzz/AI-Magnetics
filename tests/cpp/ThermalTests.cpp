@@ -42,11 +42,11 @@ void testConvergesForTypicalCopperOnlyDesign() {
     assert(approxEqual(result.convergedWindingTempC, 41.24952633646187, 1e-6));
     assert(approxEqual(result.hotDcrOhms, 0.01083301755764125, 1e-9));
     assert(approxEqual(result.copperLossAtConvergedTempW, 1.083301755764125, 1e-9));
-    assert(approxEqual(result.knownLossW, result.copperLossAtConvergedTempW, 1e-9));  // no core loss known
+    assert(approxEqual(result.knownLossW, result.copperLossAtConvergedTempW, 1e-9));  //no core loss known
     assert(approxEqual(result.predictedTempRiseC, 16.249526336461873, 1e-6));
     assert(approxEqual(result.predictedHotspotTempC, result.convergedWindingTempC, 1e-12));
     assert(approxEqual(result.thermalResistanceCPerWUsed, rules.defaultThermalResistanceCPerW, 1e-12));
-    assert(!result.thermalResistanceIsGeometryDerived);  // baseInputs() never sets Ae/Le
+    assert(!result.thermalResistanceIsGeometryDerived);  //baseInputs() never sets Ae/Le
     std::printf("testConvergesForTypicalCopperOnlyDesign: convergedWindingTempC=%.6f (%d iterations)\n",
                 result.convergedWindingTempC, result.iterationsUsed);
 }
@@ -143,7 +143,7 @@ void testDivergesHonestlyReportsNotEvaluatedRatherThanAStaleNumber() {
     inputs.copperLossGeometryKnown = true;
     inputs.coreLossKnown = false;
 
-    // Confirm this scenario really does have loop gain >= 1 before trusting the "must not converge" assertion.
+    //Confirm this scenario really does have loop gain >= 1 before trusting the "must not converge" assertion.
     double gain = inputs.rmsCurrentA * inputs.rmsCurrentA * inputs.coldDcrOhmsAt20C * rules.copperTempCoefficientPerC *
                   rules.defaultThermalResistanceCPerW;
     assert(gain >= 1.0);
@@ -152,13 +152,13 @@ void testDivergesHonestlyReportsNotEvaluatedRatherThanAStaleNumber() {
     assert(result.status == ThermalStatus::NotEvaluated);
     assert(!result.converged);
     assert(!result.missingDataExplanation.empty());
-    // Never silently populate the "preliminary estimate" fields when status says NotEvaluated.
+    //Never silently populate the "preliminary estimate" fields when status says NotEvaluated.
     assert(approxEqual(result.convergedWindingTempC, 0.0, 1e-12));
     std::printf("testDivergesHonestlyReportsNotEvaluatedRatherThanAStaleNumber: gain=%.4f (>=1, diverges as expected), reason: %s\n",
                 gain, result.missingDataExplanation.c_str());
 }
 
-}  // namespace
+}  //namespace
 
 void runThermalTests() {
     testNotEvaluatedWhenGeometryUnknown();

@@ -34,7 +34,7 @@ void testUnitConversions() {
 
     std::printf("testUnitConversions: ok\n");
 }
-} // namespace
+} //namespace
 
 
 void runUnitConversionTests() {

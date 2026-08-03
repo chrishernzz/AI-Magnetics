@@ -19,7 +19,7 @@ CoreCandidate realCore() {
     core.mu = 2249.28;
     core.al = 7584.855918773515;
     core.aeMm2 = 735.0502256509033;
-    core.waMm2 = 2020.0;  // approximate, unused by designTurnsAndGap
+    core.waMm2 = 2020.0;  //approximate, unused by designTurnsAndGap
     core.leMm = 273.919572699267;
     core.mltMm = 0.0;
     core.areaProductCm4 = 0.0;
@@ -32,9 +32,9 @@ CoreCandidate realCore() {
 void testZeroGapWhenUngappedAlSuffices() {
     CoreCandidate core = realCore();
     DesignRules rules = DesignRules::phase1Default();
-    // ungapped AL*N^2 at N=10 is ~758486 nH - target well below that needs no gap.
-    double targetUH = 500.0;  // 500000 nH, still below 758486 nH at N=10 - but seedTurns will pick a
-                               // consistent N where ungapped AL already covers the target.
+    //ungapped AL*N^2 at N=10 is ~758486 nH - target well below that needs no gap.
+    double targetUH = 500.0;  //500000 nH, still below 758486 nH at N=10 - but seedTurns will pick a
+                               //consistent N where ungapped AL already covers the target.
     TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 10.0, std::nullopt, 0.0, rules);
     assert(result.converged);
     assert(approxEqual(result.gapMm, 0.0, 1e-9));
@@ -47,8 +47,8 @@ void testZeroGapWhenUngappedAlSuffices() {
 void testNegativeMathematicalGapClampedToZero() {
     CoreCandidate core = realCore();
     DesignRules rules = DesignRules::phase1Default();
-    // A very small target inductance at the seeded turns count all but guarantees the raw
-    // calculateRequiredGapCm() result is negative (ungapped AL alone already overshoots it).
+    //A very small target inductance at the seeded turns count all but guarantees the raw
+    //calculateRequiredGapCm() result is negative (ungapped AL alone already overshoots it).
     double targetUH = 5.0;
     TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 20.0, std::nullopt, 0.0, rules);
     assert(result.converged);
@@ -62,15 +62,15 @@ void testNegativeMathematicalGapClampedToZero() {
 void testSmallGapTriggersManufacturabilityWarningNotRejection() {
     CoreCandidate core = realCore();
     DesignRules rules = DesignRules::phase1Default();
-    double targetUH = 2.0;  // requires a real, small, nonzero gap on this core
+    double targetUH = 2.0;  //requires a real, small, nonzero gap on this core
     TurnsAndGapResult probe = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 20.0, std::nullopt, 0.0, rules);
     assert(probe.converged);
     assert(probe.gapMm > 0.0);
 
-    rules.minManufacturableGapMm = probe.gapMm * 10.0;  // deliberately above the real computed gap
+    rules.minManufacturableGapMm = probe.gapMm * 10.0;  //deliberately above the real computed gap
     TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 20.0, std::nullopt, 0.0, rules);
-    assert(result.converged);            // still a valid design...
-    assert(result.smallGapWarning);      // ...just flagged as hard to manufacture
+    assert(result.converged);            //still a valid design...
+    assert(result.smallGapWarning);      //...just flagged as hard to manufacture
     assert(!result.smallGapWarningReason.empty());
     std::printf("testSmallGapTriggersManufacturabilityWarningNotRejection: gapMm=%.4f, warning=%s\n",
                 result.gapMm, result.smallGapWarningReason.c_str());
@@ -96,8 +96,8 @@ void testGapIsRoundedToStepIncrement() {
 void testExcessiveGapIsRejected() {
     CoreCandidate core = realCore();
     DesignRules rules = DesignRules::phase1Default();
-    double targetUH = 0.0001;  // absurdly small target inductance forces an absurdly small effective length,
-                                // i.e. an enormous gap requirement, on any real core geometry.
+    double targetUH = 0.0001;  //absurdly small target inductance forces an absurdly small effective length,
+                                //i.e. an enormous gap requirement, on any real core geometry.
     TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 10.0, std::nullopt, 0.0, rules);
     assert(!result.converged);
     assert(!result.rejectionReasons.empty());
@@ -117,12 +117,12 @@ void testExcessiveGapIsRejected() {
 void testConvergenceIsRobustEvenNearThePracticalGapBoundary() {
     CoreCandidate core = realCore();
     DesignRules rules = DesignRules::phase1Default();
-    // Near the smallest inductance this core can still reach without tripping the excessive-gap rejection.
+    //Near the smallest inductance this core can still reach without tripping the excessive-gap rejection.
     double targetUH = 0.01;
     TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 20.0, std::nullopt, 0.0, rules);
-    // Either outcome (converged close to the boundary, or cleanly rejected for exceeding the practical
-    // gap bound) is a real, honest result - what this test guards is that the iteration terminates in one
-    // of these two ways rather than needing the iteration cap to force a stop.
+    //Either outcome (converged close to the boundary, or cleanly rejected for exceeding the practical
+    //gap bound) is a real, honest result - what this test guards is that the iteration terminates in one
+    //of these two ways rather than needing the iteration cap to force a stop.
     assert(result.converged || !result.rejectionReasons.empty());
     std::printf("testConvergenceIsRobustEvenNearThePracticalGapBoundary: converged=%s\n",
                 result.converged ? "true" : "false");
@@ -134,13 +134,13 @@ void testConvergenceIsRobustEvenNearThePracticalGapBoundary() {
 void testGapToleranceCanFailEvenWhenNominalPasses() {
     CoreCandidate core = realCore();
     DesignRules rules = DesignRules::phase1Default();
-    double targetUH = 2.0;               // a target requiring a real, non-negligible gap on this core
-    double tightTolerancePercent = 0.5;  // far tighter than the +-10% gap tolerance sweep can guarantee
+    double targetUH = 2.0;               //a target requiring a real, non-negligible gap on this core
+    double tightTolerancePercent = 0.5;  //far tighter than the +-10% gap tolerance sweep can guarantee
 
     TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, tightTolerancePercent, std::nullopt, 0.0, rules);
     assert(result.converged);
-    assert(result.withinTolerance);  // the nominal design itself is precise (iterative solver converges tightly)
-    assert(!result.inductanceWithinToleranceAcrossGapRange);  // but the realistic gap tolerance sweep fails it
+    assert(result.withinTolerance);  //the nominal design itself is precise (iterative solver converges tightly)
+    assert(!result.inductanceWithinToleranceAcrossGapRange);  //but the realistic gap tolerance sweep fails it
     std::printf("testGapToleranceCanFailEvenWhenNominalPasses: nominal error=%.4f%%, gap range [%.4f, %.4f] mm\n",
                 result.inductanceErrorPercent, result.gapMinMm, result.gapMaxMm);
 }
@@ -218,7 +218,7 @@ void testFerriteToroidGetsRealMachinedGapNotDistributed() {
 //never assumed to be powder just because the field is missing.
 void testUnknownMaterialTypeIsNeverAssumedPowder() {
     CoreCandidate core = realFerriteToroid();
-    core.materialType = "";  // simulates a CSV row with no MaterialType data
+    core.materialType = "";  //simulates a CSV row with no MaterialType data
     DesignRules rules = DesignRules::phase1Default();
     TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, 3000.0, 10.0, std::nullopt, 0.0, rules);
     assert(result.gapMethod == GapMethod::MachinedCenterLeg);
@@ -250,7 +250,7 @@ void testGenuinePowderToroidStillReportsDistributedGap() {
 CoreCandidate realPowderTwoPieceCore() {
     CoreCandidate core;
     core.partNumber = "00K1808E060";
-    core.material = "Kool Mu 60 test";  // deliberately not in dc_bias_curves.csv - this test is about gapMethod, not roll-off
+    core.material = "Kool Mu 60 test";  //deliberately not in dc_bias_curves.csv - this test is about gapMethod, not roll-off
     core.mu = 60.0;
     core.al = 46.603357101361475;
     core.aeMm2 = 24.298018397212974;
@@ -318,13 +318,13 @@ void testPowderCoreAppliesRealDCBiasRolloffAtOperatingCurrent() {
 
     assert(result.converged);
     assert(result.usesDCBiasRolloffCurve);
-    assert(!result.dcBiasRolloffUsedRmsFloor);  // real peak was supplied
-    // naive flat-AL0 seed here is round(sqrt(3000000/316.9118...)) = 97 - the whole point of this fix is
-    // that the real answer at 5A needs MORE turns than that, never fewer.
+    assert(!result.dcBiasRolloffUsedRmsFloor);  //real peak was supplied
+    //naive flat-AL0 seed here is round(sqrt(3000000/316.9118...)) = 97 - the whole point of this fix is
+    //that the real answer at 5A needs MORE turns than that, never fewer.
     assert(result.turns > 97);
     assert(result.turns >= 100 && result.turns <= 125);
-    assert(result.effectiveAlNHPerTurnSquared < core.al);       // rolled off below the flat catalog AL0...
-    assert(result.effectiveAlNHPerTurnSquared > core.al * 0.5); // ...but not implausibly far below it
+    assert(result.effectiveAlNHPerTurnSquared < core.al);       //rolled off below the flat catalog AL0...
+    assert(result.effectiveAlNHPerTurnSquared > core.al * 0.5); //...but not implausibly far below it
     assert(result.percentInitialPermeabilityAtOperatingCurrent > 60.0 && result.percentInitialPermeabilityAtOperatingCurrent < 90.0);
     assert(result.dcMagnetizingForceOe > 40.0 && result.dcMagnetizingForceOe < 90.0);
 
@@ -407,7 +407,7 @@ MaterialCandidate material3C90() {
 //gapMm~0.6mm). This proves the flux-aware seed finds it instead of the solver settling on the
 //unreachable minimum-turns point.
 void testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore() {
-    CoreCandidate core = realCore();  // E100/60/28-3C90
+    CoreCandidate core = realCore();  //E100/60/28-3C90
     MaterialCandidate material = material3C90();
     DesignRules rules = DesignRules::phase1Default();
     double targetUH = 3000.0;
@@ -416,16 +416,16 @@ void testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore() {
     TurnsAndGapResult result = designTurnsAndGap(core, material, targetUH, 10.0, peakCurrentA, 0.0, rules);
 
     assert(result.converged);
-    assert(result.turns >= 44 && result.turns <= 55);  // ~49 expected, not the old turns=20
-    assert(result.gapMm > 0.0);                        // real, nonzero, machined gap - not gapMm=0.0
-    assert(result.gapMm < 5.0);                         // physically reasonable, far under maxGapFraction bound
+    assert(result.turns >= 44 && result.turns <= 55);  //~49 expected, not the old turns=20
+    assert(result.gapMm > 0.0);                        //real, nonzero, machined gap - not gapMm=0.0
+    assert(result.gapMm < 5.0);                         //physically reasonable, far under maxGapFraction bound
     assert(result.withinTolerance);
     assert(result.turnsRaisedForSaturationMargin);
-    assert(!result.turnsRaisedUsingRmsFloor);  // real peak was supplied - not the RMS-floor fallback path
+    assert(!result.turnsRaisedUsingRmsFloor);  //real peak was supplied - not the RMS-floor fallback path
     assert(!result.turnsRaisedForSaturationMarginReason.empty());
 
-    // The point of this fix: PeakFluxValidation/SaturationValidation, run independently exactly as they
-    // are in production, must now actually PASS on the converged design.
+    //The point of this fix: PeakFluxValidation/SaturationValidation, run independently exactly as they
+    //are in production, must now actually PASS on the converged design.
     ValidationResult peakFlux = PeakFluxValidation(core, material, result, peakCurrentA, 0.0, rules);
     ValidationResult saturation = SaturationValidation(core, material, result, peakCurrentA, 0.0, rules);
     assert(peakFlux.passed);
@@ -453,10 +453,10 @@ void testRmsFloorRaisesTurnsSeedWhenPeakAbsent() {
     TurnsAndGapResult result = designTurnsAndGap(core, material, 3000.0, 10.0, std::nullopt, rmsCurrentA, rules);
 
     assert(result.converged);
-    assert(result.turns >= 44 && result.turns <= 55);  // ~49 expected, not the old broken turns=20
-    assert(result.gapMm > 0.0);                        // real, nonzero, machined gap - not the old gapMm=0.0
+    assert(result.turns >= 44 && result.turns <= 55);  //~49 expected, not the old broken turns=20
+    assert(result.gapMm > 0.0);                        //real, nonzero, machined gap - not the old gapMm=0.0
     assert(result.turnsRaisedForSaturationMargin);
-    assert(result.turnsRaisedUsingRmsFloor);  // raised via the RMS floor, not a real supplied peak
+    assert(result.turnsRaisedUsingRmsFloor);  //raised via the RMS floor, not a real supplied peak
     assert(!result.turnsRaisedForSaturationMarginReason.empty());
 
     //Even after this fix, PeakFluxValidation/SaturationValidation must stay honestly NotEvaluated here -
@@ -491,7 +491,7 @@ void testRmsFloorCatchesCertainSaturationFailure() {
     MaterialCandidate material;
     material.materialFamily = "T35";
     material.hasBmaxData = true;
-    material.bmaxT = 0.386;  // real T35 Bsat
+    material.bmaxT = 0.386;  //real T35 Bsat
     DesignRules rules = DesignRules::phase1Default();
     double rmsCurrentA = 5.0;
 
@@ -511,7 +511,7 @@ void testRmsFloorCatchesCertainSaturationFailure() {
     assert(saturation.status == EvaluationStatus::Evaluated);
     assert(!saturation.passed);
     assert(saturation.isRmsLowerBoundRejection);
-    assert(saturation.calculatedValue < 0.0);  // negative margin - already past the limit
+    assert(saturation.calculatedValue < 0.0);  //negative margin - already past the limit
 
     std::printf("testRmsFloorCatchesCertainSaturationFailure: Bpk-at-RMS-floor=%.4f T (limit 0.386T), margin=%.2f%% - certain failure caught\n",
                 peakFlux.calculatedValue, saturation.calculatedValue);
@@ -521,7 +521,7 @@ void testRmsFloorCatchesCertainSaturationFailure() {
 //floor - a well-seeded design (enough turns to survive even the conservative RMS-as-peak floor) must stay
 //honestly NotEvaluated, not silently promoted to a Pass just because it cleared the floor.
 void testRmsFloorNeverProducesAFalsePass() {
-    CoreCandidate core = realCore();  // E100/60/28-3C90, real 3C90 geometry
+    CoreCandidate core = realCore();  //E100/60/28-3C90, real 3C90 geometry
     MaterialCandidate material = material3C90();
     DesignRules rules = DesignRules::phase1Default();
 
@@ -535,13 +535,13 @@ void testRmsFloorNeverProducesAFalsePass() {
     ValidationResult saturation = SaturationValidation(core, material, turnsAndGap, std::nullopt, 5.0, rules);
 
     assert(peakFlux.status == EvaluationStatus::NotEvaluated);
-    assert(!peakFlux.passed);  // never a manufactured pass
+    assert(!peakFlux.passed);  //never a manufactured pass
     assert(saturation.status == EvaluationStatus::NotEvaluated);
     assert(!saturation.passed);
     std::printf("testRmsFloorNeverProducesAFalsePass: status stays NotEvaluated (never a manufactured pass) even when the floor clears\n");
 }
 
-}  // namespace
+}  //namespace
 
 void runGapToleranceTests() {
     testZeroGapWhenUngappedAlSuffices();
