@@ -1,6 +1,16 @@
 """
 export_real_data.py
 
+STALE — DO NOT RUN without reading this first. As of the current snapshot,
+data/real_cores.csv and data/real_materials.csv were rebuilt BY HAND from
+Magnetics' own live catalog (mag-inc.com), narrowed to MPP toroids + Magnetics
+E-cores only, to fix real errors found in this script's PyOpenMagnetics-sampled
+output (missing permeability grades, mismatched catalog numbers). Running this
+script will overwrite that hand-verified snapshot with the old sampled data
+again — see python/services/magnetics_data.py's module docstring for the full
+story. This script's filters (ALLOWED_MATERIAL_TYPES, MAX_CORES_PER_MATERIAL,
+etc.) have not been updated to match the new MPP+E-core-only scope.
+
 Maintenance script — NOT part of the running app. Run this to regenerate
 data/real_materials.csv, data/real_cores.csv, and
 data/real_core_loss_coefficients.csv from a fresh PyOpenMagnetics query.

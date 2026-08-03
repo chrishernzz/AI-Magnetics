@@ -12,27 +12,46 @@ no published wheel for Python 3.14 on any platform. Since this project
 runs on native Windows Python 3.14, importing PyOpenMagnetics at runtime
 is not currently possible here.
 
-The data is still 100% real — sourced from PyOpenMagnetics/MAS (real
-manufacturer datasheets: Ferroxcube, TDK, Magnetics, Fair-Rite) — it was
-generated once, in an environment where PyOpenMagnetics does install
-(Linux), and the output was checked into this repo as a snapshot. This
-file is the only thing that changed to make that work; everything
-downstream (DataCache, CoreDatabase, Materials, app.py's startup hook)
-is unchanged and doesn't know or care where the data came from.
+CURRENT SNAPSHOT PROVENANCE (changed — read this before touching the CSVs):
+As of this snapshot, data/real_cores.csv and data/real_materials.csv are no
+longer PyOpenMagnetics-sampled output. A database review found real errors in
+the old PyOpenMagnetics-derived snapshot for this project's actual scope
+(MPP toroids + Magnetics E-cores) — missing permeability grades, and cores
+whose catalog number didn't actually correspond to the geometry/permeability
+recorded. The snapshot was rebuilt by hand from Magnetics' own live catalog
+(mag-inc.com Advanced Part Number Finder: Powder Cores Search, Material=MPP
++ Shape=Toroid, and Material=All + Shape=E Core, Permeability=All each time),
+transcribed part-by-part, not filtered/sampled by an external library.
 
-Trade-off, stated plainly: this data is a snapshot, not live. To refresh
-it, re-run the export (see scripts/export_real_data.py) somewhere
-PyOpenMagnetics actually installs, and replace the two CSV files below.
+Scope was deliberately narrowed to Magnetics powder MPP toroids and Magnetics
+powder E-cores only (755 cores, 34 materials) — every other family the old
+snapshot carried (Kool Mu/XFlux/High Flux/Edge toroids, all ferrite including
+the old E100/60/28-3C90 fixture, U/EQ/LP/EER/Blocks/THINZ shapes) was removed
+as out of scope, not because it was wrong.
 
-Snapshot generated: see data/real_materials.csv / data/real_cores.csv
-header comment for the export date. 165 materials, 1276 cores as of this
-snapshot — filtered to power-application ferrite/powder materials,
-ungapped cores only (GapDesign.cpp isn't implemented yet), sampled per
-material name across its real small-to-large size range (not just the
-first N encountered - see scripts/export_real_data.py's
-_select_size_diverse_cores(), added after a real user report found every
-MPP/Kool Mu/High Flux permeability grade above mu=60 almost entirely
-absent from an earlier snapshot for exactly that reason).
+Grading code: for MPP toroids, Magnetics' `00` (not graded, standard
+tolerance) part number is used wherever it exists for a given (size,
+permeability); `C0` (2%-band graded) is used only as a fallback where `00`
+isn't offered at that permeability (several grades — e.g. 173μ, 300μ, 550μ —
+are C0-only). E-cores only ever have a `00` grading code (Magnetics doesn't
+offer graded E-cores).
+
+Known gap: E-core rows have no real winding-window data (Wa/Mlt/
+WindowWidthMm/WindowHeightMm are 0.0/"" — genuinely missing, not zero) —
+mag-inc.com's part search returns external Length/LegLength/Width, not
+bobbin window dimensions, so this project doesn't have real data for those
+fields yet.
+
+DO NOT re-run scripts/export_real_data.py and blindly overwrite these files —
+that script re-samples from PyOpenMagnetics again and would silently discard
+this hand-curated, verified-against-mag-inc.com snapshot, reintroducing the
+exact errors this rebuild fixed. That script's docstring/logic has not been
+updated to reflect the new scope; treat it as stale until someone rewrites it
+to match (or deletes it).
+
+Trade-off, stated plainly: this data is a snapshot, not live. If Magnetics'
+catalog changes, someone has to re-pull it by hand the same way — this file
+generation does not run automatically.
 """
 
 import csv
