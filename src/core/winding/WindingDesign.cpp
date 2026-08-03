@@ -77,8 +77,24 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
 
     result.currentDensityAperMm2 = rmsCurrentA / totalCopperAreaPerTurnMm2;
     result.effectiveCurrentDensityAperMm2 = result.parallelStrands > 1 ? result.currentDensityAperMm2 / rules.currentSharingDerateFactor : result.currentDensityAperMm2;
-    result.fillFactor = (static_cast<double>(turns) * totalCopperAreaPerTurnMm2) / core.waMm2;
-    result.fitsWindow = result.fillFactor <= rules.maximumFillFactor;
+    //core.waMm2 <= 0 means "no real window-area data for this core" (see CoreCandidate::waMm2 /
+    //data/real_cores.csv's known E-core gap: mag-inc.com's part search exposes external Length/Leg/Width,
+    //not bobbin window dimensions), not a literal zero-area window. Dividing by it would silently produce
+    //an infinite fillFactor and an unconditional fitsWindow=false, which reads as "definitely does not
+    //fit" - a fabricated conclusion this project's spec explicitly forbids (section 11). Fail safe instead:
+    //report not-fitting with an honest missing-data explanation, the same "don't invent, don't assume
+    //passing" policy resistanceStatus already follows below for missing MLT.
+    if (core.waMm2 > 0.0) {
+        result.fillFactor = (static_cast<double>(turns) * totalCopperAreaPerTurnMm2) / core.waMm2;
+        result.fitsWindow = result.fillFactor <= rules.maximumFillFactor;
+    } else {
+        result.fillFactor = 0.0;
+        result.fitsWindow = false;
+        result.missingData.push_back(
+            "core '" + core.partNumber +
+            "' has no real winding-window area (Wa) data available - fillFactor/fitsWindow cannot be "
+            "computed and are conservatively reported as not fitting rather than assumed");
+    }
 
     result.constructionType = result.parallelStrands > 1 ? WindingConstructionType::ParallelRoundWires : WindingConstructionType::SingleRoundWire;
 
@@ -130,8 +146,18 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
     double bobbinDerate = coreHasPhysicalBobbin ? rules.bobbinWindowDerateFactor : 1.0;
     result.physicalWindowAreaMm2 = core.waMm2 * bobbinDerate * (1.0 - rules.marginAllowanceAreaFraction - rules.leadExitAllowanceAreaFraction);
     double physicalCopperAreaMm2 = (static_cast<double>(turns) * result.parallelStrands * result.insulatedConductorAreaMm2) / rules.packingFactor;
-    result.physicalWindowFillFactor = result.physicalWindowAreaMm2 > 0.0 ? physicalCopperAreaMm2 / result.physicalWindowAreaMm2 : 0.0;
-    result.fitsPhysicalWindow = result.physicalWindowFillFactor <= rules.maximumFillFactor;
+    if (core.waMm2 > 0.0) {
+        result.physicalWindowFillFactor = physicalCopperAreaMm2 / result.physicalWindowAreaMm2;
+        result.fitsPhysicalWindow = result.physicalWindowFillFactor <= rules.maximumFillFactor;
+    } else {
+        //core.waMm2 <= 0 ("no real window-area data", see fillFactor/fitsWindow above) previously fell
+        //through the ternary below to physicalWindowAreaMm2==0.0 -> physicalWindowFillFactor=0.0 ->
+        //fitsPhysicalWindow=true - a false PASS on the actual gate WindingFitValidation uses, the opposite
+        //and more dangerous failure mode than fitsWindow's false-negative above (this one would recommend
+        //an unverified core to a user). Same conservative "not fitting" policy as fillFactor/fitsWindow.
+        result.physicalWindowFillFactor = 0.0;
+        result.fitsPhysicalWindow = false;
+    }
 
     if (core.mltMm > 0.0) {
         //Length of one strand's path all the way around the core, turns

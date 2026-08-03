@@ -5,11 +5,16 @@
 
 namespace {
 
-//real E100/60/28-3C90 catalog geometry (data/real_cores.csv), including its real Mlt column - reused so
-//DCR/length tests are checked against a real core's mean-length-per-turn, not an invented one.
-CoreCandidate realCore() {
+//Illustrative/synthetic ferrite geometry, including a plausible Mlt column - originally the real
+//E100/60/28-3C90 catalog row (data/real_cores.csv), which has since been removed now that the database is
+//scoped to Magnetics powder cores only. Kept as a fixed, physically-plausible geometry so DCR/length tests
+//are checked against a stable mean-length-per-turn, not a live catalog lookup. Note that no core in the
+//current database has WindowWidthMm/WindowHeightMm populated at all (see magnetics_data.py's docstring), so
+//realCoreWithWindow() below adds illustrative window dimensions too - this file's fixture family is entirely
+//synthetic, not real catalog data, for both the base geometry and the window dimensions.
+CoreCandidate syntheticFerriteCore() {
     CoreCandidate core;
-    core.partNumber = "E100/60/28-3C90";
+    core.partNumber = "SYNTHETIC-FERRITE-3C90";
     core.material = "3C90";
     core.mu = 2249.28;
     core.al = 7584.855918773515;
@@ -23,15 +28,20 @@ CoreCandidate realCore() {
 }
 
 CoreCandidate coreWithoutMlt() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     core.mltMm = 0.0;
     return core;
 }
 
-//same real E100/60/28-3C90 core, with its real rectangular winding-window dimensions added (data/real_cores.csv's
-//WindowWidthMm/WindowHeightMm - 22.825mm x 93.7mm, verified against the live PyOpenMagnetics record).
+//Same synthetic ferrite core, with illustrative rectangular winding-window dimensions added
+//(22.825mm x 93.7mm). These were originally the real E100/60/28-3C90 catalog's WindowWidthMm/WindowHeightMm
+//values (verified against the live PyOpenMagnetics record at the time); no core in the current
+//data/real_cores.csv has WindowWidthMm/WindowHeightMm populated at all (see magnetics_data.py's docstring -
+//E-cores have no real winding-window data yet, and MPP toroids' window dims weren't carried over either), so
+//these numbers are kept only as a fixed, physically-plausible pair of dimensions to exercise
+//BundleFitValidation, not a live catalog lookup.
 CoreCandidate realCoreWithWindow() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     core.windowWidthMm = 22.825;
     core.windowHeightMm = 93.7;
     return core;
@@ -41,7 +51,7 @@ CoreCandidate realCoreWithWindow() {
 //to force a parallel-strand bundle wider than the opening, exercising the real BundleFitValidation failure
 //path deterministically rather than hunting for a real part that happens to be too small).
 CoreCandidate twoPieceCoreWithNarrowWindow() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     core.partNumber = "SYNTHETIC-narrow-window-test-fixture";
     core.windowWidthMm = 2.0;
     core.windowHeightMm = 93.7;
@@ -51,7 +61,7 @@ CoreCandidate twoPieceCoreWithNarrowWindow() {
 //1. A small RMS current, needing less copper area than AWG18 (rules.minimumSingleStrandAwg) provides, should
 //select a single round strand rather than switching to parallel strands.
 void testSingleStrandSelectedForModerateCurrent() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     DesignRules rules = DesignRules::phase1Default();
     WindingDesignResult result = designWinding(core, 20, 2.0, rules);
     assert(result.parallelStrands == 1);
@@ -62,7 +72,7 @@ void testSingleStrandSelectedForModerateCurrent() {
 //2. A large RMS current (implying a conductor coarser than rules.minimumSingleStrandAwg) must switch to
 //parallel strands of the minimum practical gauge rather than one impractically thick solid wire.
 void testParallelStrandsSelectedForHighCurrent() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     DesignRules rules = DesignRules::phase1Default();
     WindingDesignResult result = designWinding(core, 20, 60.0, rules);
     assert(result.parallelStrands > 1);
@@ -75,7 +85,7 @@ void testParallelStrandsSelectedForHighCurrent() {
 //3. The realistic physical window fill (insulation, packing factor, bobbin/margin/lead-exit derates) must be
 //stricter (higher) than the raw copper-only fill factor for the same design - the whole point of the model.
 void testPhysicalWindowFillIsStricterThanRawCopperFill() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     DesignRules rules = DesignRules::phase1Default();
     WindingDesignResult result = designWinding(core, 20, 5.0, rules);
     assert(result.physicalWindowFillFactor > result.fillFactor);
@@ -86,7 +96,7 @@ void testPhysicalWindowFillIsStricterThanRawCopperFill() {
 //4. coldDcrOhmsAt20C must include lead/routing/connection resistance on top of the core-winding-only
 //resistance - i.e. it must be strictly greater than what the old core-winding-only DCR would have been.
 void testColdDcrIncludesLeadRoutingAndConnectionResistance() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     DesignRules rules = DesignRules::phase1Default();
     WindingDesignResult result = designWinding(core, 20, 5.0, rules);
     assert(result.resistanceStatus == EvaluationStatus::Evaluated);
@@ -123,7 +133,7 @@ void testMissingMltMeansResistanceNotEvaluatedButFillStillComputed() {
 //6. estimatedHotDcrOhms is a conservative sanity-check estimate at rules.assumedWindingTempCWhenThermalNotEvaluated
 //(90C default) - since copper's temp coefficient is positive and 90C > 20C, it must exceed the cold DCR.
 void testEstimatedHotDcrExceedsColdDcr() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     DesignRules rules = DesignRules::phase1Default();
     WindingDesignResult result = designWinding(core, 20, 5.0, rules);
     assert(result.estimatedHotDcrOhms > result.coldDcrOhmsAt20C);
@@ -132,9 +142,11 @@ void testEstimatedHotDcrExceedsColdDcr() {
                 result.coldDcrOhmsAt20C, result.estimatedHotDcrOhms);
 }
 
-//7. Regression for a real database audit finding: real winding-window width/height exists for two-piece
-//cores but was never used. A parallel-strand bundle that comfortably fits within the core's real narrowest
-//window opening must report bundleFitStatus=Evaluated and bundleFitsWindowOpening=true.
+//7. Regression for a real database audit finding: winding-window width/height data existed for two-piece
+//cores at the time but was never used (the finding still applies once such data is available again - see
+//realCoreWithWindow() above for why the specific numbers here are now illustrative, not a live lookup). A
+//parallel-strand bundle that comfortably fits within the core's narrowest window opening must report
+//bundleFitStatus=Evaluated and bundleFitsWindowOpening=true.
 void testBundleFitsRealWindowOpening() {
     CoreCandidate core = realCoreWithWindow();
     DesignRules rules = DesignRules::phase1Default();

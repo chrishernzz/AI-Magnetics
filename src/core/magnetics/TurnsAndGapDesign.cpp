@@ -232,8 +232,11 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
     //for this target L (it comes from the core's ungapped/maximum AL) - it has no awareness of peak current
     //or flux density, so on many real ferrite cores it converges directly to a zero-gap, minimum-turns
     //design that PeakFluxValidation/SaturationValidation then reject downstream with no retry (a real user
-    //report: E100/60/28-3C90 at 3000uH/5A peak converged at turns=20/gapMm=0.0, Bpk=1.03T vs Bmax=0.47T,
-    //when a real ~49-turn/~0.6mm-gap design exists on the SAME core and passes). When a real peak current is
+    //report, at the time reproduced against the E100/60/28-3C90 ferrite catalog row this project carried
+    //then: at 3000uH/5A peak converged at turns=20/gapMm=0.0, Bpk=1.03T vs Bmax=0.47T, when a real
+    //~49-turn/~0.6mm-gap design exists on the SAME core and passes; that row has since been removed along
+    //with the rest of ferrite scope, but the underlying methodology bug and fix described here are unchanged
+    //and still apply to any machined-gap core). When a real peak current is
     //known, raise the starting turns to whatever this exact core/target/limit combination requires to
     //already respect rules.minimumSaturationMarginPercent - Bpk = L*Ipk/(N*Ae) inverted for N. This only
     //ever RAISES the seed (max(), never lowered) - a core where the inductance-matching seed already had

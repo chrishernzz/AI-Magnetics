@@ -12,10 +12,13 @@ Two families exist because the engine is not uniformly SI:
   DesignValidation, LossEvaluation) use SI (H, Hz, m, m^2, m^3, Ohm).
 - GapDesign/TurnsAndGapDesign/TurnsCalculation deliberately stay in CGS
   (cm, cm^2, nH) because that's the unit system the McLyman AL formula
-  was verified against real catalog data in (see GapDesign.h - ~0.03%
-  accuracy against real_cores.csv's E100/60/28-3C90 row). Forcing that
-  formula into SI would mean re-deriving and re-validating a formula that
-  already has a real numerical accuracy guarantee - out of scope here.
+  was originally verified against real catalog data in (see GapDesign.h -
+  ~0.03% accuracy against a real ferrite catalog row, E100/60/28-3C90,
+  that no longer has a live row in real_cores.csv now that the database
+  is scoped to powder cores only). Forcing that formula into SI would
+  mean re-deriving and re-validating a formula whose historical accuracy
+  guarantee is no longer checkable against a live database row - out of
+  scope here.
 
 Both families are centralized here so "no calculation module performs its
 own inline unit conversion" holds for either unit system.

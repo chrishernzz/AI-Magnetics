@@ -36,15 +36,20 @@ MaterialCandidate materialWithoutBmax() {
     return material;
 }
 
+//real Magnetics C055439A2X2 (MPP 60) catalog geometry (data/real_cores.csv). This replaces the file's old
+//fixture, the E100/60/28-3C90 ferrite catalog row, which was removed from real_cores.csv when the database
+//was narrowed to Magnetics powder cores only - PeakFluxValidation/SaturationValidation only care about
+//Ae/Le, not materialType, so a real powder-core geometry works just as well and keeps this suite exercising
+//live catalog data.
 CoreCandidate testCore() {
     CoreCandidate core;
-    core.partNumber = "E100/60/28-3C90";
-    core.material = "3C90";
-    core.mu = 2249.28;
-    core.al = 7584.855918773515;
-    core.aeMm2 = 735.0502256509033;
-    core.waMm2 = 2020.0;
-    core.leMm = 273.919572699267;
+    core.partNumber = "C055439A2X2";
+    core.material = "MPP 60";
+    core.mu = 60.0;
+    core.al = 270.0;
+    core.aeMm2 = 398.0;
+    core.waMm2 = 405.42127530870135;
+    core.leMm = 107.0;
     core.areaProductCm4 = 0.0;
     core.meetsAreaProduct = true;
     return core;
