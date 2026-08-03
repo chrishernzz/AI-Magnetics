@@ -102,7 +102,7 @@ CMake builds this as a Python extension module and places the compiled `.pyd`/`.
 | ThermalEvaluation | `src/core/thermal/ThermalEvaluation.cpp` | ✅ Implemented — real iterative convergence loop (temp → hot DCR → copper loss → temp rise → repeat) using a size-aware Rth estimate derived from each candidate's own real Ae/Le geometry via Newton's law of cooling (`naturalConvectionCoefficientWPerM2K`/`compactSolidSurfaceAreaShapeFactor`), falling back to the flat `DesignRules.defaultThermalResistanceCPerW` only when that geometry is unavailable — neither is per-core measured data. Caps at `PreliminaryThermalEstimate` — `ThermalStatus` has no "fully evaluated" value. `NotEvaluated` when DCR geometry is unknown or the loop's real positive-feedback iteration diverges |
 | RecommendationStatus | `src/validation/RecommendationStatus.cpp` | ✅ Implemented — 3-tier `Pass`/`ConditionalPass`/`Reject` classification replacing the old frontend-only "Recommended" sugar; `Pass` currently unreachable in practice (ThermalValidation always flags isPreliminaryEstimate) |
 | DataCache<T> | `src/data/DataCache.h` | ✅ Implemented — shared template holding the "cache once, warn if empty" logic that `CoreDatabase`, `MaterialDatabase`, and `CoreLossCoefficientDatabase` all use, instead of each repeating it |
-| CoreDatabase | `src/data/CoreDatabase.h` | ✅ Implemented — real data loaded once at startup from a bundled snapshot (`data/real_cores.csv`, sourced from PyOpenMagnetics — see "Data Source" below); no CSV fallback, startup fails loudly if this fails. `load()` returns by `const&`, not by value |
+| CoreDatabase | `src/data/CoreDatabase.h` | ✅ Implemented — real data loaded once at startup from a bundled snapshot (`data/real_cores.csv`, hand-curated from Magnetics Inc.'s own catalog — see "Data Source" below); no CSV fallback, startup fails loudly if this fails. `load()` returns by `const&`, not by value |
 | MaterialDatabase | `src/data/MaterialDatabase.h` | ✅ Implemented — same pattern as CoreDatabase; `MaterialData` now also carries a real, material-specific `bmaxT` for all 165 materials |
 | Validation | `src/validation/Validation.h` | ✅ Implemented — `ValidationResult{passed, checkName, calculatedValue, limitValue, unit, explanation, usesDefaultAssumption}`, compiled via `VALIDATION_SOURCES` |
 | DesignRules | `src/rules/DesignRules.h`/`.cpp` | ✅ Implemented — `DesignRules::phase1Default()` is the single source of Ku/Bmax/J/tolerance defaults, compiled via `RULES_SOURCES` |
@@ -293,62 +293,50 @@ cores actually work.
 
 ---
 
-## Data Source: Real Data, Bundled Snapshot — No Live Windows Dependency
+## Data Source: Real Data, Hand-Curated from Magnetics Inc. — No Third-Party Library
 
-`cores.csv` and `materials.csv` (the old hand-typed files) are gone for
-good. In their place: **`data/real_materials.csv`** and **`data/real_cores.csv`**
-— also plain CSVs, but their *contents* are real, sourced data (from
-PyOpenMagnetics/MAS — real manufacturer datasheets: Ferroxcube, TDK,
-Magnetics, Fair-Rite), not hand-typed. (`reference_designs.csv` and
-`test_scenarios.csv` are unrelated to any of this and are still used, for
-validation.)
+`cores.csv` and `materials.csv` (the old hand-typed placeholder files) are
+gone for good. In their place: **`data/real_materials.csv`** and
+**`data/real_cores.csv`** — also plain CSVs, but their *contents* are real,
+sourced data. As of the current snapshot, every row is transcribed by hand
+from Magnetics Inc.'s own live catalog (mag-inc.com's Advanced Part Number
+Finder) — MPP powder toroids and Magnetics E-cores only (755 cores, 34
+materials). There is no PyOpenMagnetics (or any other third-party magnetics
+library) dependency anywhere in this project, at build time or runtime —
+an earlier version of this project sourced data that way, found real errors
+in the sampled result for this project's actual scope (missing permeability
+grades, mismatched catalog numbers), and replaced it entirely.
+(`reference_designs.csv` and `test_scenarios.csv` are unrelated to any of
+this and are still used, for validation.)
 
-**Why a bundled snapshot instead of a live PyOpenMagnetics query:**
-PyOpenMagnetics does not support native Windows (Linux/macOS only, or
-Windows via WSL2 — see its own `docs/compatibility.md`), and had no
-published wheel for Python 3.14 on any platform at the time. This is
-historical context for *why* the snapshot approach was chosen, not a
-statement about the current toolchain — the project is now pinned to
-Python 3.12 (`.python-version`) and deploys on Linux (Vercel), where
-PyOpenMagnetics does install; the original blocker was hit on native
-Windows with Python 3.14 during early development, confirmed by an actual
-failed install (`pip install PyOpenMagnetics` → CMake configuration
-failed, source build attempted because no matching wheel exists).
-
-**The architecture that resulted, and why it still meets the same bar as
-a live query:**
-1. `scripts/export_real_data.py` — a **maintenance script, not part of the
-running app** — queries PyOpenMagnetics for real materials/cores,
-applies the same filters as before (power-application only, ungapped
-only, spread across materials/vendors), and writes the result to
-`data/real_materials.csv` / `data/real_cores.csv`. This only runs
-somewhere PyOpenMagnetics actually installs (Linux, macOS, WSL2) —
-never as part of starting the app.
+**The architecture:**
+1. `data/real_materials.csv` / `data/real_cores.csv` / `data/dc_bias_curves.csv` /
+`data/real_core_loss_coefficients.csv` are **hand-curated, not generated** —
+there is no script that regenerates them. To change what's in them, edit
+the CSVs directly, sourcing any new/changed values from Magnetics Inc.'s own
+live catalog by hand.
 2. At FastAPI startup (`python/app.py`, `load_real_magnetics_data()`),
-`python/services/magnetics_data.py` reads those two CSV files —
-**plain file I/O, no PyOpenMagnetics import, works natively on
-Windows** — and maps them into the same `CoreData`/`MaterialData`
-shape the C++ engine has always used.
+`python/services/magnetics_data.py` reads those files — plain file I/O,
+no external library import, works natively on any platform Python runs
+on — and maps them into the `CoreData`/`MaterialData` shape the C++ engine
+expects.
 3. `magnetics_cpp.set_core_database(...)` / `set_material_database(...)`
 hand that data to `CoreDatabase`/`Materials` in C++, once, cached in
 memory for the life of the process — not re-read per request.
 4. **If any step fails, startup still fails.** `load_real_magnetics_data()`
-still raises rather than catching the error — uvicorn refuses to start
-rather than run with an empty database. This didn't change; only where
-the data comes from changed.
+raises rather than catching the error — uvicorn refuses to start rather
+than run with an empty core/material database.
 
-**Trade-off, stated plainly:** this data is a snapshot from whenever
-`export_real_data.py` was last run, not live-queried on every startup.
-Refreshing it is a manual step (re-run the script somewhere PyOpenMagnetics
-installs, replace the two CSV files) rather than automatic. Given native
-Windows can't run the live version at all, this is the trade made to have
-real data working here at all.
+**Trade-off, stated plainly:** this data is a snapshot, not live. If
+Magnetics' catalog changes, someone has to re-pull the affected rows by
+hand from mag-inc.com the same way this snapshot was built — there is no
+automated refresh mechanism.
 
 The actual Ap-based selection logic (originally `CoreSelection.cpp`/
 `MaterialSelection.cpp`, now `src/core/sizing/CoreEvaluation.cpp`/`MaterialEvaluation.cpp`
 after the Phase 1 rewrite) did not change through any of this. Only where
-the candidate list comes from changed, twice now: hand-typed CSV → live
-PyOpenMagnetics query → bundled real-data snapshot.
+the candidate list comes from changed: hand-typed CSV → third-party-library
+sample → hand-curated Magnetics Inc. snapshot.
 
 ---
 
@@ -398,7 +386,7 @@ convergence.
 - **FastAPI + uvicorn** — HTTP layer
 - **Pydantic** — request/response validation (comes with FastAPI)
 - **std::vector, std::string** — C++ standard library
-- **PyOpenMagnetics** — used only by `scripts/export_real_data.py` (a maintenance script, run manually, somewhere it actually installs) to regenerate the real-data snapshot. NOT a runtime dependency of the running app — see "Data Source" below for why.
+- No PyOpenMagnetics or any other third-party magnetics data library — data is hand-curated directly from Magnetics Inc.'s catalog, see "Data Source" below
 - No other external C++ libraries
 
 ---

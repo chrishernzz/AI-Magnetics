@@ -30,19 +30,19 @@
 for cores, `Name,MuOpt,MinFrequencyHz,MaxFrequencyHz,Reason,Alternatives,BmaxT,MaterialType,Manufacturer,DatasheetUrl`
 for materials, and `MaterialName,MinFrequencyHz,MaxFrequencyHz,K,Alpha,Beta,Ct0,Ct1,Ct2`
 (one row per frequency range) for the Steinmetz core-loss coefficients.
-**Currently:** 165 materials, 1276 cores — real data (Ferroxcube, TDK,
-Magnetics, Fair-Rite, Micrometals), filtered to power-application materials
-and ungapped cores, sampled per material name across its real small-to-large
-size range (`scripts/export_real_data.py`'s `_select_size_diverse_cores()`) -
-replaced an earlier "first N cores encountered" sampling that left every real
-MPP/Kool Mu/High Flux permeability grade above mu=60 almost entirely absent.
-`CoreShape` (`Toroid`/
-`TwoPieceSet`) and `ShapeFamily` (e.g. `T`, `ETD`, `PQ`, `RM`) are real
-geometry classifications from PyOpenMagnetics' own shape record - see
-"Core shape is now real" below. `MaterialType` (`ferrite`/`powder`) is
-PyOpenMagnetics' own real material classification - see "Ferrite toroids
-vs. powder toroids" below for why shape alone isn't enough to know which
-gap physics applies. `DatasheetUrl`/`Manufacturer`/`WindowWidthMm`/
+**Currently:** 34 materials, 755 cores — real data, all Magnetics Inc.,
+transcribed by hand from mag-inc.com's own live catalog (Advanced Part
+Number Finder), not sampled from any third-party library. Scope is
+deliberately narrowed to two Magnetics powder families: MPP toroids (432
+parts, all 12 real permeability grades, 14μ–550μ) and Magnetics E-cores
+(323 parts across the Kool Mu/Edge/XFlux/High Flux material families).
+Every other family a much earlier snapshot of this project carried
+(ferrite, other powder toroid families, non-E-core shapes) was removed as
+out of scope. `CoreShape` is always `Toroid` or `TwoPieceSet` and
+`ShapeFamily` is always `T` or `E` (see "Core shape is now real" below).
+`MaterialType` is always `powder` (see "Ferrite toroids vs. powder
+toroids" below for why that field, not shape alone, is what the gap-design
+formula actually branches on). `DatasheetUrl`/`Manufacturer`/`WindowWidthMm`/
 `WindowHeightMm` are covered in "Columns added after a database audit"
 below.
 
@@ -59,122 +59,63 @@ or a non-tabular nested structure. Three normalized files (four, counting
 `CoreEvaluation.cpp`), is the correct relational shape for this data, not
 a workaround.
 
-**Do not hand-edit these files.** To change what's in them, either adjust
-the filters in `scripts/export_real_data.py` and re-run it (needs
-PyOpenMagnetics installed — Linux/macOS/WSL2 only, see
-`docs/ARCHITECTURE.md`), or send them to someone/somewhere that can run
-that script and swap the resulting files in.
+**These files are hand-curated, not generated.** There is no script that
+regenerates them - the old PyOpenMagnetics-sampling export script this
+project used to have (`scripts/export_real_data.py`) has been deleted. To
+change what's in them, edit the CSVs directly, sourcing any new/changed
+values from Magnetics Inc.'s own live catalog (mag-inc.com) by hand, the
+same way this snapshot was built - see `docs/ARCHITECTURE.md` → "Data
+Source" for the full process.
 
 **Known Phase 1 data gaps (real limitations, not bugs in the engine):**
-- `real_materials.csv`'s `BmaxT` is now real, material-specific saturation
-  flux density data (source: PyOpenMagnetics/MAS) for all 165 materials —
-  `PeakFluxValidation`/`SaturationValidation` use it automatically instead
-  of `DesignRules.defaultFluxDensityLimitT` (`usesDefaultAssumption: false` when
-  it's in use). The old placeholder `CuLossFactor` column was retired;
-  real Steinmetz coefficients (`k`, `alpha`, `beta`, plus temperature
-  terms) now exist in `data/real_core_loss_coefficients.csv` for 29 of the
-  165 materials (the ferrite families — the powder/Kool Mµ/XFlux/MPP
-  materials aren't characterized as Steinmetz upstream, not an export
-  bug), loaded
-  at startup into `CoreLossCoefficientDatabase`
-  (`src/data/CoreLossCoefficientDatabase.h`). Core loss is now a real,
-  computed watt value via the Steinmetz equation `Pv = k*f^alpha*B^beta`
-  (`losses.coreLossStatus: Evaluated`) whenever the material has coefficients
-  AND the request supplies `rippleCurrentPeakToPeakA` (needed to compute
-  flux-density swing — never approximated from peak flux). No ripple current
-  supplied, or no coefficients for that material, means `NotEvaluated`, same
-  honest-gap policy as everywhere else (see [FORMULAS.md](FORMULAS.md)
-  section 9).
-- `real_cores.csv`'s `Mlt` column is a real-geometry estimate (each core's
-  central-column cross-section perimeter — see `scripts/export_real_data.py`'s
-  module docstring for exactly what it does and doesn't account for, e.g.
-  no bobbin wall thickness or winding buildup). Fill factor and current
-  density never needed it; total wire length and DCR now use it when it's
-  present (`winding.resistanceStatus: Evaluated`), and DC copper loss
-  (`losses.copperLossStatus`) follows automatically.
+- `real_materials.csv`'s `BmaxT` is real, material-specific saturation flux
+  density data (transcribed by hand from Magnetics' own material curve
+  pages) for all 34 materials — `PeakFluxValidation`/`SaturationValidation`
+  use it automatically instead of `DesignRules.defaultFluxDensityLimitT`
+  (`usesDefaultAssumption: false` when it's in use).
+- `real_core_loss_coefficients.csv` is currently **empty** — Magnetics does
+  not publish Steinmetz (`k`/`alpha`/`beta`) coefficients for MPP/Kool
+  Mu-family materials the way ferrite vendors did for materials this
+  project no longer carries. Core loss reports `NotEvaluated` for every
+  candidate as a result — an honest, real gap, not a fabricated zero (see
+  `python/app.py`'s startup log, which warns about this explicitly).
+- `real_cores.csv`'s `Mlt` column is real for MPP toroids (derived by hand
+  from each part's real OD/ID/HT). It's still `0.0` (genuinely missing, not
+  a real zero) for all 323 E-core rows — Magnetics' individual E-core
+  datasheets do carry the leg width/depth dimensions needed to estimate it,
+  but that hasn't been pulled and applied yet. Fill factor and current
+  density never needed it; total wire length and DCR use it when present
+  (`winding.resistanceStatus: Evaluated`) and report `NotEvaluated`
+  otherwise, never an invented number.
 - `real_cores.csv`'s `PartCost` and `MaxCurrent_A` columns are still 0.0 for
   every row — not currently used by any Phase 1 check.
-- **Core shape is now real** (`CoreShape`/`ShapeFamily` columns, added after
-  a real user report that the tool had no way to identify or filter for a
-  toroidal reference core - see git log). Sourced directly from
-  PyOpenMagnetics' `functionalDescription.shape`: `magneticCircuit: closed`
-  → `Toroid`, `open` → `TwoPieceSet` (E-core, ETD, PQ, RM, etc.), with
-  `shape.family` (e.g. `t`, `etd`, `pq`) as the human-readable geometry
-  code. Surfaced in the API (`core.coreShape`/`core.shapeFamily`) and the
-  frontend (a shape badge per candidate plus a shape filter dropdown).
-  Fixing this also surfaced a real curation bug: the export script's
-  per-vendor cap was a single flat counter, so whichever powder family
-  happened to iterate first for a vendor (Kool Mµ/Edge/XFlux, for Magnetics)
-  could consume the entire quota before other real, qualifying materials
-  from that vendor (MPP) were ever considered — MPP toroids were completely
-  absent from every snapshot before this fix, confirmed against the live
-  upstream PyOpenMagnetics database (10,000+ cores, only 60 were ever
-  imported). The cap is now tracked per (vendor, shape) pair, and a specific
-  real reference part (Magnetics `C055439A2X2`, an MPP-60 toroid) is
-  explicitly prioritized so it survives the per-material cap too — see
-  `scripts/export_real_data.py`'s module docstring and
-  `PRIORITY_CORE_REFERENCES`.
-- **Ferrite toroids vs. powder toroids (`MaterialType` column):**
-  `TurnsAndGapDesign.cpp` treats a toroid as distributed-gap (no discrete
-  machined air gap, permeability baked into the catalog `AL`) only when
-  `CoreShape == "Toroid" AND MaterialType == "powder"`. This was originally
-  keyed off `CoreShape` alone, which was wrong — the catalog also carries
-  real **ferrite** toroids (TDK/EPCOS N-series and T35/T65, Fair-Rite's
-  67/77/79/80 grades, Ferroxcube 3C94), which get their permeability from
-  the ferrite chemistry itself, not particle-level gapping, and need the
-  same real machined-gap formula (`GapDesign.cpp`) as a two-piece core. A
-  real user report (a passing N87 toroid candidate reporting
-  `gapMethod: Distributed, gapMm: 0.0`) caught this — confirmed against 10
-  ferrite material families across 75 toroid rows that were being
-  mis-classified. `MaterialType` (`ferrite`/`powder`) is PyOpenMagnetics'
-  own real classification (`material.material` upstream — the same field
-  `ALLOWED_MATERIAL_TYPES` in `scripts/export_real_data.py` already filters
-  on), not inferred from the part number or shape. A core with an
-  empty/unknown `MaterialType` is treated conservatively — it runs the real
-  machined-gap formula rather than being assumed powder.
-- **Columns added after a database audit** (checked what PyOpenMagnetics
-  actually carries vs. what this project captured, rather than assuming
-  the previous snapshot was complete):
-  - `DatasheetUrl` (materials and cores) — real manufacturer datasheet
-    PDF links, e.g. TDK/Ferroxcube/Magnetics. Populated for 98.0% of
-    materials and 99.4% of cores in the current snapshot. Previously
-    `SourceInfo.datasheetUrl` (`Provenance.h`) was documented as "no such
-    data exists" — it did, this project just never read it. Surfaced in
-    the API via `core.source.datasheetUrl`/`material.source.datasheetUrl`.
-  - `Manufacturer` (materials) — real manufacturer name (TDK, Ferroxcube,
-    Fair-Rite, Magnetics, Micrometals), 100% populated. Cores already had
-    this via the `Vendor` column; materials didn't.
-  - `WindowWidthMm`/`WindowHeightMm` (cores) — the real rectangular
-    winding-window dimensions, not just its total area (`Wa`). Populated
-    for 100% of two-piece (open-shape) cores; always blank for toroids,
-    which PyOpenMagnetics parameterizes by a radial height instead of a
-    flat width/height — that's a real geometric difference, not missing
-    data. Surfaced in the API (`core.windowWidthMm`/`core.windowHeightMm`)
-    and now genuinely consumed: `WindingDesign.cpp`'s parallel-strand
-    bundle-fit check (`bundleFitStatus`, formerly permanently
-    `NotEvaluated` for every candidate) computes a real result for
-    two-piece cores - the bundle's strands laid side by side
-    (`bundleWidthMm`) checked against the window's narrower real dimension
-    (`narrowestWindowOpeningMm`). A new `BundleFitValidation` check (mandatory,
-    like every other real magnetic/electrical check this engine runs)
-    gates on this, so a candidate whose bundle genuinely cannot fit
-    through a real core's window is now rejected rather than silently
-    passing on total-area alone. Toroids and any two-piece core still
-    missing the dimension data stay `NotEvaluated`, same as before. The
-    model is conservative and explicitly documented as such (single row,
-    no twisting/multi-row arrangement) since no real winding-pattern data
-    exists to do better - `WindingDesign.cpp`'s area-fraction margin/
-    lead-exit formula itself is unchanged, this is an additional real
-    geometric check alongside it, not a replacement.
-  - **Deliberately not added:** distributor cost. Real pricing exists
-    upstream for only 15.2% of cores (vs. the `PartCost` column's current
-    universal `0.0`), and no check in this project consumes cost today —
-    adding a column that would still read empty/zero for 85% of parts,
-    for data nothing uses yet, wasn't judged worth the added surface area
-    in this pass. `thermalResistance` was also checked and confirmed
-    genuinely absent (0% populated) across all 10,318 cores upstream —
-    not something this project failed to capture, it doesn't exist
-    anywhere in the source for any part.
+- **Core shape** (`CoreShape`/`ShapeFamily` columns) is always `Toroid`/`T`
+  (MPP) or `TwoPieceSet`/`E` (E-cores) — assigned by hand from each part's
+  real mag-inc.com shape category, since scope is narrowed to just those
+  two Magnetics powder shapes. Surfaced in the API
+  (`core.coreShape`/`core.shapeFamily`) and the frontend (a shape badge per
+  candidate plus a shape filter dropdown).
+- **`MaterialType` column is always `powder`** in this snapshot. There is
+  no ferrite in the current database at all, so
+  `TurnsAndGapDesign.cpp`'s `CoreShape == "Toroid" AND MaterialType ==
+  "powder"` distributed-gap branch is the only gap-design path any current
+  candidate can take — the real machined-gap formula (`GapDesign.cpp`)
+  still exists in the engine and is still exercised by tests (with a
+  synthetic ferrite fixture, since no real ferrite part remains), but has
+  no live database row to run against today.
+- `DatasheetUrl` (materials and cores) — real Magnetics datasheet PDF
+  links (`mag-inc.com/Media/Magnetics/Datasheets/<PartNumber>.pdf`),
+  populated for every row. `Manufacturer`/`Vendor` are always `Magnetics`.
+- `WindowWidthMm`/`WindowHeightMm` (cores) — always blank in this snapshot.
+  Real rectangular winding-window dimensions weren't captured for E-cores
+  (only `Wa`, the total window area, was pulled — see the E-core `Wa`
+  note above); toroids never have a flat width/height by definition (their
+  window is described by `Wa`/`ID` instead). `WindingDesign.cpp`'s
+  parallel-strand bundle-fit check (`bundleFitStatus`) stays
+  `NotEvaluated` for every candidate in this snapshot as a result.
+- **Deliberately not added:** distributor cost (`PartCost` stays `0.0` for
+  every row — no check in this project consumes cost today) and
+  `thermalResistance` (not published by Magnetics for these parts).
 
 ---
 
@@ -189,20 +130,26 @@ Permeability Roll-Off" for the full mechanism.
 (`src/data/DCBiasCurveDatabase.h`)
 **Format:** `MaterialName,A,B,C,D,Vendor,DatasheetUrl` - `%initial_permeability = 1/(A + B*H^C) + D`, H in
 Oersteds. `MaterialName` matches `real_materials.csv`'s `Name` column exactly (e.g. `MPP 60`).
-**Currently:** 133 rows, covering most of the powder materials `real_cores.csv` carries. A handful (MPP 60,
-Kool Mµ 60, High Flux 14/26, XFlux 60, Edge 60, Mix 26) were transcribed by hand from the vendors' own
-published "Permeability vs. DC Bias" pages/datasheet PDFs - the rest are generated by
-`scripts/export_real_data.py`'s `fetch_dc_bias_curves()` from PyOpenMagnetics' own per-material
-`magneticFieldDcBiasFactor` field (the same real vendor coefficients, fit for H in A/m instead of Oersteds).
-That A/m-to-Oe conversion (`b_Oe = b_Am * (1000/(4*pi))^c`) was verified by re-deriving all 7 hand-transcribed
-rows from PyOpenMagnetics' own data first and confirming they match to 4+ significant figures before trusting
-it for the rest - see `fetch_dc_bias_curves()`'s docstring and `tests/cpp/PermeabilityRolloffTests.cpp` for
-the cross-checks.
+**Currently:** 33 rows, one per material in the current MPP/E-core-only
+database (`real_materials.csv`) that has a published DC-bias curve. Every
+row has `Vendor=Magnetics` and a real `mag-inc.com` material-curves URL -
+these are Magnetics' own published "Permeability vs. DC Bias" coefficients.
+The `A`/`B`/`C`/`D` fit values themselves were originally computed via
+PyOpenMagnetics' digitization of those same published Magnetics curves
+(not independently invented data) before this project stopped depending on
+PyOpenMagnetics for anything else; a handful (MPP 60, Kool Mµ 60, High Flux
+26, XFlux 60, Edge 60) were cross-checked by hand against the vendor's own
+published "Permeability vs. DC Bias" page/datasheet PDF and matched to 4+
+significant figures - see `tests/cpp/PermeabilityRolloffTests.cpp`. 100 rows
+for materials outside the current database's scope (ferrite and other
+powder families this project no longer carries) were pruned from the
+original 133-row set.
 
-**Known Phase 1 data gap:** not every powder material PyOpenMagnetics carries has a `magneticFieldDcBiasFactor`
-value - materials with none simply have no row here. Any such distributed-gap material falls back to the
-pre-existing flat-AL0 behavior - `TurnsAndGapResult::usesDCBiasRolloffCurve` stays `false` so callers can tell
-the difference, never a silently-assumed 0%-bias result.
+**Known Phase 1 data gap:** not every material in `real_materials.csv` has a
+published DC-bias curve - materials with none simply have no row here. Any
+such distributed-gap material falls back to the pre-existing flat-AL0
+behavior - `TurnsAndGapResult::usesDCBiasRolloffCurve` stays `false` so
+callers can tell the difference, never a silently-assumed 0%-bias result.
 
 **Do not hand-edit the coefficients.** They're read verbatim from the manufacturer's own published tables;
 if a value looks wrong, re-check it against the datasheet URL in that row rather than adjusting it here.
@@ -249,7 +196,7 @@ field mapping, since that's what these columns became.
 4. Verify:
 - `Material` matches a `Name` in `materials.csv` exactly (case-sensitive)
 - `Ae` and `Wa` are in mm² (not cm²) — this is what `src/core/sizing/CoreEvaluation.cpp` (formerly `CoreSelection.cpp`, since removed) expects; it converts internally via `(Ae × Wa) × 1e-4` to get cm⁴
-5. This exact file (`cores.csv`) is gone and isn't read by the app. If you meant `data/real_cores.csv` (the current file): editing it directly *would* take effect on restart, but don't — it's a generated snapshot. Adjust the filters in `scripts/export_real_data.py` and re-run it instead, so the file stays reproducible.
+5. This exact file (`cores.csv`) is gone and isn't read by the app. If you meant `data/real_cores.csv` (the current file): editing it directly *is* how you change this data — it's hand-curated, not generated, so there's no script to re-run. Just make sure any new/changed values are sourced from Magnetics Inc.'s own live catalog (mag-inc.com), the same way the rest of the snapshot was built.
 
 ### Calculation Tips
 
@@ -362,6 +309,6 @@ When you find a bug or edge case:
 ---
 
 ## Where Data Currently Comes From
-- **Cores and materials:** `data/real_materials.csv` / `data/real_cores.csv` — real manufacturer data (Ferroxcube, TDK, Magnetics, Fair-Rite, and others) originally sourced from PyOpenMagnetics/MAS, exported once via `scripts/export_real_data.py`, read as plain CSV at startup. See `docs/ARCHITECTURE.md`.
+- **Cores and materials:** `data/real_materials.csv` / `data/real_cores.csv` — real Magnetics Inc. data, transcribed by hand from mag-inc.com's own live catalog, read as plain CSV at startup. No third-party magnetics library involved. See `docs/ARCHITECTURE.md`.
 - **reference_designs.csv:** one real IntelliPower part (`i77006`), used for manual validation
 - **test_scenarios.csv:** manually authored scenarios, including the `i77006` reference case

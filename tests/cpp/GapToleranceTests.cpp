@@ -10,11 +10,14 @@
 
 namespace {
 
-//real E100/60/28-3C90 catalog geometry (same core GapDesignTests.cpp verifies calculateEffectiveAlNhPerTurnSq
-//against) - reused here so these tests exercise designTurnsAndGap against real, not invented, core geometry.
-CoreCandidate realCore() {
+//Illustrative/synthetic ferrite geometry (same numbers GapDesignTests.cpp verifies
+//calculateEffectiveAlNhPerTurnSq against) - originally the real E100/60/28-3C90 catalog row, which has since
+//been removed from data/real_cores.csv (the database is now scoped to Magnetics powder cores only; no
+//ferrite/machined-gap core remains in it). Kept as a fixed, physically-plausible geometry purely to exercise
+//designTurnsAndGap's machined-gap branch - not a live catalog lookup.
+CoreCandidate syntheticFerriteCore() {
     CoreCandidate core;
-    core.partNumber = "E100/60/28-3C90";
+    core.partNumber = "SYNTHETIC-FERRITE-3C90";
     core.material = "3C90";
     core.mu = 2249.28;
     core.al = 7584.855918773515;
@@ -30,7 +33,7 @@ CoreCandidate realCore() {
 //1. Zero gap: a target inductance the core's ungapped catalog AL already reaches (or exceeds) at some
 //integer turns count needs no gap at all - a real, valid outcome, not an error.
 void testZeroGapWhenUngappedAlSuffices() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     DesignRules rules = DesignRules::phase1Default();
     //ungapped AL*N^2 at N=10 is ~758486 nH - target well below that needs no gap.
     double targetUH = 500.0;  //500000 nH, still below 758486 nH at N=10 - but seedTurns will pick a
@@ -45,7 +48,7 @@ void testZeroGapWhenUngappedAlSuffices() {
 //GapDesignTests.cpp's testNoGapNeededIsNotAnError) when the ungapped AL already exceeds what's needed -
 //designTurnsAndGap must clamp this to 0.0 mm, never propagate a negative gap.
 void testNegativeMathematicalGapClampedToZero() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     DesignRules rules = DesignRules::phase1Default();
     //A very small target inductance at the seeded turns count all but guarantees the raw
     //calculateRequiredGapCm() result is negative (ungapped AL alone already overshoots it).
@@ -60,7 +63,7 @@ void testNegativeMathematicalGapClampedToZero() {
 //this deliberately raises rules.minManufacturableGapMm above whatever real (nonzero) gap the solver
 //produces, so the warning path is exercised deterministically against a real computed gap.
 void testSmallGapTriggersManufacturabilityWarningNotRejection() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     DesignRules rules = DesignRules::phase1Default();
     double targetUH = 2.0;  //requires a real, small, nonzero gap on this core
     TurnsAndGapResult probe = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 20.0, std::nullopt, 0.0, rules);
@@ -79,7 +82,7 @@ void testSmallGapTriggersManufacturabilityWarningNotRejection() {
 //4. Gap-rounding boundary: the calculated gap must always be an exact multiple of rules.gapStepMm (the
 //machining resolution), regardless of what continuous value the raw formula produced.
 void testGapIsRoundedToStepIncrement() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     DesignRules rules = DesignRules::phase1Default();
     double targetUH = 3.0;
     TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, targetUH, 20.0, std::nullopt, 0.0, rules);
@@ -94,7 +97,7 @@ void testGapIsRoundedToStepIncrement() {
 //5. Excessively large gap: a target inductance far below what this core can reach even at the practical
 //gap bound (rules.maxGapFraction of Le) must be rejected, not silently gapped past the practical limit.
 void testExcessiveGapIsRejected() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     DesignRules rules = DesignRules::phase1Default();
     double targetUH = 0.0001;  //absurdly small target inductance forces an absurdly small effective length,
                                 //i.e. an enormous gap requirement, on any real core geometry.
@@ -115,7 +118,7 @@ void testExcessiveGapIsRejected() {
 //the edge of what's reachable, which is the honest characterization of this code path: a defensive cap that
 //real (or even synthetic-but-plausible) inputs do not appear to trigger.
 void testConvergenceIsRobustEvenNearThePracticalGapBoundary() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     DesignRules rules = DesignRules::phase1Default();
     //Near the smallest inductance this core can still reach without tripping the excessive-gap rejection.
     double targetUH = 0.01;
@@ -132,7 +135,7 @@ void testConvergenceIsRobustEvenNearThePracticalGapBoundary() {
 //the default +-10% mechanical gap tolerance should push at least one gap extreme's inductance outside that
 //tolerance, even when the nominal (as-designed) gap is dead on target.
 void testGapToleranceCanFailEvenWhenNominalPasses() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     DesignRules rules = DesignRules::phase1Default();
     double targetUH = 2.0;               //a target requiring a real, non-negligible gap on this core
     double tightTolerancePercent = 0.5;  //far tighter than the +-10% gap tolerance sweep can guarantee
@@ -148,7 +151,7 @@ void testGapToleranceCanFailEvenWhenNominalPasses() {
 //Gap method gate: any DesignRules.gapMethod other than MachinedCenterLeg must be rejected outright, never
 //silently treated as if the one validated formula applies to it.
 void testNonMachinedCenterLegGapMethodIsRejected() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     DesignRules rules = DesignRules::phase1Default();
     rules.gapMethod = GapMethod::Spacer;
     TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, 2.0, 10.0, std::nullopt, 0.0, rules);
@@ -391,8 +394,10 @@ void testPowderCoreRejectsWhenNoFeasibleTurnsUnderRolloff() {
                 result.rejectionReasons.front().c_str());
 }
 
-//real 3C90 material - hasBmaxData=true, bmaxT=0.47T (matches real_materials.csv), reused so these tests
-//exercise the exact material/limit combination a real user report was filed against.
+//3C90 material with hasBmaxData=true, bmaxT=0.47T - this was 3C90's real published Bsat, and matched a row
+//in real_materials.csv when this test was written; 3C90 (ferrite) is now out of the database's scope (see
+//syntheticFerriteCore() above), so this is a fixed illustrative material used to reproduce the exact
+//material/limit combination the original user report was filed against, not a live database lookup.
 MaterialCandidate material3C90() {
     MaterialCandidate material;
     material.materialFamily = "3C90";
@@ -401,13 +406,14 @@ MaterialCandidate material3C90() {
     return material;
 }
 
-//11. Regression for a real reported methodology gap: at 3000uH/5A peak on E100/60/28-3C90, the
-//inductance-matching-only seed (turns=20, gapMm=0.0) produces Bpk~1.03T against a 0.47T limit - a
-//physically real, satisfiable design exists on this SAME core at higher turns (hand-verified: N~49,
-//gapMm~0.6mm). This proves the flux-aware seed finds it instead of the solver settling on the
-//unreachable minimum-turns point.
-void testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore() {
-    CoreCandidate core = realCore();  //E100/60/28-3C90
+//11. Regression for a real reported methodology gap, originally found against the E100/60/28-3C90 ferrite
+//catalog row this project used to carry (that row is now out of scope - see syntheticFerriteCore() above):
+//at 3000uH/5A peak, the inductance-matching-only seed (turns=20, gapMm=0.0) produces Bpk~1.03T against a
+//0.47T limit - a physically valid, satisfiable design exists on this SAME core geometry at higher turns
+//(hand-verified: N~49, gapMm~0.6mm). This proves the flux-aware seed finds it instead of the solver
+//settling on the unreachable minimum-turns point.
+void testFluxAwareSeedFindsFeasibleDesignOnSyntheticFerriteCore() {
+    CoreCandidate core = syntheticFerriteCore();  //illustrative synthetic geometry, not a live catalog row
     MaterialCandidate material = material3C90();
     DesignRules rules = DesignRules::phase1Default();
     double targetUH = 3000.0;
@@ -431,7 +437,7 @@ void testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore() {
     assert(peakFlux.passed);
     assert(saturation.passed);
 
-    std::printf("testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore: turns=%d gapMm=%.4f Bpk=%.4f margin=%.2f%%\n",
+    std::printf("testFluxAwareSeedFindsFeasibleDesignOnSyntheticFerriteCore: turns=%d gapMm=%.4f Bpk=%.4f margin=%.2f%%\n",
                 result.turns, result.gapMm, peakFlux.calculatedValue, saturation.calculatedValue);
 }
 
@@ -442,10 +448,10 @@ void testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore() {
 //passing candidate, which saturates at ~0.12A - ~40x below the request's own 5A RMS value, with nothing in
 //the pipeline flagging it). RMS current is a mathematically guaranteed LOWER BOUND on the real (unsupplied)
 //peak current (RMS <= peak always), so the seed now runs against it exactly like it would against a real
-//supplied peak - this test's expected turns/gap now match testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore
+//supplied peak - this test's expected turns/gap now match testFluxAwareSeedFindsFeasibleDesignOnSyntheticFerriteCore
 //above (same core, same 3000uH/5A numbers) since the seed math is identical either way.
 void testRmsFloorRaisesTurnsSeedWhenPeakAbsent() {
-    CoreCandidate core = realCore();
+    CoreCandidate core = syntheticFerriteCore();
     MaterialCandidate material = material3C90();
     DesignRules rules = DesignRules::phase1Default();
     double rmsCurrentA = 5.0;
@@ -521,7 +527,7 @@ void testRmsFloorCatchesCertainSaturationFailure() {
 //floor - a well-seeded design (enough turns to survive even the conservative RMS-as-peak floor) must stay
 //honestly NotEvaluated, not silently promoted to a Pass just because it cleared the floor.
 void testRmsFloorNeverProducesAFalsePass() {
-    CoreCandidate core = realCore();  //E100/60/28-3C90, real 3C90 geometry
+    CoreCandidate core = syntheticFerriteCore();  //illustrative synthetic 3C90-shaped geometry, not a live catalog row
     MaterialCandidate material = material3C90();
     DesignRules rules = DesignRules::phase1Default();
 
@@ -560,7 +566,7 @@ void runGapToleranceTests() {
     testPowderCoreRmsFloorAppliesRealDCBiasRolloff();
     testPowderCoreFallsBackToFlatAlWhenNoCurrentSupplied();
     testPowderCoreRejectsWhenNoFeasibleTurnsUnderRolloff();
-    testFluxAwareSeedFindsFeasibleDesignOnRealFerriteCore();
+    testFluxAwareSeedFindsFeasibleDesignOnSyntheticFerriteCore();
     testRmsFloorRaisesTurnsSeedWhenPeakAbsent();
     testRmsFloorCatchesCertainSaturationFailure();
     testRmsFloorNeverProducesAFalsePass();

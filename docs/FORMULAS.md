@@ -519,8 +519,9 @@ saturation guideline** — real ferrite materials often saturate well above
 this, but 0.30 T is a commonly used safe design point when a material's
 actual measured saturation curve isn't available. As of this data
 snapshot, `data/real_materials.csv`'s `BmaxT` is real, material-specific
-saturation flux density for all 165 materials (source: PyOpenMagnetics/MAS),
-so this default is now the exception rather than the rule - it's only
+saturation flux density for all 34 materials (transcribed by hand from
+Magnetics Inc.'s own catalog), so this default is now the exception
+rather than the rule - it's only
 used as a fallback for a material with no measured value. The engine never
 presents it as if it were a measured fact about a specific material —
 every check that uses it sets `usesDefaultAssumption: true` in its result, and
@@ -600,16 +601,25 @@ Pv (W/m³) = k * f^alpha * B^beta
 Total core loss in watts is `Pv * Ve`, where `Ve` is the core's effective
 volume (`Ae_mm2 * Le_mm`, converted to m³).
 
+**Current data state:** `data/real_core_loss_coefficients.csv` is empty as
+of this snapshot — Magnetics does not publish Steinmetz (`k`/`alpha`/`beta`)
+coefficients for MPP/Kool Mu-family materials the way ferrite vendors did
+for the materials this project used to carry, so `findCoreLossCoefficients()`
+never finds a match and core loss reports `NotEvaluated` for every
+candidate today, not a fabricated zero.
+
 **Units caveat, stated explicitly because it silently produced a
-600,000 W result during development:** these coefficients come from
-PyOpenMagnetics/MAS's `volumetricLosses` field — SI convention, so `Pv`
-is in **W/m³, not W/cm³**. The retired placeholder formula this replaced
-used W/cm³; carrying that assumption over to the real Steinmetz formula
-produced core-loss numbers six orders of magnitude too large. Caught by
-sanity-checking the output against a physically plausible loss density
-for a small ripple swing, then confirmed against PyOpenMagnetics's own
-field naming — not something a unit test alone would have caught, since
-the formula itself was correct, only the assumed output unit was wrong.
+600,000 W result during development (historical - the coefficients that
+triggered this have since been removed along with the rest of ferrite
+scope, but the unit convention below still applies to any coefficients
+added in the future):** these coefficients, when populated, follow SI
+convention, so `Pv` is in **W/m³, not W/cm³**. The retired placeholder
+formula this replaced used W/cm³; carrying that assumption over to the
+real Steinmetz formula produced core-loss numbers six orders of magnitude
+too large. Caught by sanity-checking the output against a physically
+plausible loss density for a small ripple swing — not something a unit
+test alone would have caught, since the formula itself was correct, only
+the assumed output unit was wrong.
 
 ### Where the flux-density swing comes from (Option 1, chosen)
 

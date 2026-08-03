@@ -11,6 +11,14 @@ namespace {
 //this will be the maximum number of the turns-and-gap recalculation attempts before rejecting the design
 constexpr int kMaxIterations = 15;
 
+//No real core's winding window could ever fit anywhere near this many turns - a real physical bound, not
+//an arbitrary cap. Guards every N = sqrt(target/AL) computation below: when effective AL has rolled off (or
+//been gapped) to something very small but not exactly zero/negative, targetNh/AL can be astronomically
+//large, and casting sqrt() of that to int is undefined behavior - observed in practice as silently
+//returning INT_MAX (2147483647), which then posed as a real "converged" turns count downstream instead of
+//a rejection. Checking the ratio against this bound before the sqrt/cast avoids ever exercising that UB.
+constexpr double kMaxTurnsSquared = 1e12;  //(1,000,000 turns)^2
+
 //precondition: Seeds the initial turns estimate by reusing TurnsCalculation's existing N = round(sqrt(L/AL)) formula against the core's ungapped catalog AL
 //postcondition: returns the initial turns estimate for the given core and target inductance, rounded to the nearest integer and falls back to a minimum of 1 turn if none
 int seedTurns(const CoreCandidate& core, double targetInductanceUH) {
@@ -46,6 +54,11 @@ int minimumTurnsForSaturationMargin(const CoreCandidate& core, double targetIndu
     double inductanceH = units::uHToH(targetInductanceUH);
     double aeM2 = units::mm2ToM2(core.aeMm2);
     double nMinRaw = (inductanceH * peakCurrentA) / (aeM2 * deratedLimitT);
+    if (!std::isfinite(nMinRaw) || nMinRaw > kMaxTurnsSquared) {
+        //same "0 = no flux-aware floor available" sentinel documented above - a derated limit small enough
+        //to demand this many turns isn't a real floor a caller should act on.
+        return 0;
+    }
     return std::max(1, static_cast<int>(std::ceil(nMinRaw)));
 }
 
@@ -150,7 +163,9 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
                 double hOe = dcMagnetizingForceOe(turns, *biasCurrentA, core.leMm);
                 double percentMu = percentInitialPermeability(hOe, rolloffCurve.curve);
                 double trialAlEffNh = core.al * (percentMu / 100.0);
-                if (trialAlEffNh <= 0.0) {
+                if (trialAlEffNh <= 0.0 || targetNh / trialAlEffNh > kMaxTurnsSquared) {
+                    //effective AL has rolled off (or is small enough) that no sane turns count could reach
+                    //the target - same non-convergence outcome as the <=0.0 case, not an overflowed cast.
                     break;
                 }
                 int requiredTurns = std::max(1, static_cast<int>(std::round(std::sqrt(targetNh / trialAlEffNh))));
@@ -232,8 +247,11 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
     //for this target L (it comes from the core's ungapped/maximum AL) - it has no awareness of peak current
     //or flux density, so on many real ferrite cores it converges directly to a zero-gap, minimum-turns
     //design that PeakFluxValidation/SaturationValidation then reject downstream with no retry (a real user
-    //report: E100/60/28-3C90 at 3000uH/5A peak converged at turns=20/gapMm=0.0, Bpk=1.03T vs Bmax=0.47T,
-    //when a real ~49-turn/~0.6mm-gap design exists on the SAME core and passes). When a real peak current is
+    //report, at the time reproduced against the E100/60/28-3C90 ferrite catalog row this project carried
+    //then: at 3000uH/5A peak converged at turns=20/gapMm=0.0, Bpk=1.03T vs Bmax=0.47T, when a real
+    //~49-turn/~0.6mm-gap design exists on the SAME core and passes; that row has since been removed along
+    //with the rest of ferrite scope, but the underlying methodology bug and fix described here are unchanged
+    //and still apply to any machined-gap core). When a real peak current is
     //known, raise the starting turns to whatever this exact core/target/limit combination requires to
     //already respect rules.minimumSaturationMarginPercent - Bpk = L*Ipk/(N*Ae) inverted for N. This only
     //ever RAISES the seed (max(), never lowered) - a core where the inductance-matching seed already had
@@ -306,6 +324,14 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
         if (alEff <= 0.0) {
             result.converged = false;
             result.rejectionReasons.push_back("effective AL computed as non-positive for core '" + core.partNumber + "' - cannot design turns/gap");
+            return result;
+        }
+        if (targetNh / alEff > kMaxTurnsSquared) {
+            //effective AL is small enough that no sane turns count could reach the target - same
+            //non-convergence outcome as the <=0.0 case above, not an overflowed sqrt/int cast (which
+            //previously silently produced turns=2147483647 instead of an honest rejection here).
+            result.converged = false;
+            result.rejectionReasons.push_back("required turns count is unreasonably large for core '" + core.partNumber + "' at this target inductance/gap - effective AL is too small to satisfy the target with a sane winding");
             return result;
         }
 

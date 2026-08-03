@@ -4,7 +4,12 @@
 #include "core/magnetics/GapDesign.h"
 
 namespace {
-//precondition: aeCm2, leCm, muR are the real ungapped catalog values from E100/60/28-3C90 (Converted from the datasheet's mm/mm^2 units into cm/cm^2 units as calculateEffectiveAlNhPerTurnSq expects). gapCm is 0.0 (ungapped)
+//precondition: aeCm2, leCm, muR are an illustrative/synthetic ferrite geometry (converted from mm/mm^2 into
+//cm/cm^2 as calculateEffectiveAlNhPerTurnSq expects) originally taken from the E100/60/28-3C90 catalog row
+//this project used to carry - that row has since been removed (the database is now scoped to Magnetics
+//powder cores only, which never exercise this machined-gap formula), so these numbers are no longer checked
+//against a live data/real_cores.csv row. They're kept as a fixed, physically-plausible ferrite geometry
+//purely to exercise the machined-gap AL formula's math. gapCm is 0.0 (ungapped)
 //postcondition: calculateEffectiveAlNhPerTurnSq must return the AL value the manufacturer publishes for this core (within 5 nH/turn^2). If the assert fails, the process aborts here and no later test runs
 void testUngappedAlMatchesCatalog() {
     double aeCm2 = 735.0502256509033 / 100.0;

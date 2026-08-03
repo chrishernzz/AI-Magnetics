@@ -46,10 +46,11 @@ def _build_cpp_record(dicts: list[dict], cpp_class, field_map: dict[str, str]) -
 @app.on_event("startup")
 def load_real_magnetics_data():
     """
-    Loads real core/material data from PyOpenMagnetics once, at process startup,
-    and hands it to the C++ engine. There is no CSV fallback - if this fails, it raises and uvicorn will refuse to start,
-    rather than silently starting an app with no core/material data. Check the
-    traceback below to see exactly what failed (missing PyOpenMagnetics install is the most common cause).
+    Loads real core/material data from the checked-in CSV snapshot once, at process
+    startup, and hands it to the C++ engine. There is no fallback - if this fails, it
+    raises and uvicorn will refuse to start, rather than silently starting an app with
+    no core/material data. Check the traceback below to see exactly what failed
+    (a missing/corrupt data/*.csv file is the most common cause).
     """
     import hashlib
     import magnetics_cpp
@@ -65,10 +66,19 @@ def load_real_magnetics_data():
             f"refusing to start with an empty database. Check the filters in"
             f"python/services/magnetics_data.py (ALLOWED_MATERIAL_TYPES, size range, etc.)."
         )
+    #Unlike materials/cores above, an empty core-loss-coefficient database is not fatal as of the
+    #MPP/powder-only rebuild: Magnetics does not publish Steinmetz (k/alpha/beta) coefficients for MPP or
+    #Kool Mu-family materials the way ferrite vendors do, so 0 rows is now the real, legitimate state for
+    #this database's scope, not a sign of a broken load. Core loss for every material already reports
+    #not_evaluated in this case (see LossEvaluation.cpp's findCoreLossCoefficients call) - that was already
+    #true for every MPP/powder material even when this file had ferrite-only rows, since none of them had a
+    #matching entry either. If a future snapshot re-adds ferrite materials with real coefficients and this
+    #file comes back empty, that would be worth investigating - but an empty file is no longer a hard error.
     if not core_loss_coefficients:
-        raise RuntimeError(
-            "Real data load returned 0 core-loss coefficient rows - refusing to start with an "
-            "empty database. Check data/real_core_loss_coefficients.csv."
+        print(
+            "WARNING: real data load returned 0 core-loss coefficient rows - core loss will report "
+            "not_evaluated for every material. Expected for the current MPP/powder-only database scope "
+            "(see data/real_core_loss_coefficients.csv header)."
         )
     cpp_materials = _build_cpp_record(materials, magnetics_cpp.MaterialData, {
         "name" : "Name",
@@ -128,16 +138,16 @@ def load_real_magnetics_data():
     magnetics_cpp.set_dc_bias_curve_database(cpp_dc_bias_curves)
 
     #Real, reproducible version identifiers - a content hash of the exact CSV bytes actually loaded,
-    #not an invented semver for data whose upstream (PyOpenMagnetics/MAS) release version isn't tracked
-    #anywhere in this snapshot mechanism. Changes if and only if the underlying data actually changes.
+    #not an invented semver for data whose upstream (Magnetics Inc.'s own catalog) release version isn't
+    #tracked anywhere in this snapshot mechanism. Changes if and only if the underlying data actually changes.
     core_db_version = f"{len(cpp_cores)} rows, sha256:{hashlib.sha256(CORES_FILE.read_bytes()).hexdigest()[:12]}"
     material_db_version = f"{len(cpp_materials)} rows, sha256:{hashlib.sha256(MATERIALS_FILE.read_bytes()).hexdigest()[:12]}"
     magnetics_cpp.set_engine_versions(core_db_version, material_db_version)
 
     print(f"Loaded real data: {len(cpp_materials)} materials, {len(cpp_cores)} cores, "
           f"{len(cpp_core_loss_coefficients)} core-loss coefficient rows, "
-          f"{len(cpp_dc_bias_curves)} DC-bias roll-off curve rows. source: PyOpenMagnetics / MAS + "
-          f"Magnetics Inc. / Micrometals datasheets")
+          f"{len(cpp_dc_bias_curves)} DC-bias roll-off curve rows. source: Magnetics Inc. datasheets "
+          f"(mag-inc.com) - MPP toroids + E-cores only")
 
 
 @app.get("/", response_class=FileResponse)

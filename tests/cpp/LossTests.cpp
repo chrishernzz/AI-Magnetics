@@ -14,18 +14,21 @@ MaterialCandidate testMaterial() {
     return material;
 }
 
-//real E100/60/28-3C90 catalog geometry (data/real_cores.csv) - reused so core-loss volume is checked
-//against a real core's Ae/Le, not invented ones.
+//real Magnetics C055439A2X2 (MPP 60) catalog geometry (data/real_cores.csv) - reused so core-loss volume is
+//checked against a real core's Ae/Le, not invented ones. (This replaces the file's old fixture, the
+//E100/60/28-3C90 ferrite catalog row, which was removed from real_cores.csv when the database was narrowed
+//to Magnetics powder cores only - the loss math this file tests doesn't depend on materialType, so a real
+//powder-core geometry works just as well and keeps this suite exercising live catalog data.)
 CoreCandidate realCore() {
     CoreCandidate core;
-    core.partNumber = "E100/60/28-3C90";
+    core.partNumber = "C055439A2X2";
     core.material = "TestMat";
-    core.mu = 2249.28;
-    core.al = 7584.855918773515;
-    core.aeMm2 = 735.0502256509033;
-    core.waMm2 = 2138.7025;
-    core.leMm = 273.919572699267;
-    core.mltMm = 110.0;
+    core.mu = 60.0;
+    core.al = 270.0;
+    core.aeMm2 = 398.0;
+    core.waMm2 = 405.42127530870135;
+    core.leMm = 107.0;
+    core.mltMm = 100.11000000000001;
     core.areaProductCm4 = 0.0;
     core.meetsAreaProduct = true;
     return core;

@@ -7,12 +7,14 @@
 
 namespace {
 
-//real ferrite geometry (E100/60/28-3C90, same core other test files already use as their real-ferrite
-//fixture) - large enough Ae/Wa that a modest Ap requirement is easy to satisfy, small enough that a huge one
-//is easy to fail, so both directions of the ferrite gate are exercised deterministically.
-CoreData realFerriteCore() {
+//Illustrative/synthetic ferrite geometry (same numbers other test files use as their synthetic-ferrite
+//fixture - originally the real E100/60/28-3C90 catalog row, since removed from data/real_cores.csv now that
+//the database is scoped to Magnetics powder cores only, which have no ferrite rows left at all) - large
+//enough Ae/Wa that a modest Ap requirement is easy to satisfy, small enough that a huge one is easy to fail,
+//so both directions of the ferrite gate are exercised deterministically.
+CoreData syntheticFerriteCore() {
     CoreData core;
-    core.partNumber = "E100/60/28-3C90";
+    core.partNumber = "SYNTHETIC-FERRITE-3C90";
     core.material = "3C90";
     core.mu = 2249.28;
     core.al = 7584.855918773515;
@@ -54,7 +56,7 @@ MaterialCandidate materialFor(const std::string& name) {
 //1. A ferrite core with a required Ap far beyond what its real geometry provides must still be correctly
 //rejected by the pre-filter - the powder bypass below must not have accidentally widened to ferrite too.
 void testFerriteCoreStillGatedByAreaProduct() {
-    CoreDatabase::setData({realFerriteCore()});
+    CoreDatabase::setData({syntheticFerriteCore()});
     std::vector<MaterialCandidate> materials{materialFor("3C90")};
     //real Ap for this core is ~14.85 cm^4 (735.05mm2 * 2020mm2 * 1e-4) - require far more than that.
     std::unordered_map<std::string, double> required{{"3C90", 1000.0}};
@@ -68,7 +70,7 @@ void testFerriteCoreStillGatedByAreaProduct() {
 //2. A ferrite core with an easily-satisfied Ap requirement must still pass - the powder bypass must not have
 //broken the normal ferrite path in the other direction either.
 void testFerriteCorePassesWhenRealAreaProductSuffices() {
-    CoreDatabase::setData({realFerriteCore()});
+    CoreDatabase::setData({syntheticFerriteCore()});
     std::vector<MaterialCandidate> materials{materialFor("3C90")};
     std::unordered_map<std::string, double> required{{"3C90", 1.0}};  //trivially small vs real ~14.85 cm^4
 
@@ -98,7 +100,7 @@ void testPowderCoreBypassesAreaProductPreFilter() {
 //4. A mixed database (one ferrite, one powder core, same impossible required Ap for both) must apply the two
 //different rules independently - proves the bypass is keyed off materialType per-core, not some global flag.
 void testMixedDatabaseAppliesRulesIndependently() {
-    CoreDatabase::setData({realFerriteCore(), realPowderCore()});
+    CoreDatabase::setData({syntheticFerriteCore(), realPowderCore()});
     std::vector<MaterialCandidate> materials{materialFor("3C90"), materialFor("MPP 60")};
     std::unordered_map<std::string, double> required{{"3C90", 1.0e9}, {"MPP 60", 1.0e9}};
 

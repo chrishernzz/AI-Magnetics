@@ -63,9 +63,10 @@ python -m pip install -r python/requirements.txt
 
 The real core/material data (`data/real_materials.csv`, `data/real_cores.csv`)
 is already checked into the repo — no extra install needed to run the app.
-`PyOpenMagnetics` is only needed if you're regenerating that data via
-`scripts/export_real_data.py`, and only runs on Linux/macOS/WSL2 — see
-`docs/ARCHITECTURE.md` → "Data Source" for why.
+This project has no runtime or build-time dependency on PyOpenMagnetics (or
+any other third-party magnetics library) at all — the data is transcribed by
+hand from Magnetics Inc.'s own live catalog (mag-inc.com), see
+`docs/ARCHITECTURE.md` → "Data Source" for the full story.
 
 ---
 
