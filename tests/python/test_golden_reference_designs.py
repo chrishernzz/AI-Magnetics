@@ -190,8 +190,8 @@ def test_case6_flux_aware_seed_finds_real_design_that_used_to_saturate():
     assert thermal.status.name == "Evaluated"
     assert thermal.passed
 
-    # Regression guard for the mechanism above: the previous top pick must now show a real,
-    # converged, and correctly failing thermal number - not silently NotEvaluated.
+    #Regression guard for the mechanism above: the previous top pick must now show a real,
+    #converged, and correctly failing thermal number - not silently NotEvaluated.
     old_top = next(c for c in result.rejectedCandidates if c.core.partNumber == "E100/60/28-3C90")
     old_top_thermal = next(v for v in old_top.validations if v.checkName == "ThermalValidation")
     assert old_top_thermal.status.name == "Evaluated"
@@ -228,8 +228,8 @@ def test_case7_gap_tolerance_sweep_fails_even_when_nominal_passes():
     result = magnetics_cpp.design_turns_and_gap(core, material, 2.0, 0.5, None, 0.0, rules)
 
     assert result.converged
-    assert result.withinTolerance  # the nominal design itself is precise
-    assert not result.inductanceWithinToleranceAcrossGapRange  # but the realistic gap-tolerance sweep fails it
+    assert result.withinTolerance  #the nominal design itself is precise
+    assert not result.inductanceWithinToleranceAcrossGapRange  #but the realistic gap-tolerance sweep fails it
 
 
 def test_case8_winding_fit_fails_on_physical_model_despite_passing_raw_copper_fill():
@@ -246,8 +246,8 @@ def test_case8_winding_fit_fails_on_physical_model_despite_passing_raw_copper_fi
     assert matches, "expected core 00A1808E026 to be a candidate for this request"
     candidate = matches[0]
 
-    assert candidate.winding.fitsWindow  # raw copper fill alone would have passed
-    assert not candidate.winding.fitsPhysicalWindow  # the realistic physical model fails it
+    assert candidate.winding.fitsWindow  #raw copper fill alone would have passed
+    assert not candidate.winding.fitsPhysicalWindow  #the realistic physical model fails it
     assert not candidate.passed
     assert any(r.checkName == "WindingFitValidation" for r in candidate.rejectionReasons)
 

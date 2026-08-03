@@ -52,8 +52,8 @@ def test_area_product_uses_active_rules_not_hidden_constants():
 
 
 def test_rms_triangular_ripple_formula():
-    # Irms = sqrt(Iavg^2 + ripple^2/12) - spec section 5, valid only for
-    # triangular ripple.
+    #Irms = sqrt(Iavg^2 + ripple^2/12) - spec section 5, valid only for
+    #triangular ripple.
     iavg = 4.0
     ripple = 1.5
     expected = math.sqrt(iavg**2 + (ripple**2) / 12.0)
@@ -61,8 +61,8 @@ def test_rms_triangular_ripple_formula():
 
 
 def test_rms_current_derivation_end_to_end_does_not_raise():
-    # Exercises RequirementDerivationService's derivation branch through
-    # the real pipeline (average current + ripple, no rmsCurrentA supplied).
+    #Exercises RequirementDerivationService's derivation branch through
+    #the real pipeline (average current + ripple, no rmsCurrentA supplied).
     request = magnetics_cpp.InductorDesignRequest()
     request.inductanceUH = 250.0
     request.peakCurrentA = 5.0
@@ -77,9 +77,9 @@ def test_rms_current_derivation_end_to_end_does_not_raise():
 
 
 def test_missing_rms_current_raises_value_error():
-    # Peak current alone must never be used to infer RMS current - spec
-    # section 5. Neither rmsCurrentA nor averageCurrentA/ripple is supplied
-    # here, so RequirementDerivationService must raise, not guess.
+    #Peak current alone must never be used to infer RMS current - spec
+    #section 5. Neither rmsCurrentA nor averageCurrentA/ripple is supplied
+    #here, so RequirementDerivationService must raise, not guess.
     request = magnetics_cpp.InductorDesignRequest()
     request.inductanceUH = 250.0
     request.peakCurrentA = 5.0

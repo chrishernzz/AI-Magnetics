@@ -41,7 +41,7 @@ def _load_rows(path: Path) -> list[dict]:
 
 def audit_cores(cores: list[dict]) -> None:
     print(f"\n=== Cores ({len(cores)} rows, {CORES_FILE.name}) ===")
-    # Real, load-bearing geometry/magnetic fields the engine actually reads (CoreDatabase.h).
+    #Real, load-bearing geometry/magnetic fields the engine actually reads (CoreDatabase.h).
     required_fields = ["Ae", "Wa", "Le", "Mlt", "AL", "Mu"]
     missing_by_field = {field: [] for field in required_fields}
     no_vendor = []

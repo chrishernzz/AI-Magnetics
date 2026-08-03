@@ -38,8 +38,8 @@ def _run_scenario(scenario: dict):
     request.switchingFreqKHz = float(scenario["FrequencyKHz"])
     request.ambientTemperatureC = 25.0
     request.allowableTempRiseC = float(scenario["AllowedTempRiseC"])
-    # test_scenarios.csv only carries peak current - 0.7x is a test-only
-    # stand-in for RMS current, not a design assumption the engine makes.
+    #test_scenarios.csv only carries peak current - 0.7x is a test-only
+    #stand-in for RMS current, not a design assumption the engine makes.
     request.rmsCurrentA = float(scenario["PeakCurrentA"]) * 0.7
     return magnetics_cpp.run_inductor_design(request)
 
@@ -81,8 +81,8 @@ def test_reference_design_i77006():
 
     request = magnetics_cpp.InductorDesignRequest()
     request.inductanceUH = float(ref["InductanceUH"])
-    # reference_designs.csv doesn't carry current/frequency - these are
-    # reasonable stand-ins matching docs/TESTRESULTSMEAN.md's worked example.
+    #reference_designs.csv doesn't carry current/frequency - these are
+    #reasonable stand-ins matching docs/TESTRESULTSMEAN.md's worked example.
     request.peakCurrentA = 5.0
     request.switchingFreqKHz = 100.0
     request.ambientTemperatureC = 25.0

@@ -1,1 +1,1 @@
-# routes package for AIMagnetics FastAPI application
+#routes package for AIMagnetics FastAPI application

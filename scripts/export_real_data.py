@@ -83,10 +83,10 @@ from pathlib import Path
 
 import PyOpenMagnetics
 
-# Reuses the exact same filtering/mapping logic as the app's loader used to
-# use when it queried PyOpenMagnetics live. Kept here, not in
-# python/services/magnetics_data.py, since the app no longer needs to know
-# how to talk to PyOpenMagnetics at all — only how to read the CSV output.
+#Reuses the exact same filtering/mapping logic as the app's loader used to
+#use when it queried PyOpenMagnetics live. Kept here, not in
+#python/services/magnetics_data.py, since the app no longer needs to know
+#how to talk to PyOpenMagnetics at all — only how to read the CSV output.
 
 MU0 = 4 * math.pi * 1e-7
 
@@ -94,51 +94,51 @@ ALLOWED_MATERIAL_TYPES = {"ferrite", "powder"}
 INCLUDE_GAPPED_CORES = False
 MIN_EFFECTIVE_AREA_MM2 = 20.0
 MAX_EFFECTIVE_AREA_MM2 = 3000.0
-# Real physical sizes per exact material name (e.g. "MPP 60") this snapshot keeps - was 4, taken as
-# the first 4 PyOpenMagnetics happened to return in ITS iteration order (arbitrary w.r.t. size). A
-# real user report (3000uH/5A RMS/100kHz) found every MPP/Kool Mu/High Flux material name in the
-# snapshot capped at mu<=125 with mostly small physical sizes, while PyOpenMagnetics itself carries
-# real MPP up to mu=550 and dozens of sizes per material - see _select_size_diverse_cores() below,
-# which replaced "first N encountered" with an evenly-spaced-by-size sample so a material's real size
-# range (and therefore its real current-carrying capability) survives into the snapshot.
+#Real physical sizes per exact material name (e.g. "MPP 60") this snapshot keeps - was 4, taken as
+#the first 4 PyOpenMagnetics happened to return in ITS iteration order (arbitrary w.r.t. size). A
+#real user report (3000uH/5A RMS/100kHz) found every MPP/Kool Mu/High Flux material name in the
+#snapshot capped at mu<=125 with mostly small physical sizes, while PyOpenMagnetics itself carries
+#real MPP up to mu=550 and dozens of sizes per material - see _select_size_diverse_cores() below,
+#which replaced "first N encountered" with an evenly-spaced-by-size sample so a material's real size
+#range (and therefore its real current-carrying capability) survives into the snapshot.
 MAX_CORES_PER_MATERIAL = 8
-# Capped per (vendor, shape) pair, not per vendor alone - see module docstring for why a flat
-# per-vendor cap silently excluded MPP toroids. Magnetics Inc. alone makes 25+ distinct powder
-# MATERIAL NAMES on Toroid shape (MPP has 12 permeability grades - 14 through 550 - Kool Mu/Kool Mu
-# Hf/Kool Mu MAX/Kool Mu Ultra another ~19 between them, plus XFlux/Edge/High Flux) - at
-# MAX_CORES_PER_MATERIAL=8 each, that one (vendor, shape) pair alone wants 300+ slots. A cap much
-# below that recreates the exact same exclusion this cap was originally introduced to fix, just one
-# level up (material families starving each other instead of individual materials) - a real user
-# report found every real MPP permeability grade above 60 completely absent because a 40-then-200
-# cap here was reached partway through lower-numbered materials before the higher grades were ever
-# reached in iteration order. MAX_CORES_TO_LOAD below is the real backstop on total snapshot size;
-# this cap only needs to prevent one (vendor, shape) pair from consuming that entire budget alone,
-# not to actually bite in the common case.
-# Real backstop on total snapshot size - not meant to bite under normal conditions. At
-# MAX_CORES_PER_MATERIAL=8 across every real material name PyOpenMagnetics carries for
-# ferrite+powder/power/ungapped (~165 as of this writing), the full size-diverse sample is ~1300
-# candidates; a real cap below that would silently reintroduce the same per-material-name
-# starvation this file already fixed twice (see the two comments above) at a third level -
-# whichever material names happen to be inserted into candidates_by_material last. Set with real
-# headroom above that count rather than an arbitrary round number.
+#Capped per (vendor, shape) pair, not per vendor alone - see module docstring for why a flat
+#per-vendor cap silently excluded MPP toroids. Magnetics Inc. alone makes 25+ distinct powder
+#MATERIAL NAMES on Toroid shape (MPP has 12 permeability grades - 14 through 550 - Kool Mu/Kool Mu
+#Hf/Kool Mu MAX/Kool Mu Ultra another ~19 between them, plus XFlux/Edge/High Flux) - at
+#MAX_CORES_PER_MATERIAL=8 each, that one (vendor, shape) pair alone wants 300+ slots. A cap much
+#below that recreates the exact same exclusion this cap was originally introduced to fix, just one
+#level up (material families starving each other instead of individual materials) - a real user
+#report found every real MPP permeability grade above 60 completely absent because a 40-then-200
+#cap here was reached partway through lower-numbered materials before the higher grades were ever
+#reached in iteration order. MAX_CORES_TO_LOAD below is the real backstop on total snapshot size;
+#this cap only needs to prevent one (vendor, shape) pair from consuming that entire budget alone,
+#not to actually bite in the common case.
+#Real backstop on total snapshot size - not meant to bite under normal conditions. At
+#MAX_CORES_PER_MATERIAL=8 across every real material name PyOpenMagnetics carries for
+#ferrite+powder/power/ungapped (~165 as of this writing), the full size-diverse sample is ~1300
+#candidates; a real cap below that would silently reintroduce the same per-material-name
+#starvation this file already fixed twice (see the two comments above) at a third level -
+#whichever material names happen to be inserted into candidates_by_material last. Set with real
+#headroom above that count rather than an arbitrary round number.
 MAX_CORES_PER_VENDOR_SHAPE = 600
 MAX_CORES_TO_LOAD = 1500
 
-# Specific manufacturer references that must be included whenever they
-# exist upstream and pass the real material-type/application/gapping/area
-# filters below, regardless of the per-material-name cap or size-diverse
-# sampling. Without this, a real qualifying part can still lose out to an
-# arbitrary same-name sibling purely because of upstream iteration order or
-# size-bucket rounding (discovered from a real user-submitted reference
-# design that used Magnetics C055439A2, an MPP-60 toroid - one of 50
-# different physical sizes PyOpenMagnetics carries under that exact
-# material name, only 4 of which fit under the old MAX_CORES_PER_MATERIAL).
-# E100/60/28-3C90 is this project's own real ferrite reference core -
-# tests/python/test_golden_reference_designs.py and several tests/cpp files
-# assert against its exact real geometry/behavior, so it must always survive
-# _select_size_diverse_cores() rounding to a different 8 sizes for "3C90."
-# Add real reference-design part numbers here as they come up - never used
-# to insert a part that doesn't actually exist upstream.
+#Specific manufacturer references that must be included whenever they
+#exist upstream and pass the real material-type/application/gapping/area
+#filters below, regardless of the per-material-name cap or size-diverse
+#sampling. Without this, a real qualifying part can still lose out to an
+#arbitrary same-name sibling purely because of upstream iteration order or
+#size-bucket rounding (discovered from a real user-submitted reference
+#design that used Magnetics C055439A2, an MPP-60 toroid - one of 50
+#different physical sizes PyOpenMagnetics carries under that exact
+#material name, only 4 of which fit under the old MAX_CORES_PER_MATERIAL).
+#E100/60/28-3C90 is this project's own real ferrite reference core -
+#tests/python/test_golden_reference_designs.py and several tests/cpp files
+#assert against its exact real geometry/behavior, so it must always survive
+#_select_size_diverse_cores() rounding to a different 8 sizes for "3C90."
+#Add real reference-design part numbers here as they come up - never used
+#to insert a part that doesn't actually exist upstream.
 PRIORITY_CORE_REFERENCES = {"C055439A2X2", "E100/60/28-3C90"}
 
 
@@ -303,7 +303,7 @@ def fetch_materials(available_core_material_names=None,) -> list:
     return results
 
 
-# 1 Oe = 1000/(4*pi) A/m (exact, by definition of the Oersted).
+#1 Oe = 1000/(4*pi) A/m (exact, by definition of the Oersted).
 AM_PER_OE = 1000.0 / (4.0 * math.pi)
 
 
@@ -429,9 +429,9 @@ def fetch_cores() -> list[dict]:
     PyOpenMagnetics.load_cores(None, True, False)
     raw_cores = PyOpenMagnetics.get_available_cores()
 
-    # Priority references always survive into their material's final sample,
-    # regardless of where they'd otherwise rank by size - see
-    # PRIORITY_CORE_REFERENCES above.
+    #Priority references always survive into their material's final sample,
+    #regardless of where they'd otherwise rank by size - see
+    #PRIORITY_CORE_REFERENCES above.
     candidates_by_material: dict = {}
     priority_candidates: list = []
 
@@ -507,10 +507,10 @@ def fetch_cores() -> list[dict]:
         )
         mlt_mm = _core_mlt_mm(central_column) if central_column else 0.0
 
-        # Real rectangular winding-window width/height (two-piece cores only -
-        # PyOpenMagnetics parameterizes a toroid's window by radialHeight
-        # instead, since it has no flat width/height). "" (not 0.0) means no
-        # such dimension exists for this core's shape - never a real zero.
+        #Real rectangular winding-window width/height (two-piece cores only -
+        #PyOpenMagnetics parameterizes a toroid's window by radialHeight
+        #instead, since it has no flat width/height). "" (not 0.0) means no
+        #such dimension exists for this core's shape - never a real zero.
         window0 = windows[0] if windows else {}
         window_width_mm = window0.get("width")
         window_height_mm = window0.get("height")
@@ -546,9 +546,9 @@ def fetch_cores() -> list[dict]:
         else:
             candidates_by_material.setdefault(material_name, []).append(record)
 
-    # Downsample each material to a real size-representative spread (not an
-    # arbitrary first-N cluster), then priority references first so they
-    # always win their vendor-shape/total-budget slot below.
+    #Downsample each material to a real size-representative spread (not an
+    #arbitrary first-N cluster), then priority references first so they
+    #always win their vendor-shape/total-budget slot below.
     sampled = list(priority_candidates)
     for material_name, candidates in candidates_by_material.items():
         sampled.extend(_select_size_diverse_cores(candidates, MAX_CORES_PER_MATERIAL))
