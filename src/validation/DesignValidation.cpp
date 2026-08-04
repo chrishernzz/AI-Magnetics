@@ -97,18 +97,19 @@ ValidationResult InductanceValidation(const TurnsAndGapResult& turnsAndGap, doub
     result.limitValue = tolerancePercent;
 
     if (!turnsAndGap.converged) {
-        //Non-convergence still leaves a real last-attempted (turns, calculatedInductanceUH,
-        //inductanceErrorPercent) on turnsAndGap - see TurnsAndGapDesign.cpp - so report that honest
-        //number here too instead of a hardcoded 0.0/generic message. This never turns a non-converged
-        //design into a pass (still unconditionally result.passed=false below) - it only makes the
-        //REJECT reason as informative as every other check instead of the one blank one.
+        //Non-convergence is a clean reject - TurnsAndGapDesign.cpp no longer reports a last-attempted
+        //turns/calculatedInductanceUH on this path (both stay at their struct defaults, 0), so this
+        //check doesn't report them either. Previously it did, on the reasoning that "how close did it
+        //get" was useful context - a real user report: that read as a near-real design to an engineer
+        //scanning results, not as the invalid intermediate point it was, even with FAIL/REJECT right
+        //next to it. This never turns a non-converged design into a pass (still unconditionally
+        //result.passed=false below) - it's honest about there being no real number to report at all.
         result.status = EvaluationStatus::Evaluated;
         result.passed = false;
-        result.calculatedValue = std::abs(turnsAndGap.inductanceErrorPercent);
-        result.explanation = "turns/gap design did not converge - last attempted point: calculated inductance " +
-            std::to_string(turnsAndGap.calculatedInductanceUH) + " uH vs target (error " +
-            std::to_string(turnsAndGap.inductanceErrorPercent) + "%), tolerance " + std::to_string(tolerancePercent) +
-            "% - not a valid design, the closest the solver got before giving up";
+        result.calculatedValue = 0.0;
+        result.explanation = "turns/gap design did not converge for this core/material combination at the "
+            "requested operating current - no valid design exists to check inductance against; see "
+            "TurnsAndGapDesign's own rejection reason for why";
         return result;
     }
 
@@ -158,20 +159,18 @@ ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCan
     result.limitValue = limit.limitT;
     result.usesDefaultAssumption = limit.usedDefault;
     result.passed = turnsAndGap.converged && bpk <= limit.limitT;
-    // A real user report: this check can show a calculatedValue well under limitValue (e.g. 0.002T vs
-    // an 0.8T limit) and still read FAIL, with no explanation of why - because bpk here is computed
-    // from turnsAndGap.calculatedInductanceUH, and on a non-converged design that's the collapsed
-    // last-attempted inductance (e.g. 0.18uH instead of the requested 3000uH), not a real operating
-    // point. The number isn't wrong, but comparing it to limitT implies a real design exists to check
-    // saturation against, which there doesn't - passed is unconditionally false via
-    // turnsAndGap.converged above regardless of the raw comparison, so the explanation has to say that
-    // out loud instead of leaving actual < limit but FAIL looking like a comparison-operator bug.
+    // A real user report: this check could show a calculatedValue well under limitValue (e.g. 0.002T vs
+    // an 0.8T limit) and still read FAIL, with no explanation of why. Root cause: bpk is computed from
+    // turnsAndGap.calculatedInductanceUH/turns, which on a non-converged design used to be the
+    // collapsed last-attempted point, not a real operating point - misleadingly small-looking numbers
+    // that still (correctly) failed via turnsAndGap.converged above. TurnsAndGapDesign.cpp no longer
+    // reports those last-attempted values at all (they stay at their struct defaults, 0 - see
+    // calculatePeakFluxDensityT's own turns<=0 guard above, which is why bpk is exactly 0.0 here on
+    // this path), so there's nothing left to misreport; the explanation says that plainly instead.
     result.explanation = !turnsAndGap.converged
-        ? "turns/gap design did not converge - the peak flux density below (" + std::to_string(bpk) +
-              " T) is computed from the invalid last-attempted point (turns=" + std::to_string(turnsAndGap.turns) +
-              ", calculated inductance " + std::to_string(turnsAndGap.calculatedInductanceUH) +
-              " uH, error " + std::to_string(turnsAndGap.inductanceErrorPercent) +
-              "% vs target), not a real operating point - this check fails regardless of how the raw number compares to the limit, since no valid design exists yet to check saturation against"
+        ? "turns/gap design did not converge for this core/material combination at the requested "
+              "operating current - no valid design exists to check peak flux density against; see "
+              "TurnsAndGapDesign's own rejection reason for why"
         : "peak flux density " + std::to_string(bpk) + " T vs limit " +
                           std::to_string(limit.limitT) + " T (" +
                           (limit.usedDefault ? std::string("Phase 1 default - material '") + material.materialFamily + "' has no measured BmaxT" : std::string("material-specific value for '") + material.materialFamily + "'") + ")";
@@ -217,17 +216,15 @@ ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialC
     result.calculatedValue = marginPercent;
     result.usesDefaultAssumption = limit.usedDefault;
     result.passed = turnsAndGap.converged && marginPercent >= rules.minimumSaturationMarginPercent;
-    // Same non-convergence caveat as PeakFluxValidation above: marginPercent here is derived from a
-    // collapsed, invalid last-attempted inductance on a non-converged design, so a large-looking margin
-    // (e.g. ~99%) can still legitimately read FAIL - that's turnsAndGap.converged forcing passed=false
-    // above, not a sign convention or comparison bug. Say so, instead of leaving "margin 99% required
-    // 10%: FAIL" looking self-contradictory.
+    // Same non-convergence case as PeakFluxValidation above - bpk is exactly 0.0 on a non-converged
+    // design (turns stays at its struct default 0, and calculatePeakFluxDensityT guards on turns<=0),
+    // which makes marginPercent look like a large, reassuring margin even though FAIL is correct
+    // (turnsAndGap.converged forces passed=false above). Say plainly that there's no real design to
+    // check at all, instead of reporting a margin number that doesn't mean what it looks like it means.
     result.explanation = !turnsAndGap.converged
-        ? "turns/gap design did not converge - the saturation margin below (" + std::to_string(marginPercent) +
-              "%) is computed from the invalid last-attempted point (turns=" + std::to_string(turnsAndGap.turns) +
-              ", calculated inductance " + std::to_string(turnsAndGap.calculatedInductanceUH) +
-              " uH, error " + std::to_string(turnsAndGap.inductanceErrorPercent) +
-              "% vs target), not a real operating point - a large margin here does not mean this design is safe, since no valid design exists yet to check saturation against"
+        ? "turns/gap design did not converge for this core/material combination at the requested "
+              "operating current - no valid design exists to check saturation margin against; see "
+              "TurnsAndGapDesign's own rejection reason for why"
         : "saturation margin " + std::to_string(marginPercent) + "% vs required " + std::to_string(rules.minimumSaturationMarginPercent) + "% (" +
                           (limit.usedDefault ? "against the Phase 1 default flux limit, not a material fact"
                                              : "against material-specific BmaxT") +
