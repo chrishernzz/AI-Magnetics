@@ -40,11 +40,19 @@ given (Le, Ae) pair (e.g. all of 1808's 26/40/60μ Kool Mu MAX variants report
 the identical Wa=51.5mm2) — so one datasheet per unique physical size (18
 sizes cover all 323 E-core rows) was enough, not one per part.
 
-Remaining known gap: Mlt (mean-length-per-turn) is still 0.0/not real for
-E-cores — the datasheets do carry the leg width/depth dimensions needed to
-estimate it (see each part's Dimensions table), but that hasn't been pulled
-and applied yet. DCR/resistanceStatus already handles this gracefully
-(NotEvaluated, not a fabricated number) — see WindingDesign.cpp.
+Mlt and WindowWidthMm/WindowHeightMm are now real for E-cores too: pulled
+from each unique physical size's real Dimensions table (the "D"/"E"/"F"/"C"
+labeled rows on the datasheet's isometric drawing). D/E were identified as
+the window's height/width (not the outer body) by tolerance-type - A/B/C are
+individually toleranced manufactured dimensions, D/E/L/M are Min/Nom
+reference dimensions, consistent with a derived window opening - and
+confirmed by internal consistency: E always exceeds the outer leg height B
+(so E must be the window's WIDTH, not height, since a window can't be taller
+than the leg it's cut into) across all 18 sizes. F*C (center-leg width x
+depth) reproduces each size's real Ae within ~5% for 17 of 18 sizes (one
+outlier, "3007" size code, off by ~18% - Mlt is already a documented
+first-order estimate project-wide, not exact for any core), confirming F/C
+as the center-leg cross-section used for Mlt = 2*(F+C).
 
 Trade-off, stated plainly: this data is a snapshot, not live. If Magnetics'
 catalog changes, someone has to re-pull it by hand the same way — this file

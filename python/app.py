@@ -66,14 +66,15 @@ def load_real_magnetics_data():
             f"refusing to start with an empty database. Check the filters in"
             f"python/services/magnetics_data.py (ALLOWED_MATERIAL_TYPES, size range, etc.)."
         )
-    #Unlike materials/cores above, an empty core-loss-coefficient database is not fatal as of the
-    #MPP/powder-only rebuild: Magnetics does not publish Steinmetz (k/alpha/beta) coefficients for MPP or
-    #Kool Mu-family materials the way ferrite vendors do, so 0 rows is now the real, legitimate state for
-    #this database's scope, not a sign of a broken load. Core loss for every material already reports
-    #not_evaluated in this case (see LossEvaluation.cpp's findCoreLossCoefficients call) - that was already
-    #true for every MPP/powder material even when this file had ferrite-only rows, since none of them had a
-    #matching entry either. If a future snapshot re-adds ferrite materials with real coefficients and this
-    #file comes back empty, that would be worth investigating - but an empty file is no longer a hard error.
+    #Unlike materials/cores above, an empty core-loss-coefficient database is not fatal - though as of this
+    #snapshot it should never actually be empty: real coefficients now exist for all 34 materials (MPP's 12
+    #permeability grades plus all 22 E-core material/permeability combinations - Kool Mu, Kool Mu HF/MAX/
+    #Ultra, Edge, XFlux, XFlux Ultra, High Flux), each transcribed by hand from that material's own
+    #mag-inc.com Core Loss Density Curves fit-formula table (the E Cores/U Cores/EER Cores shape rows
+    #specifically for the E-core families, which publish different coefficients per shape - not the Toroids
+    #rows) and unit-converted from Magnetics' P[mW/cm3]=a*B^b*f[kHz]^c form to this engine's
+    #Pv[W/m3]=k*f[Hz]^alpha*B^beta form. This check stays defensive rather than a hard requirement, since a
+    #future edit could still leave it empty by mistake - that should still warn, not crash.
     if not core_loss_coefficients:
         print(
             "WARNING: real data load returned 0 core-loss coefficient rows - core loss will report "

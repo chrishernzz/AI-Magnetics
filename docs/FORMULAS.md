@@ -601,12 +601,15 @@ Pv (W/m³) = k * f^alpha * B^beta
 Total core loss in watts is `Pv * Ve`, where `Ve` is the core's effective
 volume (`Ae_mm2 * Le_mm`, converted to m³).
 
-**Current data state:** `data/real_core_loss_coefficients.csv` is empty as
-of this snapshot — Magnetics does not publish Steinmetz (`k`/`alpha`/`beta`)
-coefficients for MPP/Kool Mu-family materials the way ferrite vendors did
-for the materials this project used to carry, so `findCoreLossCoefficients()`
-never finds a match and core loss reports `NotEvaluated` for every
-candidate today, not a fabricated zero.
+**Current data state:** `data/real_core_loss_coefficients.csv` has real
+Steinmetz (`k`/`alpha`/`beta`) coefficients for all 34 materials in this
+snapshot (MPP's 12 permeability grades and all 22 E-core material/
+permeability combinations), transcribed by hand from each material's own
+mag-inc.com "Core Loss Density Curves" fit-formula page. `findCoreLossCoefficients()`
+finds a real match for every material now, so core loss reports `Evaluated`
+whenever `rippleCurrentPeakToPeakA` is supplied - `NotEvaluated` only when
+it isn't (flux-density swing can't be computed from peak flux alone, by
+design - never approximated).
 
 **Units caveat, stated explicitly because it silently produced a
 600,000 W result during development (historical - the coefficients that

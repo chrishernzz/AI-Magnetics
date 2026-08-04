@@ -261,27 +261,21 @@ def test_case10_missing_core_loss_data_is_never_silently_treated_as_zero():
     assert all(c.recommendation.tier != magnetics_cpp.RecommendationTier.Pass for c in result.candidates)
 
 
-@pytest.mark.xfail(
-    reason="data/real_core_loss_coefficients.csv is currently empty - Magnetics does not publish "
-    "Steinmetz (k/alpha/beta) coefficients for MPP/Kool Mu-family materials the way ferrite vendors did "
-    "for the materials this project used to carry, so no candidate can ever reach coreLossStatus == "
-    "Evaluated against the current MPP/E-core-only database (see LossEvaluation.cpp's "
-    "findCoreLossCoefficients call and this file's own provenance note). Not an engine bug - revisit if "
-    "real core-loss coefficients are ever sourced for these materials.",
-    strict=False,
-)
 def test_case11_thermal_stays_preliminary_even_with_full_loss_coverage():
     """Case 11: originally found by probing the live engine - supplying a real ripple
-    current (0.5A) alongside the case 9/10 baseline gave at least one real
+    current (0.5A) alongside the case 9/10 baseline gives at least one real
     candidate both copper AND core loss Evaluated - full known loss coverage -
-    yet thermal.status was still only ever PreliminaryThermalEstimate (never a
+    yet thermal.status is still only ever PreliminaryThermalEstimate (never a
     "fully evaluated" thermal value exists in Phase 1 - see ThermalEvaluation.h),
-    so that candidate still capped at CONDITIONAL_PASS despite having the most
+    so that candidate still caps at CONDITIONAL_PASS despite having the most
     complete loss data possible in this engine today. (Originally probed against
-    E100/60/28-3C90 - that ferrite catalog row has since been removed from
-    real_cores.csv along with all ferrite scope. See the xfail reason above for
-    why no candidate currently reaches core-loss-Evaluated at all against the
-    current MPP/E-core-only database.)"""
+    E100/60/28-3C90, a ferrite core since removed along with all ferrite scope;
+    this was xfail for a while after that because real_core_loss_coefficients.csv
+    was empty for the MPP/E-core-only database - real Steinmetz coefficients for
+    MPP, transcribed by hand from Magnetics' own published Core Loss Density Curves
+    fit-formula table (mag-inc.com/products/powder-cores/mpp-cores/mpp-material-curves),
+    restored real core-loss-Evaluated candidates, so this is a live assertion again,
+    not a skip.)"""
     result = magnetics_cpp.run_inductor_design(_design_request(rippleCurrentPeakToPeakA=0.5))
     assert result.status == "ok"
     full_coverage = [

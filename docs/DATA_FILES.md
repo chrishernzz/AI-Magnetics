@@ -73,20 +73,21 @@ Source" for the full process.
   pages) for all 34 materials — `PeakFluxValidation`/`SaturationValidation`
   use it automatically instead of `DesignRules.defaultFluxDensityLimitT`
   (`usesDefaultAssumption: false` when it's in use).
-- `real_core_loss_coefficients.csv` is currently **empty** — Magnetics does
-  not publish Steinmetz (`k`/`alpha`/`beta`) coefficients for MPP/Kool
-  Mu-family materials the way ferrite vendors did for materials this
-  project no longer carries. Core loss reports `NotEvaluated` for every
-  candidate as a result — an honest, real gap, not a fabricated zero (see
-  `python/app.py`'s startup log, which warns about this explicitly).
-- `real_cores.csv`'s `Mlt` column is real for MPP toroids (derived by hand
-  from each part's real OD/ID/HT). It's still `0.0` (genuinely missing, not
-  a real zero) for all 323 E-core rows — Magnetics' individual E-core
-  datasheets do carry the leg width/depth dimensions needed to estimate it,
-  but that hasn't been pulled and applied yet. Fill factor and current
-  density never needed it; total wire length and DCR use it when present
-  (`winding.resistanceStatus: Evaluated`) and report `NotEvaluated`
-  otherwise, never an invented number.
+- `real_core_loss_coefficients.csv` now has real Steinmetz (`k`/`alpha`/
+  `beta`) coefficients for all 34 materials — Magnetics does publish them
+  for MPP/Kool Mu-family materials, just not in a bulk per-part table like
+  AL/Wa; each material has its own "Core Loss Density Curves" fit-formula
+  page (`P[mW/cm³] = a·Bᵇ·fᶜ`, transcribed by hand and unit-converted to
+  this engine's `Pv[W/m³] = k·f[Hz]^alpha·B^beta` form). Core loss now
+  reports a real watt value (`Evaluated`) for any candidate whenever
+  `rippleCurrentPeakToPeakA` is supplied, instead of always `NotEvaluated`.
+- `real_cores.csv`'s `Mlt` column is real for all 755 cores — MPP toroids
+  derived by hand from each part's real OD/ID/HT, E-cores derived from each
+  unique physical size's real center-leg width/depth dimensions (see the
+  `WindowWidthMm`/`WindowHeightMm` note below for how those were identified).
+  Fill factor and current density never needed it; total wire length and DCR
+  now use it for every core (`winding.resistanceStatus: Evaluated`) instead
+  of only MPP toroids.
 - `real_cores.csv`'s `PartCost` and `MaxCurrent_A` columns are still 0.0 for
   every row — not currently used by any Phase 1 check.
 - **Core shape** (`CoreShape`/`ShapeFamily` columns) is always `Toroid`/`T`
@@ -106,13 +107,15 @@ Source" for the full process.
 - `DatasheetUrl` (materials and cores) — real Magnetics datasheet PDF
   links (`mag-inc.com/Media/Magnetics/Datasheets/<PartNumber>.pdf`),
   populated for every row. `Manufacturer`/`Vendor` are always `Magnetics`.
-- `WindowWidthMm`/`WindowHeightMm` (cores) — always blank in this snapshot.
-  Real rectangular winding-window dimensions weren't captured for E-cores
-  (only `Wa`, the total window area, was pulled — see the E-core `Wa`
-  note above); toroids never have a flat width/height by definition (their
+- `WindowWidthMm`/`WindowHeightMm` (cores) — real for all 323 E-core rows,
+  pulled from each unique physical size's real Dimensions table on the
+  datasheet's isometric drawing (letters "D"=height, "E"=width, identified
+  by tolerance type and confirmed by internal consistency - see
+  `magnetics_data.py`'s module docstring for the full reasoning). Blank for
+  MPP toroids, which never have a flat width/height by definition (their
   window is described by `Wa`/`ID` instead). `WindingDesign.cpp`'s
-  parallel-strand bundle-fit check (`bundleFitStatus`) stays
-  `NotEvaluated` for every candidate in this snapshot as a result.
+  parallel-strand bundle-fit check (`bundleFitStatus`) now evaluates for
+  real E-core candidates instead of always `NotEvaluated`.
 - **Deliberately not added:** distributor cost (`PartCost` stays `0.0` for
   every row — no check in this project consumes cost today) and
   `thermalResistance` (not published by Magnetics for these parts).
