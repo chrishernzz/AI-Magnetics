@@ -235,7 +235,7 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
     //since there is no longer one "the" requried Ap for the whole request. Used only for the no_feasible_design report below: 
     //"even the easiest material requirment wasnt met" is an honest, non-misleading single number to show, unlike averaging or picking an arbitrary material
     double smallestRequiredAreaProductCm4 = 0.0;
-    if(!requiredAreaProductCm4ByMaterial.empty()) {
+    if(peakSupplied && !requiredAreaProductCm4ByMaterial.empty()) {
         //will start at the beginning of the unordered map
         smallestRequiredAreaProductCm4 = requiredAreaProductCm4ByMaterial.begin()->second;
         for(const auto& materialRequiremnet : requiredAreaProductCm4ByMaterial) {
