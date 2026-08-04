@@ -920,17 +920,6 @@ function turnsRaisedSubLine(turnsAndGap) {
     return `<div class="detail-kpi-sub" title="${turnsAndGap.turnsRaisedForSaturationMarginReason}">raised for saturation margin ${basis}</div>`;
 }
 
-// A non-converged candidate has no real turns/gap/inductance result - the
-// backend (TurnsAndGapDesign.cpp) reports turns=0/calculatedInductanceUH=0.0
-// on this path rather than the solver's last-attempted point (a real user
-// report: that used to read as a near-real design, e.g. "340 turns, 0.18uH",
-// not as the invalid intermediate value it was). This chip is what marks the
-// candidate as REJECTED - not a design - wherever the turns/gap KPI would
-// otherwise be blank.
-function notConvergedBadge(turnsAndGap) {
-    if (turnsAndGap.converged) return "";
-    return '<span class="chip chip-fail" title="No turns count reaches the target inductance at this operating current - see the rejection reason for why.">REJECTED &middot; NO CONVERGENT DESIGN</span>';
-}
 
 function shapeCellLabel(core) {
     if (!core.coreShape) return '<span class="cell-muted">—</span>';
@@ -1006,8 +995,8 @@ function renderCandidateDetail(candidate) {
                 ${notConverged ? "" : `<span class="detail-kpi-sub" title="Raw copper cross-section over window area, before any insulation/packing/margin derating - informational only, not the gate.">raw copper fill ${(candidate.winding.fillFactor * 100).toFixed(1)}%</span>`}
             </div>
             <div class="detail-kpi">
-                <span class="detail-kpi-label">Current Density</span>
-                <span class="detail-kpi-value">${notConverged ? kpiDash : candidate.winding.currentDensityAperMm2.toFixed(2) + " A/mm²"}</span>
+                <span class="detail-kpi-label" title="Wire gauge is selected from RMS current alone (Irms / allowable A/mm²), never from turns - so this is a real number regardless of whether the turns/gap solver converged.">Current Density</span>
+                <span class="detail-kpi-value">${candidate.winding.currentDensityAperMm2.toFixed(2)} A/mm²</span>
             </div>
             <div class="detail-kpi">
                 <span class="detail-kpi-label">Turns / Gap</span>
@@ -1017,10 +1006,9 @@ function renderCandidateDetail(candidate) {
                         : `${candidate.turnsAndGap.turns}t, ${candidate.turnsAndGap.gapMethod === "Distributed" ? "distributed gap" : candidate.turnsAndGap.gapMm.toFixed(2) + "mm"}`
                 }</span>
                 ${turnsRaisedSubLine(candidate.turnsAndGap)}
-                ${notConvergedBadge(candidate.turnsAndGap) ? `<div class="detail-kpi-sub">${notConvergedBadge(candidate.turnsAndGap)}</div>` : ""}
             </div>
         </div>
-        ${notConverged ? "" : `<p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong> &nbsp; ${acLossRiskChip(candidate.acLossRisk)}</p>`}
+        <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong> &nbsp; ${acLossRiskChip(candidate.acLossRisk)}</p>
     `;
 
     // No standalone REJECTED/tier status line here anymore - the panel's own
@@ -1045,11 +1033,23 @@ function renderCandidateDetail(candidate) {
     // to see *why* a high-µ powder core failed short of asking). Reuses the
     // same .field-tabs/.field-tab-panel component the requirements form
     // already uses, wired the same way (see openCandidateSidePanel below).
+    // "Why It Failed" only exists for a rejected candidate - a passing one has
+    // no rejectionReasons to show, so the tab itself is omitted rather than
+    // rendered empty (same principle as the Rejected candidates tab staying
+    // hidden entirely when there's nothing in it - see wireCandidatesTabs()).
+    const whyItFailedTabBtn = candidate.rejectionReasons.length
+        ? '<button type="button" class="field-tab-btn" data-tab-target="detailWhyFailedPanel" aria-selected="false">Why It Failed</button>'
+        : "";
+    const whyItFailedPanel = candidate.rejectionReasons.length
+        ? `<div class="field-tab-panel" id="detailWhyFailedPanel" hidden>${renderWhyItFailedTab(candidate)}</div>`
+        : "";
+
     return `
         ${kpis}
         <div class="field-tabs detail-tabs" role="tablist" aria-label="Candidate detail views">
             <button type="button" class="field-tab-btn active" data-tab-target="detailOverviewPanel" aria-selected="true">Overview</button>
             <button type="button" class="field-tab-btn" data-tab-target="detailDcBiasPanel" aria-selected="false">DC-Bias Physics</button>
+            ${whyItFailedTabBtn}
         </div>
         <div class="field-tab-panel" id="detailOverviewPanel">
             <details class="detail-group" open>
@@ -1067,6 +1067,36 @@ function renderCandidateDetail(candidate) {
         <div class="field-tab-panel" id="detailDcBiasPanel" hidden>
             ${renderDcBiasPhysicsTab(candidate)}
         </div>
+        ${whyItFailedPanel}
+    `;
+}
+
+// The candidate's own top-level rejectionReasons (checkName + explanation) -
+// the same array the table row used to print inline as a long paragraph next
+// to the REJECT badge (a real user report: that made rows unreadable,
+// especially the TurnsAndGapDesign non-convergence explanation, which is the
+// longest one in the codebase). Moved here instead of deleted - it's real,
+// useful information, just one click away rather than always-on clutter.
+function renderWhyItFailedTab(candidate) {
+    if (!candidate.rejectionReasons.length) {
+        return "";
+    }
+    return `
+        <ul class="validation-list">
+            ${candidate.rejectionReasons
+                .map(
+                    (r) => `
+                <li class="validation-row validation-row-fail">
+                    <div class="validation-row-main">
+                        <span class="chip chip-fail">REJECTED</span>
+                        <span class="validation-item-name">${r.checkName}</span>
+                    </div>
+                    <div class="validation-row-explain">${r.explanation}</div>
+                </li>
+            `
+                )
+                .join("")}
+        </ul>
     `;
 }
 
@@ -1085,14 +1115,16 @@ function renderDcBiasPhysicsTab(candidate) {
 
     // Non-converged: there is no real turns count, so there's no real H or
     // %-permeability-retained to plot either - the backend no longer reports
-    // a last-attempted value for either (see TurnsAndGapDesign.cpp). Show the
-    // real rejection reason instead of a gauge built from zeroed-out fields.
+    // a last-attempted value for either (see TurnsAndGapDesign.cpp). The full
+    // explanation lives in the Why It Failed tab (not repeated here in full -
+    // a real user report flagged that same long paragraph appearing inline in
+    // the candidate table as clutter; showing it twice in this panel would be
+    // the same problem one level in).
     if (!t.converged) {
-        const reason = candidate.rejectionReasons.find((r) => r.checkName === "TurnsAndGapDesign");
         return `
             <div class="dcbias-callout dcbias-callout-bad">
                 <strong>No convergent design exists at this operating current.</strong>
-                ${reason ? reason.explanation : "See the rejection reasons on the Overview tab for why."}
+                See the Why It Failed tab for the full explanation.
             </div>
         `;
     }
@@ -1208,13 +1240,13 @@ const CANDIDATE_TABLE_HEADERS = [
 // reports a last-attempted turns/inductance (see TurnsAndGapDesign.cpp -
 // both stay at 0 on this path), so every solved-value column here shows "--"
 // and the row's one real piece of information is the rejection reason.
-const NON_CONVERGED_DASH = '<span class="cell-invalid" title="No convergent design - see the rejection reason">--</span>';
-
-function nonConvergedReasonLine(c) {
-    const reason = c.rejectionReasons.find((r) => r.checkName === "TurnsAndGapDesign") || c.rejectionReasons[0];
-    if (!reason) return "";
-    return `<div class="reject-reason-line">${reason.explanation}</div>`;
-}
+// "No convergent design - see the rejection reason" - the full explanation used
+// to render inline as a long paragraph next to the REJECT badge (a real user
+// report: unreadable rows, especially for TurnsAndGapDesign's non-convergence
+// text). It now lives in the side panel's "Why It Failed" tab instead (see
+// renderWhyItFailedTab) - the table stays scannable, the real reason is still
+// one click away, not gone.
+const NON_CONVERGED_DASH = '<span class="cell-invalid" title="No convergent design - click this row for why">--</span>';
 
 function candidateRowHtml(c, passed, index) {
     const tier = c.recommendation.tier;
@@ -1227,7 +1259,7 @@ function candidateRowHtml(c, passed, index) {
     const notConverged = !c.turnsAndGap.converged;
     return `
         <tr class="${rowClass}" data-row-index="${index}">
-            <td>${badge} ${completenessChip(c)}${notConverged ? nonConvergedReasonLine(c) : ""}</td>
+            <td>${badge} ${completenessChip(c)}</td>
             <td>${c.core.partNumber}</td>
             <td>${shapeCellLabel(c.core)}</td>
             <td>${c.material.materialFamily}</td>
