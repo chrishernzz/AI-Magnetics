@@ -14,8 +14,9 @@ const char* tierName(RecommendationTier tier) {
 }
 }  //namespace
 
-//precondition: see header
-//postcondition: see header
+
+//precondition: candidate.recommendation, candidate.lossSummary, and candidate.manufacturabilityMarginPercent have already been computed
+//postcondition: returns a human-readable sentence combining the tier classification with the concrete numbers that drove it
 std::string explainRanking(const InductorCandidate& candidate) {
     return std::string("[") + tierName(candidate.recommendation.tier) + "] " + candidate.recommendation.explanation + " " +
            candidate.lossSummary.label + " (" + std::to_string(candidate.lossSummary.knownPartialLossW) +

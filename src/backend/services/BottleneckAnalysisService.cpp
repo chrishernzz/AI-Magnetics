@@ -44,8 +44,11 @@ const std::array<const char*, 8> kNotEvaluatedPriority = {
 
 }  //namespace
 
-//precondition: see header
-//postcondition: see header
+//precondition: candidate has been through evaluateCandidate() - either the early turns/gap
+//non-convergence return, or the full validation path
+//postcondition: identifies the single check most responsible for this candidate's current standing -
+//see BottleneckAnalysis.h for the three distinct reasons and why they're kept separate. Never
+//fabricates a margin for a check that didn't run.
 BottleneckAnalysis analyzeBottleneck(const InductorCandidate& candidate) {
     BottleneckAnalysis result;
 
@@ -82,7 +85,8 @@ BottleneckAnalysis analyzeBottleneck(const InductorCandidate& candidate) {
             result.reason = BottleneckReason::FailedCheck;
             result.marginValue = bestMargin;
             result.marginValueApplicable = true;
-        } else if (!candidate.rejectionReasons.empty()) {
+        } 
+        else if (!candidate.rejectionReasons.empty()) {
             //every rejection reason was CurrentConsistencyValidation (should not happen in practice,
             //since that check cannot fail - defensive fallback, never silently empty).
             result.reason = BottleneckReason::FailedCheck;

@@ -13,8 +13,6 @@ populated (see InductorDesignService.cpp).
 
 */
 
-//precondition: candidate.recommendation, candidate.lossSummary, and candidate.manufacturabilityMarginPercent have already been computed
-//postcondition: returns a human-readable sentence combining the tier classification with the concrete numbers that drove it
 std::string explainRanking(const InductorCandidate& candidate);
 
 //precondition: candidate.bottleneck has already been computed (see BottleneckAnalysisService.h)
