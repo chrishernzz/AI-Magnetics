@@ -172,6 +172,16 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
 
         if (rolloffCurve.found && biasCurrentA.has_value()) {
             int previousTurns = -1;
+            //Tracks which turns count alEffNh was actually computed FOR - turns itself advances to the
+            //next candidate at the bottom of every non-breaking iteration (see below), so once the loop
+            //exhausts kMaxIterations without ever breaking, turns is one step ahead of the alEffNh it's
+            //paired with. Using the mismatched (advanced-turns, stale-alEffNh) pair to report a
+            //"last-attempted point" trivially looks close to target - requiredTurns was solved backwards
+            //FROM that same stale alEffNh, so newTurns^2 * staleAlEffNh always lands near target by
+            //construction, the same deceptive-near-zero-error problem the kMaxPhysicallyPlausibleTurns
+            //cutoff above already guards against, just reached via silent loop exhaustion instead of an
+            //explicit break. lastEvaluatedTurns is always the turns count alEffNh genuinely reflects.
+            int lastEvaluatedTurns = turns;
             bool stabilized = false;
             for (int i = 0; i < kMaxIterations; ++i) {
                 double hOe = dcMagnetizingForceOe(turns, *biasCurrentA, core.leMm);
@@ -199,6 +209,7 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
                     appliedHOe = hOe;
                     appliedPercentMu = percentMu;
                     alEffNh = trialAlEffNh;
+                    lastEvaluatedTurns = turns;
                     stabilized = true;
                     break;
                 }
@@ -215,12 +226,14 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
                     appliedHOe = hOe;
                     appliedPercentMu = percentMu;
                     alEffNh = trialAlEffNh;
+                    lastEvaluatedTurns = turns;
                     break;
                 }
 
                 appliedHOe = hOe;
                 appliedPercentMu = percentMu;
                 alEffNh = trialAlEffNh;
+                lastEvaluatedTurns = turns;
 
                 if (requiredTurns == turns) {
                     stabilized = true;
@@ -245,8 +258,17 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
                 //it get" needs that number, and 0 falsely reads as "computed zero," not "never computed."
                 //converged stays false and the real rejection reason is still reported - this is honesty
                 //about WHAT was tried, not a claim that the design is valid.
-                double lastAttemptNh = static_cast<double>(turns) * turns * alEffNh;
-                result.turns = turns;
+                //
+                //Uses lastEvaluatedTurns here, NOT turns - when the loop above falls all the way through
+                //kMaxIterations without ever breaking (the case this block exists for), turns has already
+                //been advanced one step past lastEvaluatedTurns (see "turns = requiredTurns" at the bottom
+                //of the loop) while alEffNh still reflects lastEvaluatedTurns's rolled-off permeability, not
+                //turns's. Pairing the advanced turns with the stale alEffNh would trivially look near-target
+                //(that's exactly what requiredTurns was solved backwards to do against that same alEffNh) -
+                //the same deceptive-near-zero-error problem the kMaxPhysicallyPlausibleTurns cutoff above
+                //already guards against for its own break, just reached via silent exhaustion instead.
+                double lastAttemptNh = static_cast<double>(lastEvaluatedTurns) * lastEvaluatedTurns * alEffNh;
+                result.turns = lastEvaluatedTurns;
                 result.gapMm = 0.0;
                 result.effectiveAlNHPerTurnSquared = alEffNh;
                 result.calculatedInductanceUH = units::nHToUh(lastAttemptNh);
@@ -263,7 +285,7 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
                     ") within " + std::to_string(kMaxIterations) + " iterations - DC-bias permeability roll-off means "
                     "more turns raises the magnetizing force further, which rolls off permeability further; this core's "
                     "real saturation behavior may not support the target inductance at this current at all. Last "
-                    "attempted point shown below (turns=" + std::to_string(turns) + ", " +
+                    "attempted point shown below (turns=" + std::to_string(lastEvaluatedTurns) + ", " +
                     std::to_string(units::nHToUh(lastAttemptNh)) + " uH) - not a valid design, the closest the "
                     "iteration got before giving up");
                 return result;
