@@ -920,18 +920,16 @@ function turnsRaisedSubLine(turnsAndGap) {
     return `<div class="detail-kpi-sub" title="${turnsAndGap.turnsRaisedForSaturationMarginReason}">raised for saturation margin ${basis}</div>`;
 }
 
-// A real user report: a non-converged candidate's turns/gap KPI (e.g. "340t")
-// and its table row read exactly like an ordinary result, with nothing marking
-// them as the solver's last-attempted, invalid point rather than a real,
-// buildable design - easy to mistake for a recommendation. This is the same
-// fact PeakFluxValidation/SaturationValidation/InductanceValidation's own
-// explanation text already states in DesignValidation.cpp when
-// turnsAndGap.converged is false; this just makes it visible wherever the
-// turns count itself is shown, not only inside a validation-check line an
-// engineer has to open first.
+// A non-converged candidate has no real turns/gap/inductance result - the
+// backend (TurnsAndGapDesign.cpp) reports turns=0/calculatedInductanceUH=0.0
+// on this path rather than the solver's last-attempted point (a real user
+// report: that used to read as a near-real design, e.g. "340 turns, 0.18uH",
+// not as the invalid intermediate value it was). This chip is what marks the
+// candidate as REJECTED - not a design - wherever the turns/gap KPI would
+// otherwise be blank.
 function notConvergedBadge(turnsAndGap) {
     if (turnsAndGap.converged) return "";
-    return '<span class="chip chip-fail" title="The solver never found a turns count that reaches the target inductance at this operating current - this is the last point it tried before giving up, not a valid design.">LAST ITERATION &middot; NOT A DESIGN</span>';
+    return '<span class="chip chip-fail" title="No turns count reaches the target inductance at this operating current - see the rejection reason for why.">REJECTED &middot; NO CONVERGENT DESIGN</span>';
 }
 
 function shapeCellLabel(core) {
@@ -980,35 +978,49 @@ function renderCandidateDetail(candidate) {
     const passCount = candidate.validations.length - failCount - notEvalCount;
     const usesDefaultAssumption = candidate.validations.some((v) => v.usesDefaultAssumption);
 
+    // A non-converged candidate has no real turns, so nothing computed from
+    // them downstream (winding/losses/thermal) is real either - the backend
+    // still computes those for completeness elsewhere in the pipeline, but
+    // against turns=0, which produces its own misleading-looking numbers
+    // (e.g. a suspiciously tiny "0.05W" loss, "0.0%" fill that reads as
+    // "no problem" rather than "no real winding"). Every KPI derived from
+    // turns shows "--" here, same as the candidate table.
+    const notConverged = !candidate.turnsAndGap.converged;
+    const kpiDash = '<span class="cell-invalid">--</span>';
+
     // KPIs first, always - the numbers an engineer actually judges a
     // candidate by, in one scannable strip, before any narrative text.
     const kpis = `
         <div class="detail-kpis">
             <div class="detail-kpi">
                 <span class="detail-kpi-label">${candidate.lossSummary.label.startsWith("Known") ? "Known Partial Loss" : "Loss"}</span>
-                <span class="detail-kpi-value">${formatTotalLossCell(candidate)}</span>
+                <span class="detail-kpi-value">${notConverged ? kpiDash : formatTotalLossCell(candidate)}</span>
             </div>
             <div class="detail-kpi">
                 <span class="detail-kpi-label">Core Loss</span>
-                <span class="detail-kpi-value">${formatLoss(candidate.losses.coreLossStatus, candidate.losses.coreLossW)}</span>
+                <span class="detail-kpi-value">${notConverged ? kpiDash : formatLoss(candidate.losses.coreLossStatus, candidate.losses.coreLossW)}</span>
             </div>
             <div class="detail-kpi">
                 <span class="detail-kpi-label" title="Physical window fill - includes insulation build-up, packing density, and margin/lead-exit allowance. This is the number WindingFitValidation gates on.">Physical Fill %</span>
-                <span class="detail-kpi-value">${(candidate.winding.physicalWindowFillFactor * 100).toFixed(1)}%</span>
-                <span class="detail-kpi-sub" title="Raw copper cross-section over window area, before any insulation/packing/margin derating - informational only, not the gate.">raw copper fill ${(candidate.winding.fillFactor * 100).toFixed(1)}%</span>
+                <span class="detail-kpi-value">${notConverged ? kpiDash : (candidate.winding.physicalWindowFillFactor * 100).toFixed(1) + "%"}</span>
+                ${notConverged ? "" : `<span class="detail-kpi-sub" title="Raw copper cross-section over window area, before any insulation/packing/margin derating - informational only, not the gate.">raw copper fill ${(candidate.winding.fillFactor * 100).toFixed(1)}%</span>`}
             </div>
             <div class="detail-kpi">
                 <span class="detail-kpi-label">Current Density</span>
-                <span class="detail-kpi-value">${candidate.winding.currentDensityAperMm2.toFixed(2)} A/mm²</span>
+                <span class="detail-kpi-value">${notConverged ? kpiDash : candidate.winding.currentDensityAperMm2.toFixed(2) + " A/mm²"}</span>
             </div>
             <div class="detail-kpi">
                 <span class="detail-kpi-label">Turns / Gap</span>
-                <span class="detail-kpi-value">${candidate.turnsAndGap.turns}t, ${candidate.turnsAndGap.gapMethod === "Distributed" ? "distributed gap" : candidate.turnsAndGap.gapMm.toFixed(2) + "mm"}</span>
+                <span class="detail-kpi-value">${
+                    notConverged
+                        ? kpiDash
+                        : `${candidate.turnsAndGap.turns}t, ${candidate.turnsAndGap.gapMethod === "Distributed" ? "distributed gap" : candidate.turnsAndGap.gapMm.toFixed(2) + "mm"}`
+                }</span>
                 ${turnsRaisedSubLine(candidate.turnsAndGap)}
                 ${notConvergedBadge(candidate.turnsAndGap) ? `<div class="detail-kpi-sub">${notConvergedBadge(candidate.turnsAndGap)}</div>` : ""}
             </div>
         </div>
-        <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong> &nbsp; ${acLossRiskChip(candidate.acLossRisk)}</p>
+        ${notConverged ? "" : `<p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong> &nbsp; ${acLossRiskChip(candidate.acLossRisk)}</p>`}
     `;
 
     // No standalone REJECTED/tier status line here anymore - the panel's own
@@ -1071,6 +1083,20 @@ function renderDcBiasPhysicsTab(candidate) {
     const t = candidate.turnsAndGap;
     const core = candidate.core;
 
+    // Non-converged: there is no real turns count, so there's no real H or
+    // %-permeability-retained to plot either - the backend no longer reports
+    // a last-attempted value for either (see TurnsAndGapDesign.cpp). Show the
+    // real rejection reason instead of a gauge built from zeroed-out fields.
+    if (!t.converged) {
+        const reason = candidate.rejectionReasons.find((r) => r.checkName === "TurnsAndGapDesign");
+        return `
+            <div class="dcbias-callout dcbias-callout-bad">
+                <strong>No convergent design exists at this operating current.</strong>
+                ${reason ? reason.explanation : "See the rejection reasons on the Overview tab for why."}
+            </div>
+        `;
+    }
+
     if (!t.usesDCBiasRolloffCurve) {
         const reason =
             core.materialType !== "powder"
@@ -1100,9 +1126,7 @@ function renderDcBiasPhysicsTab(candidate) {
         tierNote = "this material grade is a poor fit for this much DC bias - a lower-permeability grade in the same family typically holds up far better.";
     }
 
-    const convergenceNote = !t.converged
-        ? `<div class="dcbias-callout dcbias-callout-bad"><strong>This design did not converge.</strong> More turns raised the magnetizing force, which rolled off permeability further, which demanded still more turns - a runaway that never reached the target inductance within the solver's iteration limit. The numbers below are the last point it tried, not a valid, buildable design.</div>`
-        : "";
+    // t.converged is guaranteed true past this point (see the early return above).
     const floorNote = t.dcBiasRolloffUsedRmsFloor
         ? `<p class="dcbias-note">Peak current wasn't supplied, so RMS current was used as a conservative lower-bound floor for this calculation - the real roll-off at your actual peak current would be at least this severe, possibly worse.</p>`
         : "";
@@ -1119,7 +1143,6 @@ function renderDcBiasPhysicsTab(candidate) {
     const alText = Math.abs(t.effectiveAlNHPerTurnSquared) < 1 ? t.effectiveAlNHPerTurnSquared.toFixed(4) : t.effectiveAlNHPerTurnSquared.toFixed(1);
 
     return `
-        ${convergenceNote}
         <p class="dcbias-intro">${core.material} is a distributed-gap (powder) material - permeability rolls off under DC bias instead of staying flat like a machined air gap. This is that roll-off, computed from Magnetics Inc.'s own published DC-bias curve for this material.</p>
 
         <div class="dcbias-gauge-row">
@@ -1177,17 +1200,20 @@ const CANDIDATE_TABLE_HEADERS = [
     { label: "Known Partial Loss", numeric: true },
 ];
 
-// A non-converged design's turns/gap/calculated-inductance is the solver's
-// last-attempted point, not a real result - see notConvergedBadge() above
-// for the same fact surfaced in the side panel. Marks the two table columns
-// that number actually lives in (Turns, Calc L) rather than a whole extra
-// column every row would otherwise carry, since only non-converged rows need
-// it - passing candidates can never reach this table with converged=false
-// (InductanceValidation can't pass on a non-converged design).
-function notConvergedMark(converged) {
-    return converged
-        ? ""
-        : ' <span class="not-converged-mark" title="Last-attempted point - the solver did not converge, this is not a valid, buildable design">&dagger;</span>';
+// A non-converged design has no real turns, gap, inductance, or anything
+// solved downstream of them (winding/losses/thermal are all still computed
+// against turns=0 for completeness elsewhere in the pipeline, but that
+// produces its own misleading-looking numbers - e.g. a "185.5C rise" off
+// "0.05W" of loss - not real values either). The backend itself no longer
+// reports a last-attempted turns/inductance (see TurnsAndGapDesign.cpp -
+// both stay at 0 on this path), so every solved-value column here shows "--"
+// and the row's one real piece of information is the rejection reason.
+const NON_CONVERGED_DASH = '<span class="cell-invalid" title="No convergent design - see the rejection reason">--</span>';
+
+function nonConvergedReasonLine(c) {
+    const reason = c.rejectionReasons.find((r) => r.checkName === "TurnsAndGapDesign") || c.rejectionReasons[0];
+    if (!reason) return "";
+    return `<div class="reject-reason-line">${reason.explanation}</div>`;
 }
 
 function candidateRowHtml(c, passed, index) {
@@ -1201,18 +1227,18 @@ function candidateRowHtml(c, passed, index) {
     const notConverged = !c.turnsAndGap.converged;
     return `
         <tr class="${rowClass}" data-row-index="${index}">
-            <td>${badge} ${completenessChip(c)}</td>
+            <td>${badge} ${completenessChip(c)}${notConverged ? nonConvergedReasonLine(c) : ""}</td>
             <td>${c.core.partNumber}</td>
             <td>${shapeCellLabel(c.core)}</td>
             <td>${c.material.materialFamily}</td>
-            <td class="numeric${notConverged ? " cell-not-converged" : ""}">${c.turnsAndGap.turns}${notConvergedMark(c.turnsAndGap.converged)}</td>
-            <td class="numeric">${gapCellLabel(c.turnsAndGap)}</td>
-            <td class="numeric${notConverged ? " cell-not-converged" : ""}">${c.turnsAndGap.calculatedInductanceUH.toFixed(2)}</td>
-            <td class="numeric">${c.turnsAndGap.inductanceErrorPercent.toFixed(2)}</td>
-            <td class="numeric">${(c.winding.physicalWindowFillFactor * 100).toFixed(1)}</td>
-            <td class="numeric">${formatLossCell(c.losses.copperLossStatus, c.losses.copperLossW)}</td>
-            <td class="numeric">${formatLossCell(c.losses.coreLossStatus, c.losses.coreLossW)}</td>
-            <td class="numeric">${formatTotalLossCell(c)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : c.turnsAndGap.turns}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : gapCellLabel(c.turnsAndGap)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : c.turnsAndGap.calculatedInductanceUH.toFixed(2)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : c.turnsAndGap.inductanceErrorPercent.toFixed(2)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : (c.winding.physicalWindowFillFactor * 100).toFixed(1)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : formatLossCell(c.losses.copperLossStatus, c.losses.copperLossW)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : formatLossCell(c.losses.coreLossStatus, c.losses.coreLossW)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : formatTotalLossCell(c)}</td>
         </tr>
     `;
 }
@@ -1299,17 +1325,12 @@ function renderRejectedSection(result) {
     }
 
     const headerHtml = CANDIDATE_TABLE_HEADERS.map((h) => `<th${h.numeric ? ' class="numeric"' : ""}>${h.label}</th>`).join("");
+    // Non-converged rows carry their own inline rejection-reason line (see
+    // nonConvergedReasonLine() in candidateRowHtml) instead of a table-wide
+    // footnote - no shared explanation is needed anymore since there's no
+    // last-attempted number left to caveat.
     const bodyHtml = rows.map((c, index) => candidateRowHtml(c, false, index)).join("");
-    // Passing candidates can never carry a non-converged turns/gap result
-    // (InductanceValidation can't pass without convergence - see
-    // DesignValidation.cpp), so this footnote only ever needs to appear on
-    // the Rejected table, and only when at least one visible row actually
-    // needs it.
-    const anyNotConverged = rows.some((c) => !c.turnsAndGap.converged);
-    const footerHtml = anyNotConverged
-        ? `<tfoot><tr><td colspan="${CANDIDATE_TABLE_HEADERS.length}" class="table-footnote-row">&dagger; Turns/Calc L is the solver's last-attempted point, not a valid design - see the DC-Bias Physics tab for why it didn't converge.</td></tr></tfoot>`
-        : "";
-    table.innerHTML = `<thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody>${footerHtml}`;
+    table.innerHTML = `<thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody>`;
     wireCandidateRowClicks(table, rows, false);
 }
 
