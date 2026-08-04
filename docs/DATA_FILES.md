@@ -73,12 +73,14 @@ Source" for the full process.
   pages) for all 34 materials — `PeakFluxValidation`/`SaturationValidation`
   use it automatically instead of `DesignRules.defaultFluxDensityLimitT`
   (`usesDefaultAssumption: false` when it's in use).
-- `real_core_loss_coefficients.csv` is currently **empty** — Magnetics does
-  not publish Steinmetz (`k`/`alpha`/`beta`) coefficients for MPP/Kool
-  Mu-family materials the way ferrite vendors did for materials this
-  project no longer carries. Core loss reports `NotEvaluated` for every
-  candidate as a result — an honest, real gap, not a fabricated zero (see
-  `python/app.py`'s startup log, which warns about this explicitly).
+- `real_core_loss_coefficients.csv` now has real Steinmetz (`k`/`alpha`/
+  `beta`) coefficients for all 34 materials — Magnetics does publish them
+  for MPP/Kool Mu-family materials, just not in a bulk per-part table like
+  AL/Wa; each material has its own "Core Loss Density Curves" fit-formula
+  page (`P[mW/cm³] = a·Bᵇ·fᶜ`, transcribed by hand and unit-converted to
+  this engine's `Pv[W/m³] = k·f[Hz]^alpha·B^beta` form). Core loss now
+  reports a real watt value (`Evaluated`) for any candidate whenever
+  `rippleCurrentPeakToPeakA` is supplied, instead of always `NotEvaluated`.
 - `real_cores.csv`'s `Mlt` column is real for MPP toroids (derived by hand
   from each part's real OD/ID/HT). It's still `0.0` (genuinely missing, not
   a real zero) for all 323 E-core rows — Magnetics' individual E-core

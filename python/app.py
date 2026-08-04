@@ -66,13 +66,15 @@ def load_real_magnetics_data():
             f"refusing to start with an empty database. Check the filters in"
             f"python/services/magnetics_data.py (ALLOWED_MATERIAL_TYPES, size range, etc.)."
         )
-    #Unlike materials/cores above, an empty core-loss-coefficient database is not fatal: real coefficients
-    #now exist for all 12 MPP permeability grades (transcribed by hand from Magnetics' own published Core
-    #Loss Density Curves fit-formula table - mag-inc.com/products/powder-cores/mpp-cores/mpp-material-curves
-    #- and unit-converted from Magnetics' P[mW/cm3]=a*B^b*f[kHz]^c form to this engine's Pv[W/m3]=k*f[Hz]^
-    #alpha*B^beta form), but Kool Mu/Edge/XFlux/High Flux (the E-core material families) have no matching row
-    #yet - that table hasn't been pulled for them. Core loss for those materials reports not_evaluated (see
-    #LossEvaluation.cpp's findCoreLossCoefficients call), an honest partial-coverage gap, not a broken load.
+    #Unlike materials/cores above, an empty core-loss-coefficient database is not fatal - though as of this
+    #snapshot it should never actually be empty: real coefficients now exist for all 34 materials (MPP's 12
+    #permeability grades plus all 22 E-core material/permeability combinations - Kool Mu, Kool Mu HF/MAX/
+    #Ultra, Edge, XFlux, XFlux Ultra, High Flux), each transcribed by hand from that material's own
+    #mag-inc.com Core Loss Density Curves fit-formula table (the E Cores/U Cores/EER Cores shape rows
+    #specifically for the E-core families, which publish different coefficients per shape - not the Toroids
+    #rows) and unit-converted from Magnetics' P[mW/cm3]=a*B^b*f[kHz]^c form to this engine's
+    #Pv[W/m3]=k*f[Hz]^alpha*B^beta form. This check stays defensive rather than a hard requirement, since a
+    #future edit could still leave it empty by mistake - that should still warn, not crash.
     if not core_loss_coefficients:
         print(
             "WARNING: real data load returned 0 core-loss coefficient rows - core loss will report "
