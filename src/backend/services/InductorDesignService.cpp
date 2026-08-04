@@ -107,10 +107,10 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
         InductanceValidation(candidate.turnsAndGap, requirements.inductanceTolerancePercent),
         PeakFluxValidation(core, material, candidate.turnsAndGap, requirements.operatingPoint.peakCurrentA, requirements.operatingPoint.rmsCurrentA, rules),
         SaturationValidation(core, material, candidate.turnsAndGap, requirements.operatingPoint.peakCurrentA, requirements.operatingPoint.rmsCurrentA, rules),
-        WindingFitValidation(candidate.winding, rules),
+        WindingFitValidation(candidate.winding, rules, candidate.turnsAndGap.converged),
         CurrentDensityValidation(candidate.winding, rules),
         BundleFitValidation(candidate.winding),
-        ThermalValidation(candidate.thermal, requirements.allowableTempRiseC),
+        ThermalValidation(candidate.thermal, requirements.allowableTempRiseC, candidate.turnsAndGap.converged),
     };
 
     //A candidate is blocked only by checks that actually ran and failed.

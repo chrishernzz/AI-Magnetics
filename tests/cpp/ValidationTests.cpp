@@ -165,7 +165,7 @@ void testWindingFitValidationGatesOnPhysicalFillNotRawFill() {
     winding.physicalWindowFillFactor = 0.9;
     winding.fitsPhysicalWindow = false;
 
-    ValidationResult result = WindingFitValidation(winding, rules);
+    ValidationResult result = WindingFitValidation(winding, rules, true);
     assert(!result.passed);
     assert(approxEqual(result.calculatedValue, 0.9, 1e-9));
     std::printf("testWindingFitValidationGatesOnPhysicalFillNotRawFill: raw fill=%.2f (would pass) physical fill=%.2f (fails)\n",
@@ -220,7 +220,7 @@ void testThermalValidationNotEvaluatedIsNeverAPass() {
     ThermalIterationInputs inputs;
     inputs.copperLossGeometryKnown = false;
     ThermalEvaluationResult thermal = evaluateThermal(inputs, rules);
-    ValidationResult result = ThermalValidation(thermal, 40.0);
+    ValidationResult result = ThermalValidation(thermal, 40.0, true);
     assert(thermal.status == ThermalStatus::NotEvaluated);
     assert(!result.passed);
     assert(result.status == EvaluationStatus::NotEvaluated);
@@ -241,12 +241,12 @@ void testThermalValidationComparesRealNumbersWhenEvaluated() {
     ThermalEvaluationResult thermal = evaluateThermal(inputs, rules);
     assert(thermal.status == ThermalStatus::PreliminaryThermalEstimate);
 
-    ValidationResult passResult = ThermalValidation(thermal, 40.0);
+    ValidationResult passResult = ThermalValidation(thermal, 40.0, true);
     assert(passResult.passed);
     assert(passResult.status == EvaluationStatus::Evaluated);
     assert(passResult.isPreliminaryEstimate);
 
-    ValidationResult failResult = ThermalValidation(thermal, 0.001);
+    ValidationResult failResult = ThermalValidation(thermal, 0.001, true);
     assert(!failResult.passed);
     assert(failResult.isPreliminaryEstimate);
     std::printf("testThermalValidationComparesRealNumbersWhenEvaluated: ok\n");

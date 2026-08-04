@@ -237,10 +237,22 @@ ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialC
 //bobbin/margin/lead-exit derates - see WindingDesign.h) is at or below the maximum. Gates on
 //physicalWindowFillFactor, not the raw copper-only fillFactor - an intentional behavior change from the
 //Phase 1 stub: a candidate that passed on raw copper fill alone can now fail here.
-ValidationResult WindingFitValidation(const WindingDesignResult& winding, const DesignRules& rules) {
+ValidationResult WindingFitValidation(const WindingDesignResult& winding, const DesignRules& rules, bool turnsConverged) {
     ValidationResult result;
     result.checkName = "WindingFitValidation";
     result.unit = "fraction";
+    // A real user report: on a non-converged design, designWinding() is still called downstream with
+    // turns=0 (see InductorDesignService.cpp - kept for the other, genuinely turns-independent checks
+    // this same call feeds, see CurrentDensityValidation below), which makes physicalWindowFillFactor
+    // trivially 0.0 - a wire count of zero always "fits," which reads as a real PASS for a design that
+    // doesn't exist. Report NotEvaluated instead of a trivially-true pass.
+    if (!turnsConverged) {
+        result.status = EvaluationStatus::NotEvaluated;
+        result.passed = false;
+        result.calculatedValue = 0.0;
+        result.explanation = "not evaluated: turns/gap design did not converge - there is no real winding to check physical fit for";
+        return result;
+    }
     result.calculatedValue = winding.physicalWindowFillFactor;
     result.limitValue = rules.maximumFillFactor;
     result.passed = winding.fitsPhysicalWindow;
@@ -303,11 +315,24 @@ ValidationResult BundleFitValidation(const WindingDesignResult& winding) {
 //otherwise not_evaluated (passed=false, never an assumed pass - spec section 10). ThermalStatus has no "fully evaluated" value
 //(see ThermalEvaluation.h), so a passing result here always carries isPreliminaryEstimate=true - the numeric check genuinely
 //ran and passed/failed, but rests on a Phase 1 coarse thermal-resistance constant, never per-core measured/simulated data.
-ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, double allowableTempRiseC) {
+ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, double allowableTempRiseC, bool turnsConverged) {
     ValidationResult result;
     result.checkName = "ThermalValidation";
     result.unit = "C";
     result.limitValue = allowableTempRiseC;
+
+    // A real user report: on a non-converged design, the thermal loop still runs downstream against
+    // turns=0 (essentially no winding), which makes copper loss and therefore predicted rise trivially
+    // near-zero - reading as a real, comfortable PASS for a design that doesn't exist. Report
+    // NotEvaluated instead, ahead of the thermal.status check below (which would otherwise happily
+    // report this trivial "pass" as a genuine PreliminaryThermalEstimate).
+    if (!turnsConverged) {
+        result.status = EvaluationStatus::NotEvaluated;
+        result.passed = false;
+        result.calculatedValue = 0.0;
+        result.explanation = "not evaluated: turns/gap design did not converge - there is no real winding to model thermal rise for";
+        return result;
+    }
 
     if (thermal.status != ThermalStatus::PreliminaryThermalEstimate) {
         result.calculatedValue = 0.0;

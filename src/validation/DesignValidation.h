@@ -41,8 +41,11 @@ ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCan
 //PeakFluxValidation above when peakCurrentA is absent - see ValidationResult::isRmsLowerBoundRejection.
 ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialCandidate& material, const TurnsAndGapResult& turnsAndGap, const std::optional<double>& peakCurrentA, double rmsCurrentA, const DesignRules& rules);
 
-//checks winding.fillFactor against rules.maximumFillFactor.
-ValidationResult WindingFitValidation(const WindingDesignResult& winding, const DesignRules& rules);
+//checks winding.fillFactor against rules.maximumFillFactor. turnsConverged must be
+//turnsAndGap.converged - a non-converged design's winding is still computed downstream against turns=0
+//(for the other, genuinely turns-independent checks that same call feeds - see CurrentDensityValidation),
+//which makes physicalWindowFillFactor trivially 0.0 and this check trivially, meaninglessly "pass".
+ValidationResult WindingFitValidation(const WindingDesignResult& winding, const DesignRules& rules, bool turnsConverged);
 
 //checks winding.currentDensityAperMm2 against rules.allowableCurrentDensityAperCm2.
 ValidationResult CurrentDensityValidation(const WindingDesignResult& winding, const DesignRules& rules);
@@ -54,8 +57,10 @@ ValidationResult CurrentDensityValidation(const WindingDesignResult& winding, co
 ValidationResult BundleFitValidation(const WindingDesignResult& winding);
 
 //checks thermal.predictedTempRiseC against allowableTempRiseC when thermal.status == Evaluated; always not_evaluated (passed=false, never an assumed pass) in Phase 1 since evaluateThermal() never produces an
-//Evaluated result today.
-ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, double allowableTempRiseC);
+//Evaluated result today. turnsConverged must be turnsAndGap.converged - a non-converged design's thermal
+//loop still runs downstream against turns=0 (essentially no winding, no copper loss), which makes the
+//predicted rise trivially near-zero and this check trivially, meaninglessly "pass".
+ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, double allowableTempRiseC, bool turnsConverged);
 
 /*
 Flux-limit tiers (spec section 3): the single flux limit PeakFluxValidation/SaturationValidation already gate
