@@ -124,7 +124,8 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
             out.operatingPoint.currentConsistencyExplanation =
                 "minimum inductor current is at or near zero - this design sits at the CCM/DCM boundary; "
                 "small load or line variation may push it into DCM";
-        } else if (out.operatingPoint.peakCurrentDerived) {
+        }
+        else if (out.operatingPoint.peakCurrentDerived) {
             //peak was derived FROM this same rms/ripple pair above, so this branch is confirming the
             //derivation's own internal self-consistency (it is provably always self-consistent - see the
             //derivation comment above), not an independent cross-check against a separately-measured peak.
@@ -135,7 +136,8 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
                 std::to_string(ripple) + " A pk-pk), not independently measured - minimum inductor current (" +
                 std::to_string(minInductorCurrentA) + " A) reflects that same derivation, under the "
                 "triangular-ripple CCM assumption";
-        } else {
+        } 
+        else {
             out.operatingPoint.currentConsistencyStatus = EvaluationStatus::Evaluated;
             out.operatingPoint.conductionMode = ConductionMode::CCM;
             out.operatingPoint.currentConsistencyExplanation =
