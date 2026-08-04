@@ -158,7 +158,21 @@ ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCan
     result.limitValue = limit.limitT;
     result.usesDefaultAssumption = limit.usedDefault;
     result.passed = turnsAndGap.converged && bpk <= limit.limitT;
-    result.explanation = "peak flux density " + std::to_string(bpk) + " T vs limit " +
+    // A real user report: this check can show a calculatedValue well under limitValue (e.g. 0.002T vs
+    // an 0.8T limit) and still read FAIL, with no explanation of why - because bpk here is computed
+    // from turnsAndGap.calculatedInductanceUH, and on a non-converged design that's the collapsed
+    // last-attempted inductance (e.g. 0.18uH instead of the requested 3000uH), not a real operating
+    // point. The number isn't wrong, but comparing it to limitT implies a real design exists to check
+    // saturation against, which there doesn't - passed is unconditionally false via
+    // turnsAndGap.converged above regardless of the raw comparison, so the explanation has to say that
+    // out loud instead of leaving actual < limit but FAIL looking like a comparison-operator bug.
+    result.explanation = !turnsAndGap.converged
+        ? "turns/gap design did not converge - the peak flux density below (" + std::to_string(bpk) +
+              " T) is computed from the invalid last-attempted point (turns=" + std::to_string(turnsAndGap.turns) +
+              ", calculated inductance " + std::to_string(turnsAndGap.calculatedInductanceUH) +
+              " uH, error " + std::to_string(turnsAndGap.inductanceErrorPercent) +
+              "% vs target), not a real operating point - this check fails regardless of how the raw number compares to the limit, since no valid design exists yet to check saturation against"
+        : "peak flux density " + std::to_string(bpk) + " T vs limit " +
                           std::to_string(limit.limitT) + " T (" +
                           (limit.usedDefault ? std::string("Phase 1 default - material '") + material.materialFamily + "' has no measured BmaxT" : std::string("material-specific value for '") + material.materialFamily + "'") + ")";
     return result;
@@ -203,7 +217,18 @@ ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialC
     result.calculatedValue = marginPercent;
     result.usesDefaultAssumption = limit.usedDefault;
     result.passed = turnsAndGap.converged && marginPercent >= rules.minimumSaturationMarginPercent;
-    result.explanation = "saturation margin " + std::to_string(marginPercent) + "% vs required " + std::to_string(rules.minimumSaturationMarginPercent) + "% (" +
+    // Same non-convergence caveat as PeakFluxValidation above: marginPercent here is derived from a
+    // collapsed, invalid last-attempted inductance on a non-converged design, so a large-looking margin
+    // (e.g. ~99%) can still legitimately read FAIL - that's turnsAndGap.converged forcing passed=false
+    // above, not a sign convention or comparison bug. Say so, instead of leaving "margin 99% required
+    // 10%: FAIL" looking self-contradictory.
+    result.explanation = !turnsAndGap.converged
+        ? "turns/gap design did not converge - the saturation margin below (" + std::to_string(marginPercent) +
+              "%) is computed from the invalid last-attempted point (turns=" + std::to_string(turnsAndGap.turns) +
+              ", calculated inductance " + std::to_string(turnsAndGap.calculatedInductanceUH) +
+              " uH, error " + std::to_string(turnsAndGap.inductanceErrorPercent) +
+              "% vs target), not a real operating point - a large margin here does not mean this design is safe, since no valid design exists yet to check saturation against"
+        : "saturation margin " + std::to_string(marginPercent) + "% vs required " + std::to_string(rules.minimumSaturationMarginPercent) + "% (" +
                           (limit.usedDefault ? "against the Phase 1 default flux limit, not a material fact"
                                              : "against material-specific BmaxT") +
                           ")";
