@@ -1024,6 +1024,179 @@ button:hover {
     font-size: 0.78rem;
 }
 
+/* DC-Bias Physics tab (candidate side panel) - the roll-off story: how much
+   of a distributed-gap (powder) core's catalog permeability survives at its
+   real operating current, per candidate. Three severity tiers reuse the
+   same green/amber/red vocabulary as .chip-pass/.chip-warn/.chip-fail
+   elsewhere in the panel, so "Severe" here reads the same as a failed
+   validation check rather than inventing a fourth color language. */
+.dcbias-empty p,
+.dcbias-intro,
+.dcbias-note,
+.dcbias-source {
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    line-height: 1.55;
+}
+
+.dcbias-intro {
+    margin-bottom: 16px;
+}
+
+.dcbias-note {
+    margin-top: 10px;
+}
+
+.dcbias-source {
+    margin-top: 18px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: 0.78rem;
+}
+
+.dcbias-source code {
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 0.95em;
+}
+
+.dcbias-callout {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.dcbias-callout-bad {
+    background: #fdecec;
+    color: var(--brand-red-dark);
+    border-left: 3px solid var(--brand-red);
+}
+
+.dcbias-gauge-row {
+    margin-bottom: 18px;
+}
+
+.dcbias-gauge-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+}
+
+.dcbias-gauge-value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.dcbias-gauge-track {
+    height: 10px;
+    border-radius: 999px;
+    background: var(--paper-sunk);
+    border: 1px solid var(--line);
+    overflow: hidden;
+}
+
+.dcbias-gauge-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.2s ease;
+}
+
+.dcbias-tier-line {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    line-height: 1.5;
+}
+
+.dcbias-tier-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-right: 6px;
+}
+
+.dcbias-tier-good,
+.dcbias-gauge-value.dcbias-tier-good {
+    color: #15803d;
+}
+
+.dcbias-tier-warn,
+.dcbias-gauge-value.dcbias-tier-warn {
+    color: #b45309;
+}
+
+.dcbias-tier-bad,
+.dcbias-gauge-value.dcbias-tier-bad {
+    color: var(--brand-red-dark);
+}
+
+.dcbias-tier-badge.dcbias-tier-good {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.dcbias-tier-badge.dcbias-tier-warn {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.dcbias-tier-badge.dcbias-tier-bad {
+    background: #fdecec;
+    color: var(--brand-red-dark);
+}
+
+.dcbias-gauge-fill.dcbias-tier-good {
+    background: #22c55e;
+}
+
+.dcbias-gauge-fill.dcbias-tier-warn {
+    background: #f59e0b;
+}
+
+.dcbias-gauge-fill.dcbias-tier-bad {
+    background: var(--brand-red);
+}
+
+.dcbias-numbers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+}
+
+.dcbias-number {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    background: var(--paper-sunk);
+    border-radius: 8px;
+}
+
+.dcbias-number-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--ink-soft);
+}
+
+.dcbias-number-value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
 details {
     margin-top: 12px;
 }

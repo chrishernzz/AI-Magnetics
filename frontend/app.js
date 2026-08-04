@@ -1021,24 +1021,135 @@ function renderCandidateDetail(candidate) {
     // the top candidate (card, then twice in its own panel).
 
     // Overview (KPIs + status) is always visible, never collapsed - it's the
-    // numbers a candidate is actually judged by. Everything below is grouped
-    // into its own collapsible section so the panel doesn't read as one long
-    // undifferentiated scroll - Validations stays open by default since it's
-    // still primary content, Sources and Warnings default closed.
+    // numbers a candidate is actually judged by. Everything else lives behind
+    // two tabs: "Overview" (Validation Checks / Sources / Missing-data
+    // warnings - what used to be the whole panel) and "DC-Bias Physics" (the
+    // roll-off story - H, % permeability retained, catalog AL vs the real AL
+    // used at this operating current - previously computed by the backend on
+    // every candidate but never surfaced anywhere in the UI; an engineer had
+    // no way to see *why* a high-µ powder core failed short of asking). Reuses
+    // the same .field-tabs/.field-tab-panel component the requirements form
+    // already uses, wired the same way (see openCandidateSidePanel below).
     return `
         ${kpis}
         ${statusLine}
-        <details class="detail-group" open>
-            <summary>Validation Checks <span class="detail-group-count">(${passCount} passed, ${failCount} failed, ${notEvalCount} not evaluated)</span></summary>
-            <ul class="validation-list">${renderValidationList(candidate.validations)}</ul>
-            ${usesDefaultAssumption ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
-        </details>
-        ${renderSourcesDetail(candidate)}
-        ${
-            warnings.length
-                ? `<details class="detail-group"><summary>Missing-data warnings <span class="detail-group-count">(${warnings.length})</span></summary><ul class="detail-group-list detail-group-list-warn">${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
-                : ""
-        }
+        <div class="field-tabs detail-tabs" role="tablist" aria-label="Candidate detail views">
+            <button type="button" class="field-tab-btn active" data-tab-target="detailOverviewPanel" aria-selected="true">Overview</button>
+            <button type="button" class="field-tab-btn" data-tab-target="detailDcBiasPanel" aria-selected="false">DC-Bias Physics</button>
+        </div>
+        <div class="field-tab-panel" id="detailOverviewPanel">
+            <details class="detail-group" open>
+                <summary>Validation Checks <span class="detail-group-count">(${passCount} passed, ${failCount} failed, ${notEvalCount} not evaluated)</span></summary>
+                <ul class="validation-list">${renderValidationList(candidate.validations)}</ul>
+                ${usesDefaultAssumption ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
+            </details>
+            ${renderSourcesDetail(candidate)}
+            ${
+                warnings.length
+                    ? `<details class="detail-group"><summary>Missing-data warnings <span class="detail-group-count">(${warnings.length})</span></summary><ul class="detail-group-list detail-group-list-warn">${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
+                    : ""
+            }
+        </div>
+        <div class="field-tab-panel" id="detailDcBiasPanel" hidden>
+            ${renderDcBiasPhysicsTab(candidate)}
+        </div>
+    `;
+}
+
+// DC-Bias / Soft-Saturation physics tab - the roll-off story per candidate:
+// magnetizing force (H), how much of the material's catalog (0-bias)
+// permeability survives at this core's turns count and the request's real
+// operating current, and catalog AL vs the effective AL actually used to
+// hit the target inductance. All of this is data TurnsAndGapDesign.cpp
+// already computes for every distributed-gap candidate (see
+// usesDCBiasRolloffCurve/dcMagnetizingForceOe/
+// percentInitialPermeabilityAtOperatingCurrent in the API response) - this
+// just gives it a place to be seen instead of requiring devtools.
+function renderDcBiasPhysicsTab(candidate) {
+    const t = candidate.turnsAndGap;
+    const core = candidate.core;
+
+    if (!t.usesDCBiasRolloffCurve) {
+        const reason =
+            core.materialType !== "powder"
+                ? `${core.material} is not a distributed-gap (powder) material, so DC-bias permeability roll-off doesn't apply the way it does for MPP/Kool Mµ/XFlux/Edge/High Flux - this core's inductance comes from its machined air gap instead (see Turns/Gap on the Overview tab).`
+                : `No published DC-bias curve exists for ${core.material} in the current data snapshot, so this design used the flat catalog AL (0-bias) unadjusted for your operating current - a conservative fallback, not a claim that roll-off doesn't happen for this material.`;
+        return `<div class="dcbias-empty"><p>${reason}</p></div>`;
+    }
+
+    const pct = t.percentInitialPermeabilityAtOperatingCurrent;
+    const clampedPct = Math.max(0, Math.min(100, pct));
+    let tier, tierClass, tierNote;
+    if (pct >= 80) {
+        tier = "Excellent";
+        tierClass = "dcbias-tier-good";
+        tierNote = "negligible roll-off at this operating current.";
+    } else if (pct >= 50) {
+        tier = "Good";
+        tierClass = "dcbias-tier-good";
+        tierNote = "modest roll-off - well within normal powder-core behavior.";
+    } else if (pct >= 20) {
+        tier = "Marginal";
+        tierClass = "dcbias-tier-warn";
+        tierNote = "significant roll-off - the extra turns above are doing real work to compensate.";
+    } else {
+        tier = "Severe";
+        tierClass = "dcbias-tier-bad";
+        tierNote = "this material grade is a poor fit for this much DC bias - a lower-permeability grade in the same family typically holds up far better.";
+    }
+
+    const convergenceNote = !t.converged
+        ? `<div class="dcbias-callout dcbias-callout-bad"><strong>This design did not converge.</strong> More turns raised the magnetizing force, which rolled off permeability further, which demanded still more turns - a runaway that never reached the target inductance within the solver's iteration limit. The numbers below are the last point it tried, not a valid, buildable design.</div>`
+        : "";
+    const floorNote = t.dcBiasRolloffUsedRmsFloor
+        ? `<p class="dcbias-note">Peak current wasn't supplied, so RMS current was used as a conservative lower-bound floor for this calculation - the real roll-off at your actual peak current would be at least this severe, possibly worse.</p>`
+        : "";
+    const satMarginNote = t.turnsRaisedForSaturationMargin
+        ? `<p class="dcbias-note">${t.turnsRaisedForSaturationMarginReason}</p>`
+        : "";
+
+    // Values here can legitimately span from ~100% down to a few thousandths
+    // of a percent (see MPP 550 at high H) - a fixed 1-decimal format would
+    // just print "0.0%" for the severe end, which reads as "no data" rather
+    // than "collapsed to nearly nothing." Only widen precision once it's
+    // actually needed.
+    const pctText = pct > 0 && pct < 0.01 ? pct.toFixed(4) : pct.toFixed(1);
+    const alText = Math.abs(t.effectiveAlNHPerTurnSquared) < 1 ? t.effectiveAlNHPerTurnSquared.toFixed(4) : t.effectiveAlNHPerTurnSquared.toFixed(1);
+
+    return `
+        ${convergenceNote}
+        <p class="dcbias-intro">${core.material} is a distributed-gap (powder) material - permeability rolls off under DC bias instead of staying flat like a machined air gap. This is that roll-off, computed from Magnetics Inc.'s own published DC-bias curve for this material.</p>
+
+        <div class="dcbias-gauge-row">
+            <div class="dcbias-gauge-label">
+                <span>% of catalog (0-bias) permeability retained at ${t.turns} turns / your operating current</span>
+                <span class="dcbias-gauge-value ${tierClass}">${pctText}%</span>
+            </div>
+            <div class="dcbias-gauge-track">
+                <div class="dcbias-gauge-fill ${tierClass}" style="width: ${Math.max(clampedPct, 1.5)}%"></div>
+            </div>
+            <p class="dcbias-tier-line"><span class="dcbias-tier-badge ${tierClass}">${tier}</span> ${tierNote}</p>
+        </div>
+
+        <div class="dcbias-numbers">
+            <div class="dcbias-number">
+                <span class="dcbias-number-label">Magnetizing Force (H)</span>
+                <span class="dcbias-number-value">${t.dcMagnetizingForceOe.toFixed(1)} Oe</span>
+            </div>
+            <div class="dcbias-number">
+                <span class="dcbias-number-label">Catalog µ / AL (0-bias)</span>
+                <span class="dcbias-number-value">${core.mu.toFixed(0)}µ / ${core.al.toFixed(1)} nH/t²</span>
+            </div>
+            <div class="dcbias-number">
+                <span class="dcbias-number-label">Effective AL at operating current</span>
+                <span class="dcbias-number-value">${alText} nH/t²</span>
+            </div>
+        </div>
+
+        ${floorNote}
+        ${satMarginNote}
+
+        <p class="dcbias-source">Formula: H = 0.4&middot;&pi;&middot;N&middot;I / le(cm); %&micro; = 1/(a + b&middot;H<sup>c</sup>) + d &mdash; both transcribed directly from Magnetics Inc.'s published "Permeability vs. DC Bias" curves for ${core.material} (<code>data/dc_bias_curves.csv</code>), not fitted or estimated by this tool.</p>
     `;
 }
 
@@ -1247,6 +1358,11 @@ function openCandidateSidePanel(candidate, passed) {
     subtitle.innerHTML = `${shapeCellLabel(candidate.core)} <span>${candidate.material.materialFamily}</span> <span>·</span> <span>${passed ? "Passing" : "Rejected"}</span>`;
     body.innerHTML = renderCandidateDetail(candidate);
     wireDetailGroupAccordion(body);
+    // Overview/DC-Bias Physics tabs use the same generic .field-tabs
+    // component the requirements form wires at load - but this panel's
+    // content is rebuilt fresh on every candidate click, so it needs the
+    // same wiring re-applied each time rather than once at startup.
+    body.querySelectorAll(".field-tabs").forEach(initFieldTabs);
 
     panel.hidden = false;
     panel.setAttribute("aria-hidden", "false");
