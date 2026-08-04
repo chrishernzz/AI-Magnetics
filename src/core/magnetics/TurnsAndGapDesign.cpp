@@ -190,13 +190,34 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
             }
 
             if (!stabilized) {
+                //Non-convergence doesn't mean nothing was computed - the loop above tried real turns/AL_eff
+                //values right up until it gave up. Report the LAST attempted point (turns, the AL_eff and
+                //H/%mu at that point, and what inductance that combination would actually produce) instead
+                //of leaving turns/calculatedInductanceUH at their default 0 - a user comparing "how close did
+                //it get" needs that number, and 0 falsely reads as "computed zero," not "never computed."
+                //converged stays false and the real rejection reason is still reported - this is honesty
+                //about WHAT was tried, not a claim that the design is valid.
+                double lastAttemptNh = static_cast<double>(turns) * turns * alEffNh;
+                result.turns = turns;
+                result.gapMm = 0.0;
+                result.effectiveAlNHPerTurnSquared = alEffNh;
+                result.calculatedInductanceUH = units::nHToUh(lastAttemptNh);
+                result.inductanceErrorPercent = 100.0 * (lastAttemptNh - targetNh) / targetNh;
+                result.withinTolerance = false;
+                result.usesDCBiasRolloffCurve = true;
+                result.dcMagnetizingForceOe = appliedHOe;
+                result.percentInitialPermeabilityAtOperatingCurrent = appliedPercentMu;
+                result.dcBiasRolloffUsedRmsFloor = biasCurrentIsRmsFloor;
                 result.converged = false;
                 result.rejectionReasons.push_back("no turns count converged for this distributed-gap core at the real "
                     "operating current (" + std::to_string(*biasCurrentA) + " A" +
                     (biasCurrentIsRmsFloor ? ", RMS used as a guaranteed lower bound on unsupplied peak current" : "") +
                     ") within " + std::to_string(kMaxIterations) + " iterations - DC-bias permeability roll-off means "
                     "more turns raises the magnetizing force further, which rolls off permeability further; this core's "
-                    "real saturation behavior may not support the target inductance at this current at all");
+                    "real saturation behavior may not support the target inductance at this current at all. Last "
+                    "attempted point shown below (turns=" + std::to_string(turns) + ", " +
+                    std::to_string(units::nHToUh(lastAttemptNh)) + " uH) - not a valid design, the closest the "
+                    "iteration got before giving up");
                 return result;
             }
             rolloffApplied = true;
