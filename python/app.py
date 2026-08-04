@@ -66,14 +66,13 @@ def load_real_magnetics_data():
             f"refusing to start with an empty database. Check the filters in"
             f"python/services/magnetics_data.py (ALLOWED_MATERIAL_TYPES, size range, etc.)."
         )
-    #Unlike materials/cores above, an empty core-loss-coefficient database is not fatal as of the
-    #MPP/powder-only rebuild: Magnetics does not publish Steinmetz (k/alpha/beta) coefficients for MPP or
-    #Kool Mu-family materials the way ferrite vendors do, so 0 rows is now the real, legitimate state for
-    #this database's scope, not a sign of a broken load. Core loss for every material already reports
-    #not_evaluated in this case (see LossEvaluation.cpp's findCoreLossCoefficients call) - that was already
-    #true for every MPP/powder material even when this file had ferrite-only rows, since none of them had a
-    #matching entry either. If a future snapshot re-adds ferrite materials with real coefficients and this
-    #file comes back empty, that would be worth investigating - but an empty file is no longer a hard error.
+    #Unlike materials/cores above, an empty core-loss-coefficient database is not fatal: real coefficients
+    #now exist for all 12 MPP permeability grades (transcribed by hand from Magnetics' own published Core
+    #Loss Density Curves fit-formula table - mag-inc.com/products/powder-cores/mpp-cores/mpp-material-curves
+    #- and unit-converted from Magnetics' P[mW/cm3]=a*B^b*f[kHz]^c form to this engine's Pv[W/m3]=k*f[Hz]^
+    #alpha*B^beta form), but Kool Mu/Edge/XFlux/High Flux (the E-core material families) have no matching row
+    #yet - that table hasn't been pulled for them. Core loss for those materials reports not_evaluated (see
+    #LossEvaluation.cpp's findCoreLossCoefficients call), an honest partial-coverage gap, not a broken load.
     if not core_loss_coefficients:
         print(
             "WARNING: real data load returned 0 core-loss coefficient rows - core loss will report "
