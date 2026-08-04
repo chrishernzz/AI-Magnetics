@@ -97,9 +97,18 @@ ValidationResult InductanceValidation(const TurnsAndGapResult& turnsAndGap, doub
     result.limitValue = tolerancePercent;
 
     if (!turnsAndGap.converged) {
+        //Non-convergence still leaves a real last-attempted (turns, calculatedInductanceUH,
+        //inductanceErrorPercent) on turnsAndGap - see TurnsAndGapDesign.cpp - so report that honest
+        //number here too instead of a hardcoded 0.0/generic message. This never turns a non-converged
+        //design into a pass (still unconditionally result.passed=false below) - it only makes the
+        //REJECT reason as informative as every other check instead of the one blank one.
+        result.status = EvaluationStatus::Evaluated;
         result.passed = false;
-        result.calculatedValue = 0.0;
-        result.explanation = "turns/gap design did not converge - no calculated inductance to check";
+        result.calculatedValue = std::abs(turnsAndGap.inductanceErrorPercent);
+        result.explanation = "turns/gap design did not converge - last attempted point: calculated inductance " +
+            std::to_string(turnsAndGap.calculatedInductanceUH) + " uH vs target (error " +
+            std::to_string(turnsAndGap.inductanceErrorPercent) + "%), tolerance " + std::to_string(tolerancePercent) +
+            "% - not a valid design, the closest the solver got before giving up";
         return result;
     }
 

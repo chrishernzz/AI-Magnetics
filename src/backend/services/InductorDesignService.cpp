@@ -57,15 +57,21 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     candidate.turnsAndGap = designTurnsAndGap(core, material, targetInductanceUH, requirements.inductanceTolerancePercent,
                                                requirements.operatingPoint.peakCurrentA, requirements.operatingPoint.rmsCurrentA, rules);
 
+    //Non-convergence used to return here immediately - 0 downstream checks ever evaluated, no matter
+    //how close the solver's last-attempted point actually was. But that last-attempted point is now a
+    //real (turns, calculatedInductanceUH) pair - see TurnsAndGapDesign.cpp - not a placeholder zero, so
+    //there's a real turns count to design a winding around even when the target inductance itself was
+    //never reached. Continuing the SAME pipeline below against that turns count means a non-converged
+    //candidate gets real WindingFit/CurrentDensity/Thermal/etc. numbers instead of a bare "didn't
+    //converge" - useful context (e.g. "this also wouldn't have physically fit"), not just a possible
+    //reason. This can never turn a non-converged design into a pass: InductanceValidation below always
+    //fails when !converged (see DesignValidation.cpp), which alone forces candidate.passed=false via
+    //the loop further down - same REJECT outcome, just with real numbers on every other axis instead of
+    //an empty 0/0.
     if (!candidate.turnsAndGap.converged) {
-        candidate.passed = false;
-        candidate.recommendation.tier = RecommendationTier::Reject;
-        candidate.recommendation.explanation = "rejected: turns/gap design did not converge - no further evaluation performed";
         for (const auto& reason : candidate.turnsAndGap.rejectionReasons) {
             candidate.rejectionReasons.push_back({"TurnsAndGapDesign", reason});
         }
-        candidate.bottleneck = analyzeBottleneck(candidate);
-        return candidate;
     }
 
     //Call order: winding (geometry + cold-reference DCR) -> losses (core loss, cold-reference copper loss)
