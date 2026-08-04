@@ -19,6 +19,20 @@ constexpr int kMaxIterations = 15;
 //a rejection. Checking the ratio against this bound before the sqrt/cast avoids ever exercising that UB.
 constexpr double kMaxTurnsSquared = 1e12;  //(1,000,000 turns)^2
 
+//No real inductor design in this catalog's scope (MPP/E-core powder, single-layer-to-modest-multilayer
+//windings) uses anywhere near this many turns - every real PASSing design in this dataset falls under a
+//few hundred. This is a physical-plausibility bound, not a numerical-safety one (kMaxTurnsSquared above is
+//that): the DC-bias rolloff loop below recomputes turns each pass as round(sqrt(target/AL_eff(H(turns)))),
+//which trivially re-solves the target equation for that iteration's AL_eff every time - so a genuinely
+//divergent core (more turns -> more H -> lower AL_eff -> still more turns needed, forever) reports a
+//near-zero inductance error at EVERY step by construction, right up until turns finally hits
+//kMaxTurnsSquared's numeric ceiling around 1,000,000. Without this earlier, physically-grounded cutoff, a
+//rejected design's "last attempted point" could show e.g. turns=995451 with 0.00% error - which reads as
+//"almost passing" but is actually a coincidence of the formula, not a near-miss real design. Cutting off
+//here instead means non-convergence is reported while turns is still an honestly-absurd number, not a
+//deceptively plausible-looking one.
+constexpr int kMaxPhysicallyPlausibleTurns = 5000;
+
 //precondition: Seeds the initial turns estimate by reusing TurnsCalculation's existing N = round(sqrt(L/AL)) formula against the core's ungapped catalog AL
 //postcondition: returns the initial turns estimate for the given core and target inductance, rounded to the nearest integer and falls back to a minimum of 1 turn if none
 int seedTurns(const CoreCandidate& core, double targetInductanceUH) {
@@ -169,6 +183,20 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
                     break;
                 }
                 int requiredTurns = std::max(1, static_cast<int>(std::round(std::sqrt(targetNh / trialAlEffNh))));
+                if (requiredTurns > kMaxPhysicallyPlausibleTurns) {
+                    //Deliberately do NOT adopt requiredTurns here, even though it's the value that would
+                    //make the error% look smallest - requiredTurns is only large because it's solved
+                    //backwards from the target against this iteration's rolled-off AL_eff, so it would
+                    //always show a deceptive near-zero error by construction, no matter how absurd it is.
+                    //hOe/trialAlEffNh above WERE computed from the current (already turns-bounded) `turns`
+                    //value, i.e. what this core's permeability actually rolls off to at that real, plausible
+                    //turns count - so reporting THAT pairing shows the true achieved inductance and the real
+                    //shortfall, not a coincidentally-small error.
+                    appliedHOe = hOe;
+                    appliedPercentMu = percentMu;
+                    alEffNh = trialAlEffNh;
+                    break;
+                }
 
                 appliedHOe = hOe;
                 appliedPercentMu = percentMu;
