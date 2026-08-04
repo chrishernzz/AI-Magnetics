@@ -920,6 +920,20 @@ function turnsRaisedSubLine(turnsAndGap) {
     return `<div class="detail-kpi-sub" title="${turnsAndGap.turnsRaisedForSaturationMarginReason}">raised for saturation margin ${basis}</div>`;
 }
 
+// A real user report: a non-converged candidate's turns/gap KPI (e.g. "340t")
+// and its table row read exactly like an ordinary result, with nothing marking
+// them as the solver's last-attempted, invalid point rather than a real,
+// buildable design - easy to mistake for a recommendation. This is the same
+// fact PeakFluxValidation/SaturationValidation/InductanceValidation's own
+// explanation text already states in DesignValidation.cpp when
+// turnsAndGap.converged is false; this just makes it visible wherever the
+// turns count itself is shown, not only inside a validation-check line an
+// engineer has to open first.
+function notConvergedBadge(turnsAndGap) {
+    if (turnsAndGap.converged) return "";
+    return '<span class="chip chip-fail" title="The solver never found a turns count that reaches the target inductance at this operating current - this is the last point it tried before giving up, not a valid design.">LAST ITERATION &middot; NOT A DESIGN</span>';
+}
+
 function shapeCellLabel(core) {
     if (!core.coreShape) return '<span class="cell-muted">—</span>';
     const label = core.coreShape === "TwoPieceSet" ? "Two-Piece Set" : core.coreShape;
@@ -991,48 +1005,36 @@ function renderCandidateDetail(candidate) {
                 <span class="detail-kpi-label">Turns / Gap</span>
                 <span class="detail-kpi-value">${candidate.turnsAndGap.turns}t, ${candidate.turnsAndGap.gapMethod === "Distributed" ? "distributed gap" : candidate.turnsAndGap.gapMm.toFixed(2) + "mm"}</span>
                 ${turnsRaisedSubLine(candidate.turnsAndGap)}
+                ${notConvergedBadge(candidate.turnsAndGap) ? `<div class="detail-kpi-sub">${notConvergedBadge(candidate.turnsAndGap)}</div>` : ""}
             </div>
         </div>
         <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong> &nbsp; ${acLossRiskChip(candidate.acLossRisk)}</p>
     `;
 
-    // One-line status for a rejection only - the same "N passed/failed/not
-    // evaluated" facts are already in the Validation Checks list right below,
-    // repeating them here was the same sentence twice. Tier comes
-    // from the real backend classification - only "Recommended" ever
-    // renders a chip here (see recommendationTierChip), so this stays empty
-    // whenever tier isn't Pass (currently always, since Pass is
-    // structurally unreachable - see RecommendationStatus.h).
-    const tierChip = recommendationTierChip(candidate.recommendation.tier);
-    const statusLine = candidate.rejectionReasons.length
-        ? `<div class="detail-status detail-status-fail">
-            <div class="detail-status-chips"><span class="chip chip-fail">REJECTED</span></div>
-        </div>`
-        : tierChip
-        ? `<div class="detail-status detail-status-pass"><div class="detail-status-chips">${tierChip}</div></div>`
-        : "";
+    // No standalone REJECTED/tier status line here anymore - the panel's own
+    // subtitle (e.g. "MPP 19 · Rejected", set in openCandidateSidePanel) and
+    // the originating table row's badge already say pass/reject once each;
+    // a third plain-text "REJECTED" chip between the KPIs and the tabs said
+    // the same single fact a third time with no new information. Tier
+    // (only "Recommended" ever renders anything - see recommendationTierChip)
+    // still shows on the table row itself, just not duplicated here.
 
-    // No rankingLine/recommendation.explanation paragraph here - that exact
-    // sentence already appears once, in the Recommended Candidate card's
-    // "Why this one" section (see renderRecommendedCandidate()), and the
-    // statusLine directly above already states the same passed/not-evaluated/
-    // preliminary facts in the panel's own words. Repeating the backend's
-    // sentence a second time here said the same thing three times over for
-    // the top candidate (card, then twice in its own panel).
+    // No rankingLine/recommendation.explanation paragraph here either - that
+    // exact sentence already appears once, in the Recommended Candidate
+    // card's "Why this one" section (see renderRecommendedCandidate()).
 
-    // Overview (KPIs + status) is always visible, never collapsed - it's the
-    // numbers a candidate is actually judged by. Everything else lives behind
-    // two tabs: "Overview" (Validation Checks / Sources / Missing-data
-    // warnings - what used to be the whole panel) and "DC-Bias Physics" (the
-    // roll-off story - H, % permeability retained, catalog AL vs the real AL
-    // used at this operating current - previously computed by the backend on
-    // every candidate but never surfaced anywhere in the UI; an engineer had
-    // no way to see *why* a high-µ powder core failed short of asking). Reuses
-    // the same .field-tabs/.field-tab-panel component the requirements form
+    // Overview (KPIs) is always visible, never collapsed - it's the numbers
+    // a candidate is actually judged by. Everything else lives behind two
+    // tabs: "Overview" (Validation Checks / Sources / Missing-data warnings -
+    // what used to be the whole panel) and "DC-Bias Physics" (the roll-off
+    // story - H, % permeability retained, catalog AL vs the real AL used at
+    // this operating current - previously computed by the backend on every
+    // candidate but never surfaced anywhere in the UI; an engineer had no way
+    // to see *why* a high-µ powder core failed short of asking). Reuses the
+    // same .field-tabs/.field-tab-panel component the requirements form
     // already uses, wired the same way (see openCandidateSidePanel below).
     return `
         ${kpis}
-        ${statusLine}
         <div class="field-tabs detail-tabs" role="tablist" aria-label="Candidate detail views">
             <button type="button" class="field-tab-btn active" data-tab-target="detailOverviewPanel" aria-selected="true">Overview</button>
             <button type="button" class="field-tab-btn" data-tab-target="detailDcBiasPanel" aria-selected="false">DC-Bias Physics</button>
@@ -1175,6 +1177,19 @@ const CANDIDATE_TABLE_HEADERS = [
     { label: "Known Partial Loss", numeric: true },
 ];
 
+// A non-converged design's turns/gap/calculated-inductance is the solver's
+// last-attempted point, not a real result - see notConvergedBadge() above
+// for the same fact surfaced in the side panel. Marks the two table columns
+// that number actually lives in (Turns, Calc L) rather than a whole extra
+// column every row would otherwise carry, since only non-converged rows need
+// it - passing candidates can never reach this table with converged=false
+// (InductanceValidation can't pass on a non-converged design).
+function notConvergedMark(converged) {
+    return converged
+        ? ""
+        : ' <span class="not-converged-mark" title="Last-attempted point - the solver did not converge, this is not a valid, buildable design">&dagger;</span>';
+}
+
 function candidateRowHtml(c, passed, index) {
     const tier = c.recommendation.tier;
     const badge = passed
@@ -1183,15 +1198,16 @@ function candidateRowHtml(c, passed, index) {
     const rowClass = ["candidate-row", passed ? "row-pass" : "row-reject", tier === "Pass" ? "row-recommended" : ""]
         .filter(Boolean)
         .join(" ");
+    const notConverged = !c.turnsAndGap.converged;
     return `
         <tr class="${rowClass}" data-row-index="${index}">
             <td>${badge} ${completenessChip(c)}</td>
             <td>${c.core.partNumber}</td>
             <td>${shapeCellLabel(c.core)}</td>
             <td>${c.material.materialFamily}</td>
-            <td class="numeric">${c.turnsAndGap.turns}</td>
+            <td class="numeric${notConverged ? " cell-not-converged" : ""}">${c.turnsAndGap.turns}${notConvergedMark(c.turnsAndGap.converged)}</td>
             <td class="numeric">${gapCellLabel(c.turnsAndGap)}</td>
-            <td class="numeric">${c.turnsAndGap.calculatedInductanceUH.toFixed(2)}</td>
+            <td class="numeric${notConverged ? " cell-not-converged" : ""}">${c.turnsAndGap.calculatedInductanceUH.toFixed(2)}</td>
             <td class="numeric">${c.turnsAndGap.inductanceErrorPercent.toFixed(2)}</td>
             <td class="numeric">${(c.winding.physicalWindowFillFactor * 100).toFixed(1)}</td>
             <td class="numeric">${formatLossCell(c.losses.copperLossStatus, c.losses.copperLossW)}</td>
@@ -1284,7 +1300,16 @@ function renderRejectedSection(result) {
 
     const headerHtml = CANDIDATE_TABLE_HEADERS.map((h) => `<th${h.numeric ? ' class="numeric"' : ""}>${h.label}</th>`).join("");
     const bodyHtml = rows.map((c, index) => candidateRowHtml(c, false, index)).join("");
-    table.innerHTML = `<thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody>`;
+    // Passing candidates can never carry a non-converged turns/gap result
+    // (InductanceValidation can't pass without convergence - see
+    // DesignValidation.cpp), so this footnote only ever needs to appear on
+    // the Rejected table, and only when at least one visible row actually
+    // needs it.
+    const anyNotConverged = rows.some((c) => !c.turnsAndGap.converged);
+    const footerHtml = anyNotConverged
+        ? `<tfoot><tr><td colspan="${CANDIDATE_TABLE_HEADERS.length}" class="table-footnote-row">&dagger; Turns/Calc L is the solver's last-attempted point, not a valid design - see the DC-Bias Physics tab for why it didn't converge.</td></tr></tfoot>`
+        : "";
+    table.innerHTML = `<thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody>${footerHtml}`;
     wireCandidateRowClicks(table, rows, false);
 }
 

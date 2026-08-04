@@ -1446,6 +1446,31 @@ summary {
     text-align: center;
 }
 
+/* Non-converged turns/calc-L cells (candidate table) and the matching
+   "LAST ITERATION - NOT A DESIGN" chip (side panel KPI) - a real user
+   report: a solver's last-attempted, invalid point (e.g. 340 turns,
+   0.18 uH) rendered identically to a real result, easy to mistake for an
+   actual recommendation. */
+.cell-not-converged {
+    color: var(--brand-red-dark);
+    font-weight: 700;
+}
+
+.not-converged-mark {
+    cursor: help;
+    color: var(--brand-red);
+    font-weight: 700;
+}
+
+.table-footnote-row {
+    padding: 10px 16px;
+    color: var(--ink-soft);
+    font-size: 0.78rem;
+    text-align: left;
+    border-top: 1px solid var(--line);
+    background: var(--paper-alt);
+}
+
 .chip {
     display: inline-block;
     padding: 3px 10px;
