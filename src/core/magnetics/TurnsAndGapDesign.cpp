@@ -183,6 +183,26 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
                     break;
                 }
                 int requiredTurns = std::max(1, static_cast<int>(std::round(std::sqrt(targetNh / trialAlEffNh))));
+
+                //Even before requiredTurns has settled to the exact same integer as `turns` (the strict
+                //check below), the CURRENT (turns, trialAlEffNh) pairing may already be within the
+                //caller's own requested tolerance - for some materials' rolloff curves, landing on an
+                //exact integer fixed point can take meaningfully more than kMaxIterations passes even
+                //though the design is already good enough, which was rejecting real near-target designs
+                //as "non-convergent" (0 checks ever evaluated) despite them being off by a fraction of a
+                //percent. This checks turns as it stands right now against trialAlEffNh (this iteration's
+                //real rolled-off AL at that turns count) - not requiredTurns - so it's an honest "what
+                //does turns actually achieve", the same principle as the plausibility cutoff above.
+                double currentAchievedNh = static_cast<double>(turns) * turns * trialAlEffNh;
+                double currentErrorPercent = 100.0 * (currentAchievedNh - targetNh) / targetNh;
+                if (std::abs(currentErrorPercent) <= tolerancePercent) {
+                    appliedHOe = hOe;
+                    appliedPercentMu = percentMu;
+                    alEffNh = trialAlEffNh;
+                    stabilized = true;
+                    break;
+                }
+
                 if (requiredTurns > kMaxPhysicallyPlausibleTurns) {
                     //Deliberately do NOT adopt requiredTurns here, even though it's the value that would
                     //make the error% look smallest - requiredTurns is only large because it's solved
