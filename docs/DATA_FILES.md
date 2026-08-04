@@ -81,14 +81,13 @@ Source" for the full process.
   this engine's `Pv[W/m³] = k·f[Hz]^alpha·B^beta` form). Core loss now
   reports a real watt value (`Evaluated`) for any candidate whenever
   `rippleCurrentPeakToPeakA` is supplied, instead of always `NotEvaluated`.
-- `real_cores.csv`'s `Mlt` column is real for MPP toroids (derived by hand
-  from each part's real OD/ID/HT). It's still `0.0` (genuinely missing, not
-  a real zero) for all 323 E-core rows — Magnetics' individual E-core
-  datasheets do carry the leg width/depth dimensions needed to estimate it,
-  but that hasn't been pulled and applied yet. Fill factor and current
-  density never needed it; total wire length and DCR use it when present
-  (`winding.resistanceStatus: Evaluated`) and report `NotEvaluated`
-  otherwise, never an invented number.
+- `real_cores.csv`'s `Mlt` column is real for all 755 cores — MPP toroids
+  derived by hand from each part's real OD/ID/HT, E-cores derived from each
+  unique physical size's real center-leg width/depth dimensions (see the
+  `WindowWidthMm`/`WindowHeightMm` note below for how those were identified).
+  Fill factor and current density never needed it; total wire length and DCR
+  now use it for every core (`winding.resistanceStatus: Evaluated`) instead
+  of only MPP toroids.
 - `real_cores.csv`'s `PartCost` and `MaxCurrent_A` columns are still 0.0 for
   every row — not currently used by any Phase 1 check.
 - **Core shape** (`CoreShape`/`ShapeFamily` columns) is always `Toroid`/`T`
@@ -108,13 +107,15 @@ Source" for the full process.
 - `DatasheetUrl` (materials and cores) — real Magnetics datasheet PDF
   links (`mag-inc.com/Media/Magnetics/Datasheets/<PartNumber>.pdf`),
   populated for every row. `Manufacturer`/`Vendor` are always `Magnetics`.
-- `WindowWidthMm`/`WindowHeightMm` (cores) — always blank in this snapshot.
-  Real rectangular winding-window dimensions weren't captured for E-cores
-  (only `Wa`, the total window area, was pulled — see the E-core `Wa`
-  note above); toroids never have a flat width/height by definition (their
+- `WindowWidthMm`/`WindowHeightMm` (cores) — real for all 323 E-core rows,
+  pulled from each unique physical size's real Dimensions table on the
+  datasheet's isometric drawing (letters "D"=height, "E"=width, identified
+  by tolerance type and confirmed by internal consistency - see
+  `magnetics_data.py`'s module docstring for the full reasoning). Blank for
+  MPP toroids, which never have a flat width/height by definition (their
   window is described by `Wa`/`ID` instead). `WindingDesign.cpp`'s
-  parallel-strand bundle-fit check (`bundleFitStatus`) stays
-  `NotEvaluated` for every candidate in this snapshot as a result.
+  parallel-strand bundle-fit check (`bundleFitStatus`) now evaluates for
+  real E-core candidates instead of always `NotEvaluated`.
 - **Deliberately not added:** distributor cost (`PartCost` stays `0.0` for
   every row — no check in this project consumes cost today) and
   `thermalResistance` (not published by Magnetics for these parts).
