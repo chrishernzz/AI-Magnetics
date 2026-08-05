@@ -195,21 +195,24 @@ def test_case8_winding_fit_fails_on_physical_model_despite_passing_raw_copper_fi
     physicalWindowFillFactor (insulation, packing factor, bobbin/margin/lead-exit
     derates - see WindingDesign.h) exceeds it - the direct demonstration of the
     §1.7 behavior change from Commit 8. 10uH / 3.9A peak / 3A rms / 100kHz
-    against the real database routes to core C055016A2 (real Magnetics MPP
+    against the real database routes to core 0055030AY (real Magnetics MPP
     toroid) with exactly this split. (Originally routed to 0055130AY under
     the old allowableCurrentDensityAperCm2=400.0 default; a real user report
     - Roger, senior magnetics engineer - flagged that figure as nearly 2.5x
     stricter than the "200 circular mils per amp" rule of thumb he expects
     (see DesignRules.h), so it was replaced with the ~987 A/cm^2 equivalent.
-    0055130AY no longer exhibits the raw-passes/physical-fails split at the
-    new, less strict density - it now fits the physical window outright -
-    so this test was re-probed against a core that still demonstrates the
-    split under the current default.)"""
+    0055130AY no longer exhibits the raw-passes/physical-fails split at that
+    density alone - it now fits the physical window outright. Re-probed
+    against C055016A2, which then stopped demonstrating the split once
+    wireAreaSafetyMarginPercent (30%, a separate engineering-margin addition
+    on top of the density change - see DesignRules.h) pushed its required
+    copper area up enough to fail the raw check too. Re-probed a second time
+    against 0055030AY, which demonstrates the split under both changes.)"""
     result = magnetics_cpp.run_inductor_design(
         _design_request(inductanceUH=10.0, peakCurrentA=3.9, rmsCurrentA=3.0, switchingFreqKHz=100.0)
     )
-    matches = [c for c in result.candidates + result.rejectedCandidates if c.core.partNumber == "C055016A2"]
-    assert matches, "expected core C055016A2 to be a candidate for this request"
+    matches = [c for c in result.candidates + result.rejectedCandidates if c.core.partNumber == "0055030AY"]
+    assert matches, "expected core 0055030AY to be a candidate for this request"
     candidate = matches[0]
 
     assert candidate.winding.fitsWindow  #raw copper fill alone would have passed

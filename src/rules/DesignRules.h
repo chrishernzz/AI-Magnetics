@@ -69,6 +69,21 @@ struct DesignRules {
     //against (src/data/AwgTable.h).
     int minimumSingleStrandAwg;
 
+    //Safety margin (%) applied to the raw current-density-derived required
+    //copper area before a wire gauge is picked - e.g. 30% means the chosen
+    //wire must clear 1.3x the theoretical minimum area, not just barely
+    //clear the raw minimum with near-zero headroom. A real user report
+    //(Roger, senior magnetics engineer) flagged that picking the exact
+    //thinnest wire that mathematically clears allowableCurrentDensityAperCm2
+    //(e.g. AWG20 clearing a 5A/986.76A/cm^2 requirement by only ~2%) is bad
+    //practice - real DCR varies with temperature/manufacturing tolerance,
+    //so a design should never sit right at the edge of its current-density
+    //limit. This 30% figure is a generic conservative engineering margin,
+    //NOT sourced from Roger or a specific published wire-ampacity standard -
+    //an honest judgment call, not a fact, and should be revisited if he
+    //gives a real number to use instead.
+    double wireAreaSafetyMarginPercent;
+
     //--- Buck-converter input validation ---
 
     //Upper input-sanity bound on requested ripple current, as a percent
