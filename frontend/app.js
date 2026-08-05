@@ -1123,7 +1123,7 @@ function renderDcBiasPhysicsTab(candidate) {
     if (!t.converged) {
         return `
             <div class="dcbias-callout dcbias-callout-bad">
-                <strong>No convergent design exists at this operating current.</strong>
+                <strong>No convergent design exists even at zero bias.</strong>
                 See the Why It Failed tab for the full explanation.
             </div>
         `;
@@ -1174,8 +1174,37 @@ function renderDcBiasPhysicsTab(candidate) {
     const pctText = pct > 0 && pct < 0.01 ? pct.toFixed(4) : pct.toFixed(1);
     const alText = Math.abs(t.effectiveAlNHPerTurnSquared) < 1 ? t.effectiveAlNHPerTurnSquared.toFixed(4) : t.effectiveAlNHPerTurnSquared.toFixed(1);
 
+    // Direct senior-engineer review (Roger, C055439A2 case): turns are fixed at the zero-bias solve and
+    // never recalculated for DC bias, so the two turns counts below are always identical now - what
+    // changes between "Initial Design" and "DC Bias Performance" is only the inductance, never the
+    // winding. Both sections are shown explicitly (matching Roger's requested output format) so it's
+    // never ambiguous which number a downstream check (winding-fit, copper loss, thermal - all Initial
+    // Design turns/geometry) vs. a saturation check (real B-field, DC Bias Performance inductance) uses.
+    const designWindingFit = candidate.validations.find((v) => v.checkName === "WindingFitValidation");
+    const designWindingFitText = !designWindingFit || designWindingFit.status === "NotEvaluated" ? "NOT EVAL" : designWindingFit.passed ? "PASS" : "FAIL";
+    const designWindingFitClass = !designWindingFit || designWindingFit.status === "NotEvaluated" ? "dcbias-tier-warn" : designWindingFit.passed ? "dcbias-tier-good" : "dcbias-tier-bad";
+
+    const initialDesignDcBiasCompare = `
+        <div class="dcbias-winding-compare">
+            <div class="dcbias-compare-col">
+                <span class="dcbias-compare-label">Initial Design (~0 A)</span>
+                <span class="dcbias-compare-value">${t.turns}t &rarr; ${t.calculatedInductanceUH.toFixed(1)} &micro;H</span>
+                <span class="dcbias-compare-sub">Winding Fit: <span class="${designWindingFitClass}">${designWindingFitText}</span></span>
+            </div>
+            <div class="dcbias-compare-arrow" aria-hidden="true">&rarr;</div>
+            <div class="dcbias-compare-col">
+                <span class="dcbias-compare-label">DC Bias Performance (your operating current)</span>
+                <span class="dcbias-compare-value">${t.turns}t (fixed) &rarr; ${t.loadedInductanceUH.toFixed(1)} &micro;H</span>
+                <span class="dcbias-compare-sub">Retention: ${pctText}%</span>
+            </div>
+        </div>
+        <p class="dcbias-note">Turns are solved once from the zero-bias catalog AL and held fixed - DC-bias roll-off changes the <strong>inductance</strong> this winding delivers at your real operating current, never the turns count. Winding-fit, copper loss, and thermal are all evaluated against the Initial Design turns/geometry on the left; saturation risk (peak flux) is evaluated against the real DC Bias Performance inductance on the right.</p>
+    `;
+
     return `
         <p class="dcbias-intro">${core.material} is a distributed-gap (powder) material - permeability rolls off under DC bias instead of staying flat like a machined air gap. This is that roll-off, computed from Magnetics Inc.'s own published DC-bias curve for this material.</p>
+
+        ${initialDesignDcBiasCompare}
 
         <div class="dcbias-gauge-row">
             <div class="dcbias-gauge-label">

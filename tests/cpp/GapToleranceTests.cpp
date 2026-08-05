@@ -306,12 +306,15 @@ void loadMpp60DCBiasCurve() {
     DCBiasCurveDatabase::setData({curve});
 }
 
-//13. Regression for the DC-bias roll-off gap this round fixes (Roger's report: "when a powder core is at
-//0 you get 3mH and 5 amps you see less than 3mH... the powders roll off inductance with current"). At a
-//real operating current, the solved turns/effective AL must reflect the roll-off, not the flat 0-bias
-//catalog AL - hand-verified against the exact same formula in Python: target=3000uH/5A on this exact core
-//converges to turns=111, effectiveAl~=242.6nH/turn^2 (76.6% of the 316.9nH catalog AL0), H~=65.2 Oe.
-void testPowderCoreAppliesRealDCBiasRolloffAtOperatingCurrent() {
+//13. Direct senior-engineer review (Roger, C055439A2 case): turns are solved ONCE from the zero-bias
+//catalog AL0 (round(sqrt(3000000/316.9118...)) = 97 on this exact core) and held FIXED - DC-bias roll-off
+//at the real operating current changes the INDUCTANCE this fixed winding delivers, never the turns count
+//itself. Previously this loop raised turns (e.g. to 111) so the CALCULATED inductance still hit target at
+//the real operating current; a real magnetics engineer reviewing the tool's output flagged that as
+//producing a different, larger winding than the one the tool should be recommending. Hand-verified against
+//the exact same formula in Python: at turns=97/5A, H~=57.0 Oe, %mu~=81.9%, loadedL~=2441.6uH (vs a
+//~2981.8uH zero-bias design value - close to the 3000uH target, off only by integer-turns rounding).
+void testPowderCoreReportsDCBiasRolloffWithoutChangingTurns() {
     loadMpp60DCBiasCurve();
     CoreCandidate core = realMpp60PowderToroid();
     DesignRules rules = DesignRules::phase1Default();
@@ -322,25 +325,31 @@ void testPowderCoreAppliesRealDCBiasRolloffAtOperatingCurrent() {
     assert(result.converged);
     assert(result.usesDCBiasRolloffCurve);
     assert(!result.dcBiasRolloffUsedRmsFloor);  //real peak was supplied
-    //naive flat-AL0 seed here is round(sqrt(3000000/316.9118...)) = 97 - the whole point of this fix is
-    //that the real answer at 5A needs MORE turns than that, never fewer.
-    assert(result.turns > 97);
-    assert(result.turns >= 100 && result.turns <= 125);
+    //Turns is fixed at the zero-bias seed - the whole point of this fix is that DC bias at the real
+    //operating current no longer raises it above that, regardless of how much roll-off there is.
+    assert(result.turns == 97);
+    assert(result.zeroBiasSeedTurns == 97);
     assert(result.effectiveAlNHPerTurnSquared < core.al);       //rolled off below the flat catalog AL0...
     assert(result.effectiveAlNHPerTurnSquared > core.al * 0.5); //...but not implausibly far below it
     assert(result.percentInitialPermeabilityAtOperatingCurrent > 60.0 && result.percentInitialPermeabilityAtOperatingCurrent < 90.0);
     assert(result.dcMagnetizingForceOe > 40.0 && result.dcMagnetizingForceOe < 90.0);
+    //The zero-bias design value (calculatedInductanceUH, what turns was solved to hit) must be close to
+    //target; the loaded value (what the fixed winding actually delivers at 5A) must be measurably lower -
+    //that gap IS the roll-off story this whole feature exists to report.
+    assert(result.withinTolerance);
+    assert(result.loadedInductanceUH < result.calculatedInductanceUH * 0.95);
 
-    std::printf("testPowderCoreAppliesRealDCBiasRolloffAtOperatingCurrent: turns=%d (naive seed was 97) "
-                "effectiveAl=%.2f nH/turn^2 (catalog AL0=%.2f) %%mu=%.2f%% H=%.2f Oe\n",
+    std::printf("testPowderCoreReportsDCBiasRolloffWithoutChangingTurns: turns=%d (fixed at zero-bias seed) "
+                "effectiveAl=%.2f nH/turn^2 (catalog AL0=%.2f) %%mu=%.2f%% H=%.2f Oe designL=%.1fuH loadedL=%.1fuH\n",
                 result.turns, result.effectiveAlNHPerTurnSquared, core.al,
-                result.percentInitialPermeabilityAtOperatingCurrent, result.dcMagnetizingForceOe);
+                result.percentInitialPermeabilityAtOperatingCurrent, result.dcMagnetizingForceOe,
+                result.calculatedInductanceUH, result.loadedInductanceUH);
 }
 
 //14. Same physical scenario, but only RMS current is known (no real peak supplied) - must still apply the
 //real roll-off using RMS as the same guaranteed-lower-bound floor already established for the flux-aware
 //seed elsewhere in this file, and flag dcBiasRolloffUsedRmsFloor so callers know it's a floor, not a
-//confirmed value.
+//confirmed value. Turns must still be fixed at the zero-bias seed either way.
 void testPowderCoreRmsFloorAppliesRealDCBiasRolloff() {
     loadMpp60DCBiasCurve();
     CoreCandidate core = realMpp60PowderToroid();
@@ -352,8 +361,9 @@ void testPowderCoreRmsFloorAppliesRealDCBiasRolloff() {
     assert(result.converged);
     assert(result.usesDCBiasRolloffCurve);
     assert(result.dcBiasRolloffUsedRmsFloor);
-    assert(result.turns > 97);
-    std::printf("testPowderCoreRmsFloorAppliesRealDCBiasRolloff: turns=%d dcBiasRolloffUsedRmsFloor=true\n", result.turns);
+    assert(result.turns == 97);
+    assert(result.loadedInductanceUH < result.calculatedInductanceUH);
+    std::printf("testPowderCoreRmsFloorAppliesRealDCBiasRolloff: turns=%d (fixed) dcBiasRolloffUsedRmsFloor=true\n", result.turns);
 }
 
 //15. With no current known at all (no peak, rmsCurrentA<=0.0), there is no H to evaluate the curve against
@@ -374,12 +384,14 @@ void testPowderCoreFallsBackToFlatAlWhenNoCurrentSupplied() {
                 result.turns, result.effectiveAlNHPerTurnSquared);
 }
 
-//16. Near/at this material's real saturation behavior (a large current on a core sized for a much smaller
-//one), more turns raises H, which rolls off permeability further, which demands still more turns - a real
-//physical dead end, not a solver bug. Hand-verified in Python: 3000uH/20A on this exact core diverges
-//(turns grows without bound) rather than settling - must be rejected with a real reason, never forced to
-//a number.
-void testPowderCoreRejectsWhenNoFeasibleTurnsUnderRolloff() {
+//16. Direct senior-engineer review (Roger, C055439A2 case): near/at this material's real saturation
+//behavior (a large current on a core sized for a much smaller one), turns must NOT be recalculated or
+//rejected for "no feasible turns under rolloff" anymore - that entire failure mode belonged to the old
+//turns-compensation loop, which this fix removes. Turns stays fixed at the zero-bias seed (97) regardless
+//of how severe the roll-off at the real operating current is; the design still converges, reporting a
+//severely degraded loadedInductanceUH/percentInitialPermeabilityAtOperatingCurrent instead. Hand-verified
+//against the same formula in Python: at turns=97/20A, H~=228.2 Oe, %mu~=13.4%.
+void testPowderCoreReportsSevereRolloffWithoutRejectingOrRecalculatingTurns() {
     loadMpp60DCBiasCurve();
     CoreCandidate core = realMpp60PowderToroid();
     DesignRules rules = DesignRules::phase1Default();
@@ -387,11 +399,15 @@ void testPowderCoreRejectsWhenNoFeasibleTurnsUnderRolloff() {
 
     TurnsAndGapResult result = designTurnsAndGap(core, MaterialCandidate{}, 3000.0, 10.0, peakCurrentA, 0.0, rules);
 
-    assert(!result.converged);
-    assert(!result.rejectionReasons.empty());
-    assert(result.rejectionReasons.front().find("no turns count converged") != std::string::npos);
-    std::printf("testPowderCoreRejectsWhenNoFeasibleTurnsUnderRolloff: converged=false, reason=\"%s\"\n",
-                result.rejectionReasons.front().c_str());
+    assert(result.converged);
+    assert(result.turns == 97);  //fixed at the zero-bias solve, unaffected by the much higher current
+    assert(result.usesDCBiasRolloffCurve);
+    assert(result.percentInitialPermeabilityAtOperatingCurrent < 25.0);            //severe roll-off at 20A
+    assert(result.loadedInductanceUH < result.calculatedInductanceUH * 0.3);       //real inductance at 20A is a small fraction of the 0-bias design value
+    std::printf("testPowderCoreReportsSevereRolloffWithoutRejectingOrRecalculatingTurns: turns=%d (fixed) "
+                "%%mu=%.2f%% loadedL=%.1fuH (0-bias design=%.1fuH)\n",
+                result.turns, result.percentInitialPermeabilityAtOperatingCurrent,
+                result.loadedInductanceUH, result.calculatedInductanceUH);
 }
 
 //3C90 material with hasBmaxData=true, bmaxT=0.47T - this was 3C90's real published Bsat, and matched a row
@@ -507,6 +523,10 @@ void testRmsFloorCatchesCertainSaturationFailure() {
     turnsAndGap.converged = true;
     turnsAndGap.turns = 26;
     turnsAndGap.calculatedInductanceUH = 2978.99;
+    //PeakFluxValidation/SaturationValidation read loadedInductanceUH (the real operating-current value),
+    //not calculatedInductanceUH (the zero-bias design value) - see DesignValidation.cpp. This synthetic
+    //ferrite scenario has no distributed-gap/DC-bias distinction, so both are the same real number.
+    turnsAndGap.loadedInductanceUH = 2978.99;
 
     ValidationResult peakFlux = PeakFluxValidation(core, material, turnsAndGap, std::nullopt, rmsCurrentA, rules);
     ValidationResult saturation = SaturationValidation(core, material, turnsAndGap, std::nullopt, rmsCurrentA, rules);
@@ -536,6 +556,7 @@ void testRmsFloorNeverProducesAFalsePass() {
     turnsAndGap.converged = true;
     turnsAndGap.turns = 200;
     turnsAndGap.calculatedInductanceUH = 3000.0;
+    turnsAndGap.loadedInductanceUH = 3000.0;  //see loadedInductanceUH note above
 
     ValidationResult peakFlux = PeakFluxValidation(core, material, turnsAndGap, std::nullopt, 5.0, rules);
     ValidationResult saturation = SaturationValidation(core, material, turnsAndGap, std::nullopt, 5.0, rules);
@@ -562,10 +583,10 @@ void runGapToleranceTests() {
     testUnknownMaterialTypeIsNeverAssumedPowder();
     testGenuinePowderToroidStillReportsDistributedGap();
     testPowderTwoPieceCoreAlsoReportsDistributedGap();
-    testPowderCoreAppliesRealDCBiasRolloffAtOperatingCurrent();
+    testPowderCoreReportsDCBiasRolloffWithoutChangingTurns();
     testPowderCoreRmsFloorAppliesRealDCBiasRolloff();
     testPowderCoreFallsBackToFlatAlWhenNoCurrentSupplied();
-    testPowderCoreRejectsWhenNoFeasibleTurnsUnderRolloff();
+    testPowderCoreReportsSevereRolloffWithoutRejectingOrRecalculatingTurns();
     testFluxAwareSeedFindsFeasibleDesignOnSyntheticFerriteCore();
     testRmsFloorRaisesTurnsSeedWhenPeakAbsent();
     testRmsFloorCatchesCertainSaturationFailure();

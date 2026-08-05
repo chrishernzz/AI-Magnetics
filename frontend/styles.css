@@ -1167,6 +1167,55 @@ button:hover {
     background: var(--brand-red);
 }
 
+/* Zero-bias reference vs physical winding comparison - a real user/customer
+   report (Roger's C055439A2 review): the compensated turns count can look
+   like an unexplained jump with no visible reference point unless the
+   zero-bias number that started it is shown right alongside it. */
+.dcbias-winding-compare {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 10px;
+    padding: 12px 14px;
+    background: var(--paper-sunk);
+    border-radius: 10px;
+    flex-wrap: wrap;
+}
+
+.dcbias-compare-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 180px;
+}
+
+.dcbias-compare-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--ink-soft);
+}
+
+.dcbias-compare-value {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.dcbias-compare-arrow {
+    color: var(--ink-soft);
+    font-size: 1.1rem;
+    flex: 0 0 auto;
+}
+
+.dcbias-compare-sub {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+}
+
 .dcbias-numbers {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

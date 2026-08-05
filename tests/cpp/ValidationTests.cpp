@@ -62,6 +62,10 @@ TurnsAndGapResult convergedTurnsAndGap(int turns, double calculatedInductanceUH,
     result.turns = turns;
     result.calculatedInductanceUH = calculatedInductanceUH;
     result.inductanceErrorPercent = errorPercent;
+    //PeakFluxValidation/SaturationValidation read loadedInductanceUH (the real operating-current value),
+    //not calculatedInductanceUH (the zero-bias design value) - see DesignValidation.cpp. None of this
+    //file's fixtures model DC-bias roll-off, so both are the same real number.
+    result.loadedInductanceUH = calculatedInductanceUH;
     return result;
 }
 

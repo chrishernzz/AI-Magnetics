@@ -13,7 +13,12 @@ double calculatePeakFluxDensityT(const CoreCandidate& core, const TurnsAndGapRes
     if (turnsAndGap.turns <= 0) {
         return 0.0;
     }
-    double inductanceH = units::uHToH(turnsAndGap.calculatedInductanceUH);
+    //Uses loadedInductanceUH (the real inductance this fixed winding delivers AT peakCurrentA, after
+    //DC-bias roll-off), never calculatedInductanceUH (the zero-bias design value turns was solved to hit -
+    //see TurnsAndGapDesign.h). Saturation risk has to be judged against what the core actually does at
+    //real current, not what it does at 0A; for machined-gap/ferrite cores and any distributed-gap core with
+    //no rolloff data, loadedInductanceUH is set equal to calculatedInductanceUH, so this is a no-op there.
+    double inductanceH = units::uHToH(turnsAndGap.loadedInductanceUH);
     double aeM2 = units::mm2ToM2(core.aeMm2);
     //using the formual from above
     return (inductanceH * peakCurrentA) / (static_cast<double>(turnsAndGap.turns) * aeM2);

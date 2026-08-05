@@ -19,20 +19,6 @@ constexpr int kMaxIterations = 15;
 //a rejection. Checking the ratio against this bound before the sqrt/cast avoids ever exercising that UB.
 constexpr double kMaxTurnsSquared = 1e12;  //(1,000,000 turns)^2
 
-//No real inductor design in this catalog's scope (MPP/E-core powder, single-layer-to-modest-multilayer
-//windings) uses anywhere near this many turns - every real PASSing design in this dataset falls under a
-//few hundred. This is a physical-plausibility bound, not a numerical-safety one (kMaxTurnsSquared above is
-//that): the DC-bias rolloff loop below recomputes turns each pass as round(sqrt(target/AL_eff(H(turns)))),
-//which trivially re-solves the target equation for that iteration's AL_eff every time - so a genuinely
-//divergent core (more turns -> more H -> lower AL_eff -> still more turns needed, forever) reports a
-//near-zero inductance error at EVERY step by construction, right up until turns finally hits
-//kMaxTurnsSquared's numeric ceiling around 1,000,000. Without this earlier, physically-grounded cutoff, a
-//rejected design's "last attempted point" could show e.g. turns=995451 with 0.00% error - which reads as
-//"almost passing" but is actually a coincidence of the formula, not a near-miss real design. Cutting off
-//here instead means non-convergence is reported while turns is still an honestly-absurd number, not a
-//deceptively plausible-looking one.
-constexpr int kMaxPhysicallyPlausibleTurns = 5000;
-
 //precondition: Seeds the initial turns estimate by reusing TurnsCalculation's existing N = round(sqrt(L/AL)) formula against the core's ungapped catalog AL
 //postcondition: returns the initial turns estimate for the given core and target inductance, rounded to the nearest integer and falls back to a minimum of 1 turn if none
 int seedTurns(const CoreCandidate& core, double targetInductanceUH) {
@@ -152,10 +138,60 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
     //known at all, this falls back to the original AL0-only formula (result.usesDCBiasRolloffCurve stays
     //false either way, so callers can tell the difference from a real 0%-bias result).
     if (isDistributedGapCore) {
+        //Direct senior-engineer review (Roger, C055439A2): turns must be solved ONCE from the catalog's
+        //zero-bias AL0 and then held fixed - DC-bias roll-off degrades the inductance a fixed winding
+        //delivers at real operating current, it does not change how many turns are physically on the
+        //core. The previous behavior here iterated turns and the rolled-off AL together as a fixed point
+        //(turns -> H -> %mu(H) -> AL_eff -> turns required against AL_eff -> repeat) so the CALCULATED
+        //inductance still hit target AT the real operating current - physically real, but for a
+        //winding-fit/copper-loss/thermal-evaluation purpose Roger does not want: a real magnetics engineer
+        //reviewing this tool's output expects the turns count to be the zero-bias design value (e.g. 149
+        //for C055439A2), with DC-bias roll-off reported as a separate, informational inductance-at-current
+        //number (e.g. 1.5mH at 5A) - not folded back into a compensated, larger winding (e.g. 289 turns)
+        //that no longer represents what the tool says it's recommending building.
         int turns = std::max(1, seedTurns(core, targetInductanceUH));
 
-        DCBiasCurveLookup rolloffCurve = findDCBiasCurve(core.material);
+        if (core.al <= 0.0 || targetNh / core.al > kMaxTurnsSquared) {
+            //Same physical-safety guard the ferrite path uses below (see kMaxTurnsSquared's own comment) -
+            //an AL0 small/invalid enough that no sane turns count could reach the target even at zero
+            //bias. This is now the only way this branch can fail to converge - turns is solved directly
+            //from AL0 with no iteration, so there is no "runaway" case left to guard against.
+            result.converged = false;
+            result.rejectionReasons.push_back("required turns count is unreasonably large for core '" + core.partNumber +
+                "' at this target inductance - zero-bias catalog AL0 is too small to satisfy the target with a sane winding");
+            return result;
+        }
 
+        double zeroBiasNh = static_cast<double>(turns) * turns * core.al;
+        double errorPercent = 100.0 * (zeroBiasNh - targetNh) / targetNh;
+
+        result.turns = turns;
+        //Identical to turns now (turns is never raised past the zero-bias solve) - kept as its own field
+        //for API/frontend compatibility and because it's still a meaningful label ("zero-bias reference")
+        //even though it no longer differs from the physical winding turns.
+        result.zeroBiasSeedTurns = turns;
+        result.gapMm = 0.0;
+        //Set to the rolled-off (loaded) AL below once the DC-bias block runs - core.al (zero-bias) is only
+        //the placeholder default here for the no-rolloff-data case, matching this field's existing name/
+        //meaning ("effective AL at operating current"), not the zero-bias design AL.
+        result.effectiveAlNHPerTurnSquared = core.al;
+        result.calculatedInductanceUH = units::nHToUh(zeroBiasNh);
+        result.inductanceErrorPercent = errorPercent;
+        result.withinTolerance = std::abs(errorPercent) <= tolerancePercent;
+        result.converged = true;
+        result.gapMinMm = 0.0;
+        result.gapMaxMm = 0.0;
+        result.inductanceAtMinGapUH = result.calculatedInductanceUH;
+        result.inductanceAtMaxGapUH = result.calculatedInductanceUH;
+        result.inductanceWithinToleranceAcrossGapRange = result.withinTolerance;
+
+        //DC-bias roll-off, evaluated ONCE at this now-fixed turns count - informational
+        //(loadedInductanceUH/dcMagnetizingForceOe/percentInitialPermeabilityAtOperatingCurrent), never fed
+        //back into turns. loadedInductanceUH is the real physical inductance at the request's real
+        //operating current - PeakFluxValidation/SaturationValidation use THIS, not calculatedInductanceUH
+        //(the zero-bias design value), since saturation risk has to be judged against what the core
+        //actually does at current, not what it does at 0A.
+        DCBiasCurveLookup rolloffCurve = findDCBiasCurve(core.material);
         std::optional<double> biasCurrentA;
         bool biasCurrentIsRmsFloor = false;
         if (peakCurrentA.has_value() && *peakCurrentA > 0.0) {
@@ -165,147 +201,32 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
             biasCurrentIsRmsFloor = true;
         }
 
-        double alEffNh = core.al;
-        double appliedHOe = 0.0;
-        double appliedPercentMu = 100.0;
-        bool rolloffApplied = false;
-
-        if (rolloffCurve.found && biasCurrentA.has_value()) {
-            int previousTurns = -1;
-            //Tracks which turns count alEffNh was actually computed FOR - turns itself advances to the
-            //next candidate at the bottom of every non-breaking iteration (see below), so once the loop
-            //exhausts kMaxIterations without ever breaking, turns is one step ahead of the alEffNh it's
-            //paired with. Using the mismatched (advanced-turns, stale-alEffNh) pair to report a
-            //"last-attempted point" trivially looks close to target - requiredTurns was solved backwards
-            //FROM that same stale alEffNh, so newTurns^2 * staleAlEffNh always lands near target by
-            //construction, the same deceptive-near-zero-error problem the kMaxPhysicallyPlausibleTurns
-            //cutoff above already guards against, just reached via silent loop exhaustion instead of an
-            //explicit break. lastEvaluatedTurns is always the turns count alEffNh genuinely reflects.
-            int lastEvaluatedTurns = turns;
-            bool stabilized = false;
-            for (int i = 0; i < kMaxIterations; ++i) {
-                double hOe = dcMagnetizingForceOe(turns, *biasCurrentA, core.leMm);
-                double percentMu = percentInitialPermeability(hOe, rolloffCurve.curve);
-                double trialAlEffNh = core.al * (percentMu / 100.0);
-                if (trialAlEffNh <= 0.0 || targetNh / trialAlEffNh > kMaxTurnsSquared) {
-                    //effective AL has rolled off (or is small enough) that no sane turns count could reach
-                    //the target - same non-convergence outcome as the <=0.0 case, not an overflowed cast.
-                    break;
-                }
-                int requiredTurns = std::max(1, static_cast<int>(std::round(std::sqrt(targetNh / trialAlEffNh))));
-
-                //Even before requiredTurns has settled to the exact same integer as `turns` (the strict
-                //check below), the CURRENT (turns, trialAlEffNh) pairing may already be within the
-                //caller's own requested tolerance - for some materials' rolloff curves, landing on an
-                //exact integer fixed point can take meaningfully more than kMaxIterations passes even
-                //though the design is already good enough, which was rejecting real near-target designs
-                //as "non-convergent" (0 checks ever evaluated) despite them being off by a fraction of a
-                //percent. This checks turns as it stands right now against trialAlEffNh (this iteration's
-                //real rolled-off AL at that turns count) - not requiredTurns - so it's an honest "what
-                //does turns actually achieve", the same principle as the plausibility cutoff above.
-                double currentAchievedNh = static_cast<double>(turns) * turns * trialAlEffNh;
-                double currentErrorPercent = 100.0 * (currentAchievedNh - targetNh) / targetNh;
-                if (std::abs(currentErrorPercent) <= tolerancePercent) {
-                    appliedHOe = hOe;
-                    appliedPercentMu = percentMu;
-                    alEffNh = trialAlEffNh;
-                    lastEvaluatedTurns = turns;
-                    stabilized = true;
-                    break;
-                }
-
-                if (requiredTurns > kMaxPhysicallyPlausibleTurns) {
-                    //Deliberately do NOT adopt requiredTurns here, even though it's the value that would
-                    //make the error% look smallest - requiredTurns is only large because it's solved
-                    //backwards from the target against this iteration's rolled-off AL_eff, so it would
-                    //always show a deceptive near-zero error by construction, no matter how absurd it is.
-                    //hOe/trialAlEffNh above WERE computed from the current (already turns-bounded) `turns`
-                    //value, i.e. what this core's permeability actually rolls off to at that real, plausible
-                    //turns count - so reporting THAT pairing shows the true achieved inductance and the real
-                    //shortfall, not a coincidentally-small error.
-                    appliedHOe = hOe;
-                    appliedPercentMu = percentMu;
-                    alEffNh = trialAlEffNh;
-                    lastEvaluatedTurns = turns;
-                    break;
-                }
-
-                appliedHOe = hOe;
-                appliedPercentMu = percentMu;
-                alEffNh = trialAlEffNh;
-                lastEvaluatedTurns = turns;
-
-                if (requiredTurns == turns) {
-                    stabilized = true;
-                    break;
-                }
-                if (requiredTurns == previousTurns) {
-                    //rounding 2-cycle between two adjacent integer turns counts near the true (fractional)
-                    //fixed point - resolve conservatively (more turns -> lower flux, never the reverse).
-                    turns = std::max(turns, requiredTurns);
-                    stabilized = true;
-                    break;
-                }
-                previousTurns = turns;
-                turns = requiredTurns;
-            }
-
-            if (!stabilized) {
-                //Non-convergence is a clean reject, not a partial result. This used to report the LAST
-                //attempted point (turns, AL_eff, H/%mu, the inductance that combination would produce)
-                //instead of leaving these fields at their struct defaults - a real user report: that
-                //read as a near-real design to an engineer scanning the table/side panel (e.g. "340
-                //turns, 0.18uH"), not as the invalid intermediate point it actually was, even with a
-                //REJECT badge next to it. Every NUMERIC turns/gap-derived field (turns,
-                //calculatedInductanceUH, inductanceErrorPercent, effectiveAlNHPerTurnSquared,
-                //dcMagnetizingForceOe, percentInitialPermeabilityAtOperatingCurrent) now stays at its
-                //default (0) on this path - converged=false is the one fact a caller needs, and the
-                //single source of truth for whether any of this candidate's other turns/gap fields mean
-                //anything at all. usesDCBiasRolloffCurve is the one exception - it's a material-level
-                //fact (a real published curve exists and was consulted), not a last-attempted numeric
-                //result, so it stays true here rather than falling back to its default false, which
-                //would wrongly claim this material has no curve at all.
-                result.converged = false;
-                result.withinTolerance = false;
-                result.usesDCBiasRolloffCurve = true;
-                result.rejectionReasons.push_back("no turns count converged for this distributed-gap core at "
-                    "the real operating current (" + std::to_string(*biasCurrentA) + " A" +
-                    (biasCurrentIsRmsFloor ? ", RMS used as a guaranteed lower bound on unsupplied peak current" : "") +
-                    ") within " + std::to_string(kMaxIterations) + " iterations - DC-bias permeability roll-off "
-                    "means more turns raises the magnetizing force further, which rolls off permeability "
-                    "further, in a runaway that never reaches the target; this core's real saturation "
-                    "behavior does not support the target inductance at this current");
-                return result;
-            }
-            rolloffApplied = true;
+        bool rolloffApplied = rolloffCurve.found && biasCurrentA.has_value();
+        result.usesDCBiasRolloffCurve = rolloffApplied;
+        if (rolloffApplied) {
+            double hOe = dcMagnetizingForceOe(turns, *biasCurrentA, core.leMm);
+            double percentMu = percentInitialPermeability(hOe, rolloffCurve.curve);
+            double loadedAlNh = core.al * (percentMu / 100.0);
+            double loadedNh = static_cast<double>(turns) * turns * loadedAlNh;
+            result.dcMagnetizingForceOe = hOe;
+            result.percentInitialPermeabilityAtOperatingCurrent = percentMu;
+            result.dcBiasRolloffUsedRmsFloor = biasCurrentIsRmsFloor;
+            result.effectiveAlNHPerTurnSquared = loadedAlNh;
+            result.loadedInductanceUH = units::nHToUh(loadedNh);
+        } else {
+            result.dcMagnetizingForceOe = 0.0;
+            result.percentInitialPermeabilityAtOperatingCurrent = 100.0;
+            result.dcBiasRolloffUsedRmsFloor = false;
+            //No curve/no current available - the zero-bias value is the best known estimate of the
+            //operating-current inductance (same convention PeakFluxValidation/SaturationValidation already
+            //rely on for non-distributed-gap cores, which have no separate 0-bias/loaded distinction).
+            result.loadedInductanceUH = result.calculatedInductanceUH;
         }
 
-        double actualNh = static_cast<double>(turns) * turns * alEffNh;
-        double errorPercent = 100.0 * (actualNh - targetNh) / targetNh;
-
-        result.turns = turns;
-        result.gapMm = 0.0;
-        result.effectiveAlNHPerTurnSquared = alEffNh;
-        result.calculatedInductanceUH = units::nHToUh(actualNh);
-        result.inductanceErrorPercent = errorPercent;
-        result.withinTolerance = std::abs(errorPercent) <= tolerancePercent;
-        result.converged = true;
-        result.gapMinMm = 0.0;
-        result.gapMaxMm = 0.0;
-        result.inductanceAtMinGapUH = result.calculatedInductanceUH;
-        result.inductanceAtMaxGapUH = result.calculatedInductanceUH;
-        result.inductanceWithinToleranceAcrossGapRange = result.withinTolerance;
-        result.usesDCBiasRolloffCurve = rolloffApplied;
-        result.dcMagnetizingForceOe = rolloffApplied ? appliedHOe : 0.0;
-        result.percentInitialPermeabilityAtOperatingCurrent = rolloffApplied ? appliedPercentMu : 100.0;
-        result.dcBiasRolloffUsedRmsFloor = rolloffApplied && biasCurrentIsRmsFloor;
-
         if (!result.withinTolerance) {
-            result.rejectionReasons.push_back("calculated inductance " + std::to_string(result.calculatedInductanceUH) +
-                " uH (turns=" + std::to_string(turns) + " against " + (rolloffApplied ? "DC-bias-rolled-off AL " : "catalog AL ") +
-                std::to_string(alEffNh) + " nH/turn^2" + (rolloffApplied ? " (" + std::to_string(appliedPercentMu) +
-                "% of initial permeability at " + std::to_string(appliedHOe) + " Oe)" : "") +
-                ", distributed-gap core, no machined gap available to fine-tune) is outside the " +
+            result.rejectionReasons.push_back("zero-bias calculated inductance " + std::to_string(result.calculatedInductanceUH) +
+                " uH (turns=" + std::to_string(turns) + " against catalog AL0 " + std::to_string(core.al) +
+                " nH/turn^2, distributed-gap core, no machined gap available to fine-tune) is outside the " +
                 std::to_string(tolerancePercent) + "% tolerance of the target " + std::to_string(targetInductanceUH) +
                 " uH (error " + std::to_string(errorPercent) + "%)");
         }
@@ -430,6 +351,10 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
             result.inductanceErrorPercent = errorPercent;
             result.withinTolerance = std::abs(errorPercent) <= tolerancePercent;
             result.converged = true;
+            //Machined-gap (ferrite) cores have no separate 0-bias/loaded-at-current distinction - the gap
+            //loop already solves directly for the real requested operating point, so the "loaded" value
+            //PeakFluxValidation/SaturationValidation read is the same as the design value.
+            result.loadedInductanceUH = result.calculatedInductanceUH;
 
             if (!result.withinTolerance) {
                 result.rejectionReasons.push_back("calculated inductance " + std::to_string(result.calculatedInductanceUH) + " uH is outside the " + std::to_string(tolerancePercent) + "% tolerance of the target " +
