@@ -920,6 +920,7 @@ function turnsRaisedSubLine(turnsAndGap) {
     return `<div class="detail-kpi-sub" title="${turnsAndGap.turnsRaisedForSaturationMarginReason}">raised for saturation margin ${basis}</div>`;
 }
 
+
 function shapeCellLabel(core) {
     if (!core.coreShape) return '<span class="cell-muted">—</span>';
     const label = core.coreShape === "TwoPieceSet" ? "Two-Piece Set" : core.coreShape;
@@ -966,76 +967,89 @@ function renderCandidateDetail(candidate) {
     const passCount = candidate.validations.length - failCount - notEvalCount;
     const usesDefaultAssumption = candidate.validations.some((v) => v.usesDefaultAssumption);
 
+    // A non-converged candidate has no real turns, so nothing computed from
+    // them downstream (winding/losses/thermal) is real either - the backend
+    // still computes those for completeness elsewhere in the pipeline, but
+    // against turns=0, which produces its own misleading-looking numbers
+    // (e.g. a suspiciously tiny "0.05W" loss, "0.0%" fill that reads as
+    // "no problem" rather than "no real winding"). Every KPI derived from
+    // turns shows "--" here, same as the candidate table.
+    const notConverged = !candidate.turnsAndGap.converged;
+    const kpiDash = '<span class="cell-invalid">--</span>';
+
     // KPIs first, always - the numbers an engineer actually judges a
     // candidate by, in one scannable strip, before any narrative text.
     const kpis = `
         <div class="detail-kpis">
             <div class="detail-kpi">
                 <span class="detail-kpi-label">${candidate.lossSummary.label.startsWith("Known") ? "Known Partial Loss" : "Loss"}</span>
-                <span class="detail-kpi-value">${formatTotalLossCell(candidate)}</span>
+                <span class="detail-kpi-value">${notConverged ? kpiDash : formatTotalLossCell(candidate)}</span>
             </div>
             <div class="detail-kpi">
                 <span class="detail-kpi-label">Core Loss</span>
-                <span class="detail-kpi-value">${formatLoss(candidate.losses.coreLossStatus, candidate.losses.coreLossW)}</span>
+                <span class="detail-kpi-value">${notConverged ? kpiDash : formatLoss(candidate.losses.coreLossStatus, candidate.losses.coreLossW)}</span>
             </div>
             <div class="detail-kpi">
                 <span class="detail-kpi-label" title="Physical window fill - includes insulation build-up, packing density, and margin/lead-exit allowance. This is the number WindingFitValidation gates on.">Physical Fill %</span>
-                <span class="detail-kpi-value">${(candidate.winding.physicalWindowFillFactor * 100).toFixed(1)}%</span>
-                <span class="detail-kpi-sub" title="Raw copper cross-section over window area, before any insulation/packing/margin derating - informational only, not the gate.">raw copper fill ${(candidate.winding.fillFactor * 100).toFixed(1)}%</span>
+                <span class="detail-kpi-value">${notConverged ? kpiDash : (candidate.winding.physicalWindowFillFactor * 100).toFixed(1) + "%"}</span>
+                ${notConverged ? "" : `<span class="detail-kpi-sub" title="Raw copper cross-section over window area, before any insulation/packing/margin derating - informational only, not the gate.">raw copper fill ${(candidate.winding.fillFactor * 100).toFixed(1)}%</span>`}
             </div>
             <div class="detail-kpi">
-                <span class="detail-kpi-label">Current Density</span>
+                <span class="detail-kpi-label" title="Wire gauge is selected from RMS current alone (Irms / allowable A/mm²), never from turns - so this is a real number regardless of whether the turns/gap solver converged.">Current Density</span>
                 <span class="detail-kpi-value">${candidate.winding.currentDensityAperMm2.toFixed(2)} A/mm²</span>
             </div>
             <div class="detail-kpi">
                 <span class="detail-kpi-label">Turns / Gap</span>
-                <span class="detail-kpi-value">${candidate.turnsAndGap.turns}t, ${candidate.turnsAndGap.gapMethod === "Distributed" ? "distributed gap" : candidate.turnsAndGap.gapMm.toFixed(2) + "mm"}</span>
+                <span class="detail-kpi-value">${
+                    notConverged
+                        ? kpiDash
+                        : `${candidate.turnsAndGap.turns}t, ${candidate.turnsAndGap.gapMethod === "Distributed" ? "distributed gap" : candidate.turnsAndGap.gapMm.toFixed(2) + "mm"}`
+                }</span>
                 ${turnsRaisedSubLine(candidate.turnsAndGap)}
             </div>
         </div>
         <p class="detail-winding-line">Winding: <strong>${candidate.winding.wireDescription}</strong> &nbsp; ${acLossRiskChip(candidate.acLossRisk)}</p>
     `;
 
-    // One-line status for a rejection only - the same "N passed/failed/not
-    // evaluated" facts are already in the Validation Checks list right below,
-    // repeating them here was the same sentence twice. Tier comes
-    // from the real backend classification - only "Recommended" ever
-    // renders a chip here (see recommendationTierChip), so this stays empty
-    // whenever tier isn't Pass (currently always, since Pass is
-    // structurally unreachable - see RecommendationStatus.h).
-    const tierChip = recommendationTierChip(candidate.recommendation.tier);
-    const statusLine = candidate.rejectionReasons.length
-        ? `<div class="detail-status detail-status-fail">
-            <div class="detail-status-chips"><span class="chip chip-fail">REJECTED</span></div>
-        </div>`
-        : tierChip
-        ? `<div class="detail-status detail-status-pass"><div class="detail-status-chips">${tierChip}</div></div>`
+    // No standalone REJECTED/tier status line here anymore - the panel's own
+    // subtitle (e.g. "MPP 19 · Rejected", set in openCandidateSidePanel) and
+    // the originating table row's badge already say pass/reject once each;
+    // a third plain-text "REJECTED" chip between the KPIs and the tabs said
+    // the same single fact a third time with no new information. Tier
+    // (only "Recommended" ever renders anything - see recommendationTierChip)
+    // still shows on the table row itself, just not duplicated here.
+
+    // No rankingLine/recommendation.explanation paragraph here either - that
+    // exact sentence already appears once, in the Recommended Candidate
+    // card's "Why this one" section (see renderRecommendedCandidate()).
+
+    // Overview (KPIs) is always visible, never collapsed - it's the numbers
+    // a candidate is actually judged by. Everything else lives behind two
+    // tabs: "Overview" (Validation Checks / Sources / Missing-data warnings -
+    // what used to be the whole panel) and "DC-Bias Physics" (the roll-off
+    // story - H, % permeability retained, catalog AL vs the real AL used at
+    // this operating current - previously computed by the backend on every
+    // candidate but never surfaced anywhere in the UI; an engineer had no way
+    // to see *why* a high-µ powder core failed short of asking). Reuses the
+    // same .field-tabs/.field-tab-panel component the requirements form
+    // already uses, wired the same way (see openCandidateSidePanel below).
+    // "Why It Failed" only exists for a rejected candidate - a passing one has
+    // no rejectionReasons to show, so the tab itself is omitted rather than
+    // rendered empty (same principle as the Rejected candidates tab staying
+    // hidden entirely when there's nothing in it - see wireCandidatesTabs()).
+    const whyItFailedTabBtn = candidate.rejectionReasons.length
+        ? '<button type="button" class="field-tab-btn" data-tab-target="detailWhyFailedPanel" aria-selected="false">Why It Failed</button>'
+        : "";
+    const whyItFailedPanel = candidate.rejectionReasons.length
+        ? `<div class="field-tab-panel" id="detailWhyFailedPanel" hidden>${renderWhyItFailedTab(candidate)}</div>`
         : "";
 
-    // No rankingLine/recommendation.explanation paragraph here - that exact
-    // sentence already appears once, in the Recommended Candidate card's
-    // "Why this one" section (see renderRecommendedCandidate()), and the
-    // statusLine directly above already states the same passed/not-evaluated/
-    // preliminary facts in the panel's own words. Repeating the backend's
-    // sentence a second time here said the same thing three times over for
-    // the top candidate (card, then twice in its own panel).
-
-    // Overview (KPIs + status) is always visible, never collapsed - it's the
-    // numbers a candidate is actually judged by. Everything else lives behind
-    // two tabs: "Overview" (Validation Checks / Sources / Missing-data
-    // warnings - what used to be the whole panel) and "DC-Bias Physics" (the
-    // roll-off story - H, % permeability retained, catalog AL vs the real AL
-    // used at this operating current - previously computed by the backend on
-    // every candidate but never surfaced anywhere in the UI; an engineer had
-    // no way to see *why* a high-µ powder core failed short of asking). Reuses
-    // the same .field-tabs/.field-tab-panel component the requirements form
-    // already uses, wired the same way (see openCandidateSidePanel below).
     return `
         ${kpis}
-        ${statusLine}
         <div class="field-tabs detail-tabs" role="tablist" aria-label="Candidate detail views">
             <button type="button" class="field-tab-btn active" data-tab-target="detailOverviewPanel" aria-selected="true">Overview</button>
             <button type="button" class="field-tab-btn" data-tab-target="detailDcBiasPanel" aria-selected="false">DC-Bias Physics</button>
+            ${whyItFailedTabBtn}
         </div>
         <div class="field-tab-panel" id="detailOverviewPanel">
             <details class="detail-group" open>
@@ -1053,6 +1067,36 @@ function renderCandidateDetail(candidate) {
         <div class="field-tab-panel" id="detailDcBiasPanel" hidden>
             ${renderDcBiasPhysicsTab(candidate)}
         </div>
+        ${whyItFailedPanel}
+    `;
+}
+
+// The candidate's own top-level rejectionReasons (checkName + explanation) -
+// the same array the table row used to print inline as a long paragraph next
+// to the REJECT badge (a real user report: that made rows unreadable,
+// especially the TurnsAndGapDesign non-convergence explanation, which is the
+// longest one in the codebase). Moved here instead of deleted - it's real,
+// useful information, just one click away rather than always-on clutter.
+function renderWhyItFailedTab(candidate) {
+    if (!candidate.rejectionReasons.length) {
+        return "";
+    }
+    return `
+        <ul class="validation-list">
+            ${candidate.rejectionReasons
+                .map(
+                    (r) => `
+                <li class="validation-row validation-row-fail">
+                    <div class="validation-row-main">
+                        <span class="chip chip-fail">REJECTED</span>
+                        <span class="validation-item-name">${r.checkName}</span>
+                    </div>
+                    <div class="validation-row-explain">${r.explanation}</div>
+                </li>
+            `
+                )
+                .join("")}
+        </ul>
     `;
 }
 
@@ -1068,6 +1112,22 @@ function renderCandidateDetail(candidate) {
 function renderDcBiasPhysicsTab(candidate) {
     const t = candidate.turnsAndGap;
     const core = candidate.core;
+
+    // Non-converged: there is no real turns count, so there's no real H or
+    // %-permeability-retained to plot either - the backend no longer reports
+    // a last-attempted value for either (see TurnsAndGapDesign.cpp). The full
+    // explanation lives in the Why It Failed tab (not repeated here in full -
+    // a real user report flagged that same long paragraph appearing inline in
+    // the candidate table as clutter; showing it twice in this panel would be
+    // the same problem one level in).
+    if (!t.converged) {
+        return `
+            <div class="dcbias-callout dcbias-callout-bad">
+                <strong>No convergent design exists at this operating current.</strong>
+                See the Why It Failed tab for the full explanation.
+            </div>
+        `;
+    }
 
     if (!t.usesDCBiasRolloffCurve) {
         const reason =
@@ -1098,9 +1158,7 @@ function renderDcBiasPhysicsTab(candidate) {
         tierNote = "this material grade is a poor fit for this much DC bias - a lower-permeability grade in the same family typically holds up far better.";
     }
 
-    const convergenceNote = !t.converged
-        ? `<div class="dcbias-callout dcbias-callout-bad"><strong>This design did not converge.</strong> More turns raised the magnetizing force, which rolled off permeability further, which demanded still more turns - a runaway that never reached the target inductance within the solver's iteration limit. The numbers below are the last point it tried, not a valid, buildable design.</div>`
-        : "";
+    // t.converged is guaranteed true past this point (see the early return above).
     const floorNote = t.dcBiasRolloffUsedRmsFloor
         ? `<p class="dcbias-note">Peak current wasn't supplied, so RMS current was used as a conservative lower-bound floor for this calculation - the real roll-off at your actual peak current would be at least this severe, possibly worse.</p>`
         : "";
@@ -1117,7 +1175,6 @@ function renderDcBiasPhysicsTab(candidate) {
     const alText = Math.abs(t.effectiveAlNHPerTurnSquared) < 1 ? t.effectiveAlNHPerTurnSquared.toFixed(4) : t.effectiveAlNHPerTurnSquared.toFixed(1);
 
     return `
-        ${convergenceNote}
         <p class="dcbias-intro">${core.material} is a distributed-gap (powder) material - permeability rolls off under DC bias instead of staying flat like a machined air gap. This is that roll-off, computed from Magnetics Inc.'s own published DC-bias curve for this material.</p>
 
         <div class="dcbias-gauge-row">
@@ -1175,6 +1232,22 @@ const CANDIDATE_TABLE_HEADERS = [
     { label: "Known Partial Loss", numeric: true },
 ];
 
+// A non-converged design has no real turns, gap, inductance, or anything
+// solved downstream of them (winding/losses/thermal are all still computed
+// against turns=0 for completeness elsewhere in the pipeline, but that
+// produces its own misleading-looking numbers - e.g. a "185.5C rise" off
+// "0.05W" of loss - not real values either). The backend itself no longer
+// reports a last-attempted turns/inductance (see TurnsAndGapDesign.cpp -
+// both stay at 0 on this path), so every solved-value column here shows "--"
+// and the row's one real piece of information is the rejection reason.
+// "No convergent design - see the rejection reason" - the full explanation used
+// to render inline as a long paragraph next to the REJECT badge (a real user
+// report: unreadable rows, especially for TurnsAndGapDesign's non-convergence
+// text). It now lives in the side panel's "Why It Failed" tab instead (see
+// renderWhyItFailedTab) - the table stays scannable, the real reason is still
+// one click away, not gone.
+const NON_CONVERGED_DASH = '<span class="cell-invalid" title="No convergent design - click this row for why">--</span>';
+
 function candidateRowHtml(c, passed, index) {
     const tier = c.recommendation.tier;
     const badge = passed
@@ -1183,20 +1256,21 @@ function candidateRowHtml(c, passed, index) {
     const rowClass = ["candidate-row", passed ? "row-pass" : "row-reject", tier === "Pass" ? "row-recommended" : ""]
         .filter(Boolean)
         .join(" ");
+    const notConverged = !c.turnsAndGap.converged;
     return `
         <tr class="${rowClass}" data-row-index="${index}">
             <td>${badge} ${completenessChip(c)}</td>
             <td>${c.core.partNumber}</td>
             <td>${shapeCellLabel(c.core)}</td>
             <td>${c.material.materialFamily}</td>
-            <td class="numeric">${c.turnsAndGap.turns}</td>
-            <td class="numeric">${gapCellLabel(c.turnsAndGap)}</td>
-            <td class="numeric">${c.turnsAndGap.calculatedInductanceUH.toFixed(2)}</td>
-            <td class="numeric">${c.turnsAndGap.inductanceErrorPercent.toFixed(2)}</td>
-            <td class="numeric">${(c.winding.physicalWindowFillFactor * 100).toFixed(1)}</td>
-            <td class="numeric">${formatLossCell(c.losses.copperLossStatus, c.losses.copperLossW)}</td>
-            <td class="numeric">${formatLossCell(c.losses.coreLossStatus, c.losses.coreLossW)}</td>
-            <td class="numeric">${formatTotalLossCell(c)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : c.turnsAndGap.turns}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : gapCellLabel(c.turnsAndGap)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : c.turnsAndGap.calculatedInductanceUH.toFixed(2)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : c.turnsAndGap.inductanceErrorPercent.toFixed(2)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : (c.winding.physicalWindowFillFactor * 100).toFixed(1)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : formatLossCell(c.losses.copperLossStatus, c.losses.copperLossW)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : formatLossCell(c.losses.coreLossStatus, c.losses.coreLossW)}</td>
+            <td class="numeric">${notConverged ? NON_CONVERGED_DASH : formatTotalLossCell(c)}</td>
         </tr>
     `;
 }
@@ -1283,6 +1357,10 @@ function renderRejectedSection(result) {
     }
 
     const headerHtml = CANDIDATE_TABLE_HEADERS.map((h) => `<th${h.numeric ? ' class="numeric"' : ""}>${h.label}</th>`).join("");
+    // Non-converged rows carry their own inline rejection-reason line (see
+    // nonConvergedReasonLine() in candidateRowHtml) instead of a table-wide
+    // footnote - no shared explanation is needed anymore since there's no
+    // last-attempted number left to caveat.
     const bodyHtml = rows.map((c, index) => candidateRowHtml(c, false, index)).join("");
     table.innerHTML = `<thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody>`;
     wireCandidateRowClicks(table, rows, false);

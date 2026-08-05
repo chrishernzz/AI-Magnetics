@@ -251,43 +251,30 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
             }
 
             if (!stabilized) {
-                //Non-convergence doesn't mean nothing was computed - the loop above tried real turns/AL_eff
-                //values right up until it gave up. Report the LAST attempted point (turns, the AL_eff and
-                //H/%mu at that point, and what inductance that combination would actually produce) instead
-                //of leaving turns/calculatedInductanceUH at their default 0 - a user comparing "how close did
-                //it get" needs that number, and 0 falsely reads as "computed zero," not "never computed."
-                //converged stays false and the real rejection reason is still reported - this is honesty
-                //about WHAT was tried, not a claim that the design is valid.
-                //
-                //Uses lastEvaluatedTurns here, NOT turns - when the loop above falls all the way through
-                //kMaxIterations without ever breaking (the case this block exists for), turns has already
-                //been advanced one step past lastEvaluatedTurns (see "turns = requiredTurns" at the bottom
-                //of the loop) while alEffNh still reflects lastEvaluatedTurns's rolled-off permeability, not
-                //turns's. Pairing the advanced turns with the stale alEffNh would trivially look near-target
-                //(that's exactly what requiredTurns was solved backwards to do against that same alEffNh) -
-                //the same deceptive-near-zero-error problem the kMaxPhysicallyPlausibleTurns cutoff above
-                //already guards against for its own break, just reached via silent exhaustion instead.
-                double lastAttemptNh = static_cast<double>(lastEvaluatedTurns) * lastEvaluatedTurns * alEffNh;
-                result.turns = lastEvaluatedTurns;
-                result.gapMm = 0.0;
-                result.effectiveAlNHPerTurnSquared = alEffNh;
-                result.calculatedInductanceUH = units::nHToUh(lastAttemptNh);
-                result.inductanceErrorPercent = 100.0 * (lastAttemptNh - targetNh) / targetNh;
+                //Non-convergence is a clean reject, not a partial result. This used to report the LAST
+                //attempted point (turns, AL_eff, H/%mu, the inductance that combination would produce)
+                //instead of leaving these fields at their struct defaults - a real user report: that
+                //read as a near-real design to an engineer scanning the table/side panel (e.g. "340
+                //turns, 0.18uH"), not as the invalid intermediate point it actually was, even with a
+                //REJECT badge next to it. Every NUMERIC turns/gap-derived field (turns,
+                //calculatedInductanceUH, inductanceErrorPercent, effectiveAlNHPerTurnSquared,
+                //dcMagnetizingForceOe, percentInitialPermeabilityAtOperatingCurrent) now stays at its
+                //default (0) on this path - converged=false is the one fact a caller needs, and the
+                //single source of truth for whether any of this candidate's other turns/gap fields mean
+                //anything at all. usesDCBiasRolloffCurve is the one exception - it's a material-level
+                //fact (a real published curve exists and was consulted), not a last-attempted numeric
+                //result, so it stays true here rather than falling back to its default false, which
+                //would wrongly claim this material has no curve at all.
+                result.converged = false;
                 result.withinTolerance = false;
                 result.usesDCBiasRolloffCurve = true;
-                result.dcMagnetizingForceOe = appliedHOe;
-                result.percentInitialPermeabilityAtOperatingCurrent = appliedPercentMu;
-                result.dcBiasRolloffUsedRmsFloor = biasCurrentIsRmsFloor;
-                result.converged = false;
-                result.rejectionReasons.push_back("no turns count converged for this distributed-gap core at the real "
-                    "operating current (" + std::to_string(*biasCurrentA) + " A" +
+                result.rejectionReasons.push_back("no turns count converged for this distributed-gap core at "
+                    "the real operating current (" + std::to_string(*biasCurrentA) + " A" +
                     (biasCurrentIsRmsFloor ? ", RMS used as a guaranteed lower bound on unsupplied peak current" : "") +
-                    ") within " + std::to_string(kMaxIterations) + " iterations - DC-bias permeability roll-off means "
-                    "more turns raises the magnetizing force further, which rolls off permeability further; this core's "
-                    "real saturation behavior may not support the target inductance at this current at all. Last "
-                    "attempted point shown below (turns=" + std::to_string(lastEvaluatedTurns) + ", " +
-                    std::to_string(units::nHToUh(lastAttemptNh)) + " uH) - not a valid design, the closest the "
-                    "iteration got before giving up");
+                    ") within " + std::to_string(kMaxIterations) + " iterations - DC-bias permeability roll-off "
+                    "means more turns raises the magnetizing force further, which rolls off permeability "
+                    "further, in a runaway that never reaches the target; this core's real saturation "
+                    "behavior does not support the target inductance at this current");
                 return result;
             }
             rolloffApplied = true;

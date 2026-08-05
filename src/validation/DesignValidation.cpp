@@ -97,18 +97,19 @@ ValidationResult InductanceValidation(const TurnsAndGapResult& turnsAndGap, doub
     result.limitValue = tolerancePercent;
 
     if (!turnsAndGap.converged) {
-        //Non-convergence still leaves a real last-attempted (turns, calculatedInductanceUH,
-        //inductanceErrorPercent) on turnsAndGap - see TurnsAndGapDesign.cpp - so report that honest
-        //number here too instead of a hardcoded 0.0/generic message. This never turns a non-converged
-        //design into a pass (still unconditionally result.passed=false below) - it only makes the
-        //REJECT reason as informative as every other check instead of the one blank one.
+        //Non-convergence is a clean reject - TurnsAndGapDesign.cpp no longer reports a last-attempted
+        //turns/calculatedInductanceUH on this path (both stay at their struct defaults, 0), so this
+        //check doesn't report them either. Previously it did, on the reasoning that "how close did it
+        //get" was useful context - a real user report: that read as a near-real design to an engineer
+        //scanning results, not as the invalid intermediate point it was, even with FAIL/REJECT right
+        //next to it. This never turns a non-converged design into a pass (still unconditionally
+        //result.passed=false below) - it's honest about there being no real number to report at all.
         result.status = EvaluationStatus::Evaluated;
         result.passed = false;
-        result.calculatedValue = std::abs(turnsAndGap.inductanceErrorPercent);
-        result.explanation = "turns/gap design did not converge - last attempted point: calculated inductance " +
-            std::to_string(turnsAndGap.calculatedInductanceUH) + " uH vs target (error " +
-            std::to_string(turnsAndGap.inductanceErrorPercent) + "%), tolerance " + std::to_string(tolerancePercent) +
-            "% - not a valid design, the closest the solver got before giving up";
+        result.calculatedValue = 0.0;
+        result.explanation = "turns/gap design did not converge for this core/material combination at the "
+            "requested operating current - no valid design exists to check inductance against; see "
+            "TurnsAndGapDesign's own rejection reason for why";
         return result;
     }
 
@@ -158,7 +159,19 @@ ValidationResult PeakFluxValidation(const CoreCandidate& core, const MaterialCan
     result.limitValue = limit.limitT;
     result.usesDefaultAssumption = limit.usedDefault;
     result.passed = turnsAndGap.converged && bpk <= limit.limitT;
-    result.explanation = "peak flux density " + std::to_string(bpk) + " T vs limit " +
+    // A real user report: this check could show a calculatedValue well under limitValue (e.g. 0.002T vs
+    // an 0.8T limit) and still read FAIL, with no explanation of why. Root cause: bpk is computed from
+    // turnsAndGap.calculatedInductanceUH/turns, which on a non-converged design used to be the
+    // collapsed last-attempted point, not a real operating point - misleadingly small-looking numbers
+    // that still (correctly) failed via turnsAndGap.converged above. TurnsAndGapDesign.cpp no longer
+    // reports those last-attempted values at all (they stay at their struct defaults, 0 - see
+    // calculatePeakFluxDensityT's own turns<=0 guard above, which is why bpk is exactly 0.0 here on
+    // this path), so there's nothing left to misreport; the explanation says that plainly instead.
+    result.explanation = !turnsAndGap.converged
+        ? "turns/gap design did not converge for this core/material combination at the requested "
+              "operating current - no valid design exists to check peak flux density against; see "
+              "TurnsAndGapDesign's own rejection reason for why"
+        : "peak flux density " + std::to_string(bpk) + " T vs limit " +
                           std::to_string(limit.limitT) + " T (" +
                           (limit.usedDefault ? std::string("Phase 1 default - material '") + material.materialFamily + "' has no measured BmaxT" : std::string("material-specific value for '") + material.materialFamily + "'") + ")";
     return result;
@@ -203,7 +216,16 @@ ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialC
     result.calculatedValue = marginPercent;
     result.usesDefaultAssumption = limit.usedDefault;
     result.passed = turnsAndGap.converged && marginPercent >= rules.minimumSaturationMarginPercent;
-    result.explanation = "saturation margin " + std::to_string(marginPercent) + "% vs required " + std::to_string(rules.minimumSaturationMarginPercent) + "% (" +
+    // Same non-convergence case as PeakFluxValidation above - bpk is exactly 0.0 on a non-converged
+    // design (turns stays at its struct default 0, and calculatePeakFluxDensityT guards on turns<=0),
+    // which makes marginPercent look like a large, reassuring margin even though FAIL is correct
+    // (turnsAndGap.converged forces passed=false above). Say plainly that there's no real design to
+    // check at all, instead of reporting a margin number that doesn't mean what it looks like it means.
+    result.explanation = !turnsAndGap.converged
+        ? "turns/gap design did not converge for this core/material combination at the requested "
+              "operating current - no valid design exists to check saturation margin against; see "
+              "TurnsAndGapDesign's own rejection reason for why"
+        : "saturation margin " + std::to_string(marginPercent) + "% vs required " + std::to_string(rules.minimumSaturationMarginPercent) + "% (" +
                           (limit.usedDefault ? "against the Phase 1 default flux limit, not a material fact"
                                              : "against material-specific BmaxT") +
                           ")";
@@ -215,10 +237,22 @@ ValidationResult SaturationValidation(const CoreCandidate& core, const MaterialC
 //bobbin/margin/lead-exit derates - see WindingDesign.h) is at or below the maximum. Gates on
 //physicalWindowFillFactor, not the raw copper-only fillFactor - an intentional behavior change from the
 //Phase 1 stub: a candidate that passed on raw copper fill alone can now fail here.
-ValidationResult WindingFitValidation(const WindingDesignResult& winding, const DesignRules& rules) {
+ValidationResult WindingFitValidation(const WindingDesignResult& winding, const DesignRules& rules, bool turnsConverged) {
     ValidationResult result;
     result.checkName = "WindingFitValidation";
     result.unit = "fraction";
+    // A real user report: on a non-converged design, designWinding() is still called downstream with
+    // turns=0 (see InductorDesignService.cpp - kept for the other, genuinely turns-independent checks
+    // this same call feeds, see CurrentDensityValidation below), which makes physicalWindowFillFactor
+    // trivially 0.0 - a wire count of zero always "fits," which reads as a real PASS for a design that
+    // doesn't exist. Report NotEvaluated instead of a trivially-true pass.
+    if (!turnsConverged) {
+        result.status = EvaluationStatus::NotEvaluated;
+        result.passed = false;
+        result.calculatedValue = 0.0;
+        result.explanation = "not evaluated: turns/gap design did not converge - there is no real winding to check physical fit for";
+        return result;
+    }
     result.calculatedValue = winding.physicalWindowFillFactor;
     result.limitValue = rules.maximumFillFactor;
     result.passed = winding.fitsPhysicalWindow;
@@ -281,11 +315,24 @@ ValidationResult BundleFitValidation(const WindingDesignResult& winding) {
 //otherwise not_evaluated (passed=false, never an assumed pass - spec section 10). ThermalStatus has no "fully evaluated" value
 //(see ThermalEvaluation.h), so a passing result here always carries isPreliminaryEstimate=true - the numeric check genuinely
 //ran and passed/failed, but rests on a Phase 1 coarse thermal-resistance constant, never per-core measured/simulated data.
-ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, double allowableTempRiseC) {
+ValidationResult ThermalValidation(const ThermalEvaluationResult& thermal, double allowableTempRiseC, bool turnsConverged) {
     ValidationResult result;
     result.checkName = "ThermalValidation";
     result.unit = "C";
     result.limitValue = allowableTempRiseC;
+
+    // A real user report: on a non-converged design, the thermal loop still runs downstream against
+    // turns=0 (essentially no winding), which makes copper loss and therefore predicted rise trivially
+    // near-zero - reading as a real, comfortable PASS for a design that doesn't exist. Report
+    // NotEvaluated instead, ahead of the thermal.status check below (which would otherwise happily
+    // report this trivial "pass" as a genuine PreliminaryThermalEstimate).
+    if (!turnsConverged) {
+        result.status = EvaluationStatus::NotEvaluated;
+        result.passed = false;
+        result.calculatedValue = 0.0;
+        result.explanation = "not evaluated: turns/gap design did not converge - there is no real winding to model thermal rise for";
+        return result;
+    }
 
     if (thermal.status != ThermalStatus::PreliminaryThermalEstimate) {
         result.calculatedValue = 0.0;

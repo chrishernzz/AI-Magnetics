@@ -1446,6 +1446,18 @@ summary {
     text-align: center;
 }
 
+/* Non-converged candidates: every solved-value cell that's actually derived
+   from turns (candidate table, and the Turns/Gap/Known-Partial-Loss/Core-Loss/
+   Physical-Fill-% KPIs in the side panel) shows "--" instead of a number - the
+   backend no longer reports a last-attempted turns/inductance at all (see
+   TurnsAndGapDesign.cpp). The full rejection reason lives in the side panel's
+   "Why It Failed" tab, one click away, not inline in the table. */
+.cell-invalid {
+    color: var(--ink-soft);
+    font-weight: 700;
+    cursor: help;
+}
+
 .chip {
     display: inline-block;
     padding: 3px 10px;
