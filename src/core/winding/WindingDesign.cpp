@@ -61,13 +61,13 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
 
         int strands = std::max(1, static_cast<int>(std::ceil(requiredAreaMm2 / strandGauge->areaMm2)));
 
-        result.wireDescription = std::to_string(strands) + "x AWG" + std::to_string(strandGauge->awg);
+        result.wireDescription = std::to_string(strands) + "x AWG" + std::to_string(strandGauge->awg) + ", single-build magnet wire";
         result.conductorAreaMm2 = strandGauge->areaMm2;
         result.parallelStrands = strands;
         selectedAwg = strandGauge->awg;
-    } 
+    }
     else {
-        result.wireDescription = "AWG" + std::to_string(singleStrand->awg) + " single strand";
+        result.wireDescription = "1x AWG" + std::to_string(singleStrand->awg) + ", single-build magnet wire";
         result.conductorAreaMm2 = singleStrand->areaMm2;
         result.parallelStrands = 1;
         selectedAwg = singleStrand->awg;
@@ -105,7 +105,7 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
 
     if (result.parallelStrands > 1) {
         result.physicalDescription = std::to_string(result.parallelStrands) + "x AWG" + std::to_string(selectedAwg) +
-            " magnet wire (bare " + std::to_string(bareStrandDiameterMm) + " mm, insulated ~" +
+            " single-build magnet wire (bare " + std::to_string(bareStrandDiameterMm) + " mm, single-build insulated ~" +
             std::to_string(result.insulatedConductorDiameterMm) + " mm each), wound as a single bundle";
 
         //Real check, only possible for two-piece cores (real window width/height - see
@@ -123,8 +123,8 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
                 "window width/height (toroid, or a two-piece core missing that data in the current snapshot)");
         }
     } else {
-        result.physicalDescription = "AWG" + std::to_string(selectedAwg) + " magnet wire (bare " +
-            std::to_string(bareStrandDiameterMm) + " mm, insulated ~" + std::to_string(result.insulatedConductorDiameterMm) + " mm), single strand";
+        result.physicalDescription = "1x AWG" + std::to_string(selectedAwg) + " single-build magnet wire (bare " +
+            std::to_string(bareStrandDiameterMm) + " mm, single-build insulated ~" + std::to_string(result.insulatedConductorDiameterMm) + " mm)";
     }
 
     //Physical window fill: bobbin-wall derate (non-toroid cores only - see below), then subtract

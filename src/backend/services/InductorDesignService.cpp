@@ -100,6 +100,13 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
         }
     }
 
+    //Deliberately read-only against the winding already chosen above by designWinding() - AC-loss risk
+    //(skin/proximity effect at the switching frequency) is reported as its own separate, informational
+    //validation, never fed back into strand count or wire gauge. A real user report (Roger) asked that
+    //the wire-selection algorithm not silently add a parallel strand just because AC risk comes back
+    //High - it already doesn't (strand count is decided purely by allowableCurrentDensityAperCm2 in
+    //designWinding(), before this line ever runs), but this comment exists so that stays true on purpose,
+    //not by accident, if this code is ever touched again.
     candidate.acLossRisk = evaluateSkinDepthRisk(requirements.operatingPoint.switchingFreqHz, candidate.winding.conductorAreaMm2, rules);
 
     candidate.validations = {
