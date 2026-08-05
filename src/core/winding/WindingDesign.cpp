@@ -44,7 +44,12 @@ WindingDesignResult designWinding(const CoreCandidate& core, int turns, double r
     WindingDesignResult result;
 
     //A/cm^2 -> mm^2 required area: requiredAreaMm2 = I / J_Acm2, converted cm^2 -> mm^2
-    double requiredAreaMm2 = units::cm2ToMm2(rmsCurrentA / rules.allowableCurrentDensityAperCm2);
+    double rawRequiredAreaMm2 = units::cm2ToMm2(rmsCurrentA / rules.allowableCurrentDensityAperCm2);
+    //rules.wireAreaSafetyMarginPercent adds real headroom on top of the raw current-density minimum -
+    //without it, wire selection can pick a gauge that clears the density limit by only a percent or two
+    //(no margin for DCR temperature rise or manufacturing tolerance). See DesignRules.h for why this
+    //number is a documented engineering judgment call, not a sourced fact.
+    double requiredAreaMm2 = rawRequiredAreaMm2 * (1.0 + rules.wireAreaSafetyMarginPercent / 100.0);
 
     const AwgEntry* singleStrand = finestAwgMeetingArea(requiredAreaMm2);
     int selectedAwg = 0;

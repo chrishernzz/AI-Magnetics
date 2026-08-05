@@ -14,6 +14,7 @@ DesignRules DesignRules::phase1Default() {
     rules.maximumFillFactor = 0.6;
     rules.defaultInductanceTolerancePercent = 10.0;
     rules.minimumSingleStrandAwg = 18;
+    rules.wireAreaSafetyMarginPercent = 30.0;
 
     rules.maximumRippleCurrentPercent = 100.0;
 
