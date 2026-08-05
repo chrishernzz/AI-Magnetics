@@ -153,6 +153,9 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
     //false either way, so callers can tell the difference from a real 0%-bias result).
     if (isDistributedGapCore) {
         int turns = std::max(1, seedTurns(core, targetInductanceUH));
+        //Captured before the DC-bias loop below reassigns `turns` - the turns count AL0 (catalog, ~0A)
+        //alone calls for, kept purely as a reference point for zeroBiasSeedTurns (see TurnsAndGapDesign.h).
+        const int zeroBiasSeedTurns0 = turns;
 
         DCBiasCurveLookup rolloffCurve = findDCBiasCurve(core.material);
 
@@ -268,6 +271,7 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
                 result.converged = false;
                 result.withinTolerance = false;
                 result.usesDCBiasRolloffCurve = true;
+                result.zeroBiasSeedTurns = zeroBiasSeedTurns0;
                 result.rejectionReasons.push_back("no turns count converged for this distributed-gap core at "
                     "the real operating current (" + std::to_string(*biasCurrentA) + " A" +
                     (biasCurrentIsRmsFloor ? ", RMS used as a guaranteed lower bound on unsupplied peak current" : "") +
@@ -299,6 +303,7 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
         result.dcMagnetizingForceOe = rolloffApplied ? appliedHOe : 0.0;
         result.percentInitialPermeabilityAtOperatingCurrent = rolloffApplied ? appliedPercentMu : 100.0;
         result.dcBiasRolloffUsedRmsFloor = rolloffApplied && biasCurrentIsRmsFloor;
+        result.zeroBiasSeedTurns = rolloffApplied ? zeroBiasSeedTurns0 : 0;
 
         if (!result.withinTolerance) {
             result.rejectionReasons.push_back("calculated inductance " + std::to_string(result.calculatedInductanceUH) +

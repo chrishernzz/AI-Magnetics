@@ -53,6 +53,11 @@ struct CoreCandidate {
     double windowWidthMm = 0.0;
     double windowHeightMm = 0.0;
 
+    //real, manufacturer-published AL tolerance (+-%) for this specific part - see CoreData::alTolerancePercent.
+    //0.0 means not yet transcribed, never a guessed/blanket value - distinct from the user-entered
+    //InductorDesignRequest::inductanceTolerancePercent, which judges the calculated result, not the part.
+    double alTolerancePercent = 0.0;
+
     //provenance for this core's data - see Provenance.h. source.datasheetUrl is now real (populated from
     //CoreData::datasheetUrl) for ~99% of cores in the current snapshot; datasheetRevision/dateAccessed
     //remain unset (no such data exists anywhere in the snapshot).

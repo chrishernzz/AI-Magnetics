@@ -78,7 +78,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("materialType", &CoreData::materialType)
         .def_readwrite("datasheetUrl", &CoreData::datasheetUrl)
         .def_readwrite("windowWidthMm", &CoreData::windowWidthMm)
-        .def_readwrite("windowHeightMm", &CoreData::windowHeightMm);
+        .def_readwrite("windowHeightMm", &CoreData::windowHeightMm)
+        .def_readwrite("alTolerancePercent", &CoreData::alTolerancePercent);
     py::class_<MaterialData>(m, "MaterialData")
         .def(py::init<>())
         .def_readwrite("name", &MaterialData::name)
@@ -252,6 +253,7 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("materialType", &CoreCandidate::materialType)
         .def_readwrite("windowWidthMm", &CoreCandidate::windowWidthMm)
         .def_readwrite("windowHeightMm", &CoreCandidate::windowHeightMm)
+        .def_readwrite("alTolerancePercent", &CoreCandidate::alTolerancePercent)
         .def_readwrite("source", &CoreCandidate::source);
 
     py::class_<TurnsAndGapResult>(m, "TurnsAndGapResult")
@@ -278,7 +280,8 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("usesDCBiasRolloffCurve", &TurnsAndGapResult::usesDCBiasRolloffCurve)
         .def_readwrite("dcMagnetizingForceOe", &TurnsAndGapResult::dcMagnetizingForceOe)
         .def_readwrite("percentInitialPermeabilityAtOperatingCurrent", &TurnsAndGapResult::percentInitialPermeabilityAtOperatingCurrent)
-        .def_readwrite("dcBiasRolloffUsedRmsFloor", &TurnsAndGapResult::dcBiasRolloffUsedRmsFloor);
+        .def_readwrite("dcBiasRolloffUsedRmsFloor", &TurnsAndGapResult::dcBiasRolloffUsedRmsFloor)
+        .def_readwrite("zeroBiasSeedTurns", &TurnsAndGapResult::zeroBiasSeedTurns);
     m.def("design_turns_and_gap", &designTurnsAndGap, "Run the turns/gap convergence loop directly against a core, target inductance, and tolerance - exposed for tests that need this stage in isolation from full core auto-selection");
 
     py::class_<ValidationResult>(m, "ValidationResult")

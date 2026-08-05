@@ -153,6 +153,7 @@ def _serialize_core(c) -> dict:
         "materialType": c.materialType,
         "windowWidthMm": c.windowWidthMm,
         "windowHeightMm": c.windowHeightMm,
+        "alTolerancePercent": c.alTolerancePercent,
         "source": _serialize_source_info(c.source),
     }
 
@@ -183,6 +184,7 @@ def _serialize_turns_and_gap(t) -> dict:
         "dcMagnetizingForceOe": t.dcMagnetizingForceOe,
         "percentInitialPermeabilityAtOperatingCurrent": t.percentInitialPermeabilityAtOperatingCurrent,
         "dcBiasRolloffUsedRmsFloor": t.dcBiasRolloffUsedRmsFloor,
+        "zeroBiasSeedTurns": t.zeroBiasSeedTurns,
     }
 
 #precondition: winding design stage has completed and w contains winding analysis data

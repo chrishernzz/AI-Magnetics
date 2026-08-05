@@ -183,6 +183,11 @@ def fetch_cores() -> list[dict]:
                 "DatasheetUrl": r.get("DatasheetUrl", ""),
                 "WindowWidthMm": float(r["WindowWidthMm"]) if r.get("WindowWidthMm") else 0.0,
                 "WindowHeightMm": float(r["WindowHeightMm"]) if r.get("WindowHeightMm") else 0.0,
+                # Real, manufacturer-published AL tolerance (+-%) from this part's own datasheet - see
+                # CoreDatabase.h's CoreData::alTolerancePercent. Blank/0.0 means not yet transcribed for
+                # this part - as of this column's introduction only C055439A2 (8%) is populated; every
+                # other row is a genuine, honest gap, never a guessed blanket percentage.
+                "AlTolerancePercent": float(r["AlTolerancePercent"]) if r.get("AlTolerancePercent") else 0.0,
             }
         )
 

@@ -108,6 +108,7 @@ def load_real_magnetics_data():
         "datasheetUrl" : "DatasheetUrl",
         "windowWidthMm" : "WindowWidthMm",
         "windowHeightMm" : "WindowHeightMm",
+        "alTolerancePercent" : "AlTolerancePercent",
     })
     cpp_core_loss_coefficients = _build_cpp_record(core_loss_coefficients, magnetics_cpp.CoreLossCoefficientData, {
         "materialName" : "MaterialName",
