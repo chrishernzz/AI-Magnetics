@@ -25,8 +25,21 @@ struct DesignRules {
     //value for a simple round-wire, single-winding inductor.
     double windowUtilization;
 
-    //J - allowable current density, A/cm^2. Source: McLyman, conservative
-    //natural-convection design guideline for power inductors.
+    //J - allowable current density, A/cm^2. Was McLyman's 400 A/cm^2
+    //"conservative natural-convection" figure; a real user report (Roger,
+    //senior magnetics engineer) flagged that figure as nearly 2.5x
+    //stricter than the wire-selection outcome he expects, and hand-checked
+    //against the standard "200 circular mils per amp" rule of thumb for a
+    //~40C rise design instead. 200 CM/A converts to A/cm^2 as:
+    //  1 circular mil = (pi/4) * (0.001 in)^2 = 5.06707e-6 cm^2
+    //  200 CM/A = 200 * 5.06707e-6 cm^2/A = 1.013414e-3 cm^2/A per amp
+    //  J = 1 / (area per amp) = 986.76 A/cm^2
+    //Both 400 and ~987 A/cm^2 are real, citable rules of thumb from
+    //different sources (McLyman's handbook table vs. the classic
+    //circular-mils-per-amp heuristic) - they simply don't agree, and which
+    //one is "right" depends on winding geometry/airflow/insulation class
+    //this Phase 1 model doesn't yet capture per-design. Using Roger's
+    //number here since it's the one this tool is being validated against.
     double allowableCurrentDensityAperCm2;
 
     //Bmax - default peak flux density limit, T. This is a Phase 1
