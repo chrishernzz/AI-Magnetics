@@ -1210,6 +1210,12 @@ button:hover {
     flex: 0 0 auto;
 }
 
+.dcbias-compare-sub {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+}
+
 .dcbias-numbers {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

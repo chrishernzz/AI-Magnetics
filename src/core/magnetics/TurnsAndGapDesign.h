@@ -80,9 +80,11 @@ struct TurnsAndGapResult {
     //peak nor RMS current - never silently guessed.
     bool usesDCBiasRolloffCurve = false;
 
-    //DC magnetizing force (Oersteds) and %initial-permeability-remaining actually used to compute the
-    //rolled-off AL above - 0.0 Oe / 100% when usesDCBiasRolloffCurve is false (no rolloff applied, not "0%
-    //bias confirmed"). Real, per-material curve values when true - see percentInitialPermeability().
+    //DC magnetizing force (Oersteds) and %initial-permeability-remaining at the FIXED turns count above -
+    //0.0 Oe / 100% when usesDCBiasRolloffCurve is false (no rolloff applied, not "0% bias confirmed"). Real,
+    //per-material curve values when true - see percentInitialPermeability(). Informational only, per a
+    //direct senior-engineer review (Roger, C055439A2): turns are solved once from the zero-bias catalog AL0
+    //and held fixed - this H/%mu never feeds back into a turns recalculation the way it used to.
     double dcMagnetizingForceOe = 0.0;
     double percentInitialPermeabilityAtOperatingCurrent = 100.0;
 
@@ -92,15 +94,22 @@ struct TurnsAndGapResult {
     //reflects. Only meaningful when usesDCBiasRolloffCurve is true.
     bool dcBiasRolloffUsedRmsFloor = false;
 
-    //The turns count the zero-bias catalog AL0 alone would call for (N = round(sqrt(L/AL0)), before any
-    //DC-bias compensation) - a real user report (Roger's C055439A2 review): the compensated `turns` above
-    //(what's actually wound, so the requested inductance is met AT the real operating current, not just at
-    //0A) can look like an unexplained jump from this number with no visible reference point. Purely
-    //informational - `turns` above is still what winding-fit/thermal/copper-loss are evaluated against,
-    //since that's the winding that actually has to exist to meet the request; this is only the "for
-    //reference, here's what 0-bias alone would have said" number. Only meaningful when
-    //usesDCBiasRolloffCurve is true - 0 otherwise (same convention as the other DC-bias-only fields above).
+    //The turns count the zero-bias catalog AL0 calls for (N = round(sqrt(L/AL0))) - identical to `turns`
+    //above now that turns is never raised for DC-bias compensation (a direct senior-engineer review, Roger's
+    //C055439A2 case: the tool used to compensate turns upward - e.g. 149 to 289 - so the CALCULATED
+    //inductance still hit target at real operating current; turns must instead be fixed at the zero-bias
+    //value and DC-bias roll-off reported as a separate, informational inductance-at-current number, see
+    //loadedInductanceUH below). Kept as its own field (rather than just reusing `turns`) since the frontend
+    //still labels it as the explicit "zero-bias reference" figure. 0 when usesDCBiasRolloffCurve is false.
     int zeroBiasSeedTurns = 0;
+
+    //The real inductance this FIXED winding actually delivers at the request's real operating current,
+    //after DC-bias roll-off - distinct from calculatedInductanceUH above, which is the zero-bias design
+    //value turns was solved to hit. Equal to calculatedInductanceUH whenever there's no rolloff to apply
+    //(usesDCBiasRolloffCurve false, or a machined-gap/ferrite core, which has no separate 0-bias/loaded
+    //distinction at all). This is what PeakFluxValidation/SaturationValidation check saturation risk
+    //against - real B-field at real current, never the zero-bias number.
+    double loadedInductanceUH = 0.0;
 };
 
 //precondition: core.aeMm2 > 0, core.leMm > 0, core.mu > 0, targetInductanceUH > 0

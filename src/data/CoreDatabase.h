@@ -43,17 +43,6 @@ struct CoreData {
     //"no linear dimension recorded", the same convention as mlt above - never a real zero-size window.
     double windowWidthMm = 0.0;
     double windowHeightMm = 0.0;
-
-    //Real, manufacturer-published AL tolerance (+-%) from this part's own datasheet - e.g. C055439A2's
-    //datasheet states AL=135nH/T2 +-8%. A real user report (Roger's C055439A2 review) flagged that AL
-    //tolerance varies by material/geometry/manufacturer (Magnetics quotes different bands for different
-    //powder grades and shapes) and must never be conflated with the user-entered inductance tolerance
-    //(InductorDesignRequest::inductanceTolerancePercent, which judges whether a calculated RESULT meets
-    //the design requirement - a completely different question from how tightly the manufacturer bins
-    //this specific PART's AL0 value). 0.0 means "not yet transcribed for this part" - this snapshot only
-    //has one confirmed value (C055439A2) as of this field's introduction; every other row is genuinely
-    //unpopulated, never guessed or defaulted to a blanket percentage.
-    double alTolerancePercent = 0.0;
 };
 
 class CoreDatabase{
