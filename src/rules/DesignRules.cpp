@@ -8,12 +8,13 @@
 DesignRules DesignRules::phase1Default() {
     DesignRules rules;
     rules.windowUtilization = 0.4;
-    rules.allowableCurrentDensityAperCm2 = 400.0;
+    rules.allowableCurrentDensityAperCm2 = 986.76;
     rules.defaultFluxDensityLimitT = 0.30;
     rules.minimumSaturationMarginPercent = 10.0;
     rules.maximumFillFactor = 0.6;
     rules.defaultInductanceTolerancePercent = 10.0;
     rules.minimumSingleStrandAwg = 18;
+    rules.wireAreaSafetyMarginPercent = 30.0;
 
     rules.maximumRippleCurrentPercent = 100.0;
 

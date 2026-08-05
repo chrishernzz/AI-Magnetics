@@ -195,18 +195,24 @@ def test_case8_winding_fit_fails_on_physical_model_despite_passing_raw_copper_fi
     physicalWindowFillFactor (insulation, packing factor, bobbin/margin/lead-exit
     derates - see WindingDesign.h) exceeds it - the direct demonstration of the
     §1.7 behavior change from Commit 8. 10uH / 3.9A peak / 3A rms / 100kHz
-    against the real database routes to core 0055130AY (real Magnetics MPP 125
-    toroid) with exactly this split. (Originally routed to 00A1808E026, a
-    Kool Mu E-core, which the winding-window-area fix in WindingDesign.cpp -
-    E-core rows have no real Wa data yet, see data/real_cores.csv's known gap -
-    now conservatively fails BOTH the raw and physical checks rather than
-    exhibiting the specific raw-passes/physical-fails split this test wants;
-    re-probed against a core with real window-area data instead.)"""
+    against the real database routes to core 0055030AY (real Magnetics MPP
+    toroid) with exactly this split. (Originally routed to 0055130AY under
+    the old allowableCurrentDensityAperCm2=400.0 default; a real user report
+    - Roger, senior magnetics engineer - flagged that figure as nearly 2.5x
+    stricter than the "200 circular mils per amp" rule of thumb he expects
+    (see DesignRules.h), so it was replaced with the ~987 A/cm^2 equivalent.
+    0055130AY no longer exhibits the raw-passes/physical-fails split at that
+    density alone - it now fits the physical window outright. Re-probed
+    against C055016A2, which then stopped demonstrating the split once
+    wireAreaSafetyMarginPercent (30%, a separate engineering-margin addition
+    on top of the density change - see DesignRules.h) pushed its required
+    copper area up enough to fail the raw check too. Re-probed a second time
+    against 0055030AY, which demonstrates the split under both changes.)"""
     result = magnetics_cpp.run_inductor_design(
         _design_request(inductanceUH=10.0, peakCurrentA=3.9, rmsCurrentA=3.0, switchingFreqKHz=100.0)
     )
-    matches = [c for c in result.candidates + result.rejectedCandidates if c.core.partNumber == "0055130AY"]
-    assert matches, "expected core 0055130AY to be a candidate for this request"
+    matches = [c for c in result.candidates + result.rejectedCandidates if c.core.partNumber == "0055030AY"]
+    assert matches, "expected core 0055030AY to be a candidate for this request"
     candidate = matches[0]
 
     assert candidate.winding.fitsWindow  #raw copper fill alone would have passed
@@ -341,9 +347,20 @@ def test_case13_mpp_toroid_c055439a2x2_reachable_after_database_fix():
     The reference sheet's AL discrepancy this docstring used to flag
     (135 vs a then-computed 316.9 nH/turn^2) is now moot: the current
     database's real AL for this part, transcribed directly from Magnetics'
-    own catalog, is 270.0 nH/turn^2 (Ae=398.0mm^2, Le=107.0mm, mu=60)."""
+    own catalog, is 270.0 nH/turn^2 (Ae=398.0mm^2, Le=107.0mm, mu=60).
+
+    Current was re-probed down from 12A peak/8A rms to 6A peak/4A rms: a
+    real user report (Roger, senior magnetics engineer) flagged
+    allowableCurrentDensityAperCm2's old McLyman default (400 A/cm^2) as
+    too strict, and it was replaced with the ~987 A/cm^2 equivalent of his
+    "200 circular mils per amp" rule of thumb (see DesignRules.h). Thinner
+    wire at the higher allowed density means more DCR/copper loss for the
+    same current, so the original 8A rms point now fails ThermalValidation
+    (116C predicted rise) rather than WindingFitValidation - a real, correct
+    consequence of the density change, not a bug. Re-probed at a lower
+    current where this part is reachable end-to-end again, same as case 8."""
     result = magnetics_cpp.run_inductor_design(
-        _design_request(inductanceUH=470.0, peakCurrentA=12.0, rmsCurrentA=8.0, switchingFreqKHz=80.0)
+        _design_request(inductanceUH=470.0, peakCurrentA=6.0, rmsCurrentA=4.0, switchingFreqKHz=80.0)
     )
     assert result.status == "ok"
     matches = [c for c in result.candidates if c.core.partNumber == "C055439A2X2"]

@@ -25,8 +25,21 @@ struct DesignRules {
     //value for a simple round-wire, single-winding inductor.
     double windowUtilization;
 
-    //J - allowable current density, A/cm^2. Source: McLyman, conservative
-    //natural-convection design guideline for power inductors.
+    //J - allowable current density, A/cm^2. Was McLyman's 400 A/cm^2
+    //"conservative natural-convection" figure; a real user report (Roger,
+    //senior magnetics engineer) flagged that figure as nearly 2.5x
+    //stricter than the wire-selection outcome he expects, and hand-checked
+    //against the standard "200 circular mils per amp" rule of thumb for a
+    //~40C rise design instead. 200 CM/A converts to A/cm^2 as:
+    //  1 circular mil = (pi/4) * (0.001 in)^2 = 5.06707e-6 cm^2
+    //  200 CM/A = 200 * 5.06707e-6 cm^2/A = 1.013414e-3 cm^2/A per amp
+    //  J = 1 / (area per amp) = 986.76 A/cm^2
+    //Both 400 and ~987 A/cm^2 are real, citable rules of thumb from
+    //different sources (McLyman's handbook table vs. the classic
+    //circular-mils-per-amp heuristic) - they simply don't agree, and which
+    //one is "right" depends on winding geometry/airflow/insulation class
+    //this Phase 1 model doesn't yet capture per-design. Using Roger's
+    //number here since it's the one this tool is being validated against.
     double allowableCurrentDensityAperCm2;
 
     //Bmax - default peak flux density limit, T. This is a Phase 1
@@ -55,6 +68,21 @@ struct DesignRules {
     //documented separately from the AWG reference table it's compared
     //against (src/data/AwgTable.h).
     int minimumSingleStrandAwg;
+
+    //Safety margin (%) applied to the raw current-density-derived required
+    //copper area before a wire gauge is picked - e.g. 30% means the chosen
+    //wire must clear 1.3x the theoretical minimum area, not just barely
+    //clear the raw minimum with near-zero headroom. A real user report
+    //(Roger, senior magnetics engineer) flagged that picking the exact
+    //thinnest wire that mathematically clears allowableCurrentDensityAperCm2
+    //(e.g. AWG20 clearing a 5A/986.76A/cm^2 requirement by only ~2%) is bad
+    //practice - real DCR varies with temperature/manufacturing tolerance,
+    //so a design should never sit right at the edge of its current-density
+    //limit. This 30% figure is a generic conservative engineering margin,
+    //NOT sourced from Roger or a specific published wire-ampacity standard -
+    //an honest judgment call, not a fact, and should be revisited if he
+    //gives a real number to use instead.
+    double wireAreaSafetyMarginPercent;
 
     //--- Buck-converter input validation ---
 
