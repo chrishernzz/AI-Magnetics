@@ -8,10 +8,8 @@ Real DC-bias permeability roll-off for powder toroids (MPP/Kool Mu/High Flux/XFl
 
 A powder core's catalog AL (DCBiasCurveDatabase's sibling, CoreData::al) is measured at ~0 A DC bias -
 it is the material's INITIAL permeability, not a constant. As DC current rises, the core's actual
-permeability rolls off (a real, well-documented powder-core property - not something Phase 1 previously
-modeled at all: TurnsAndGapDesign.cpp's distributed-gap branch used to solve turns against the flat
-catalog AL at every current level, silently overstating inductance at any nonzero current). This module
-supplies the two pieces needed to correct that: the real DC magnetizing force at a given
+permeability rolls off (a real, well-documented powder-core property
+This module supplies the two pieces needed to correct that: the real DC magnetizing force at a given
 (turns, current, path length), and the real manufacturer-published %initial-permeability-remaining curve
 at that force.
 
@@ -27,9 +25,7 @@ cross-checks).
 
 */
 
-//precondition: none
-//postcondition: returns the DCBiasCurveDatabase row for materialName, if any. found == false if this
-//material has no published DC-bias curve in the current dataset (e.g. any non-powder or ungapped-only
+//returns the DCBiasCurveDatabase row for materialName, if any. found == false if this material has no published DC-bias curve in the current dataset (e.g. any non-powder or ungapped-only
 //material) - callers must treat that as "no roll-off model available," never assume 100% permeability.
 struct DCBiasCurveLookup {
     bool found = false;
@@ -38,16 +34,5 @@ struct DCBiasCurveLookup {
 };
 
 DCBiasCurveLookup findDCBiasCurve(const std::string& materialName);
-
-//precondition: turns > 0, leMm > 0
-//postcondition: returns the DC magnetizing force H (Oersteds) - H = 0.4*pi*N*I/le, le in cm - the standard
-//formula used by both Magnetics Inc. and Micrometals' own DC-bias curves (confirmed against their published
-//worked examples). currentA may be 0 (returns H=0, the curve's own 100%-permeability point).
 double dcMagnetizingForceOe(int turns, double currentA, double leMm);
-
-//precondition: curve came from a real DCBiasCurveDatabase row (DCBiasCurveLookup::found == true), hOe >= 0
-//postcondition: returns %initial permeability remaining (0-100 scale, not a 0-1 fraction) via
-//%mu = 1/(a + b*H^c) + d - clamped to [0, 100] since the raw formula can drift fractionally above 100 at
-//H=0 for some materials' published coefficients (floating-point rounding on real datasheet values, not a
-//sign the physics is wrong) and must never be read as more than fully-initial permeability.
 double percentInitialPermeability(double hOe, const DCBiasCurveData& curve);

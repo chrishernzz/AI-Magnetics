@@ -35,37 +35,28 @@ struct InductorCandidate {
     bool passed = false;
     std::vector<RejectionReason> rejectionReasons;
 
-    //informational flux-limit breakdown for this candidate's material - see DesignValidation.h. Does not change
-    //what PeakFluxValidation/SaturationValidation pass/fail on; those two checks remain the actual gate.
+    //informational flux-limit breakdown for this candidate's material - see DesignValidation.h. Does not change what PeakFluxValidation/SaturationValidation pass/fail on; those two checks remain the actual gate.
     FluxLimitTiers fluxLimits;
 
-    //qualitative skin-depth AC-loss risk for the selected winding - see SkinDepthRisk.h. Not itself a gate in
-    //Phase 1, though a High risk level factors into the 3-tier recommendation classification.
+    //qualitative skin-depth AC-loss risk for the selected winding - see SkinDepthRisk.h. Not itself a gate in Phase 1, though a High risk level factors into the 3-tier recommendation classification.
     SkinDepthRiskResult acLossRisk;
 
-    //3-tier PASS/CONDITIONAL_PASS/REJECT recommendation classification - see RecommendationStatus.h.
-    //tier == Reject always mirrors `passed` above; never contradicts it.
+    //3-tier PASS/CONDITIONAL_PASS/REJECT recommendation classification - see RecommendationStatus.h. tier == Reject always mirrors `passed` above; never contradicts it.
     RecommendationClassification recommendation;
 
     //"Known Partial Loss" naming - see LossSummary.h. isCompleteTotal is permanently false.
     LossSummary lossSummary;
 
-    //documented simple composite of the two concrete manufacturability signals this pipeline actually
-    //produces: physical-fill headroom (WindingDesign.h) and the small-gap manufacturability warning
+    //documented simple composite of the two concrete manufacturability signals this pipeline actually produces: physical-fill headroom (WindingDesign.h) and the small-gap manufacturability warning
     //(TurnsAndGapDesign.h) - not a new fabricated metric. See InductorDesignService.cpp for the formula.
     double manufacturabilityMarginPercent = 0.0;
 
     //human-readable per-candidate ranking explanation - see RankingExplanationService.h.
     std::string rankingExplanation;
 
-    //the single check most responsible for this candidate's current standing - see
-    //BottleneckAnalysis.h/BottleneckAnalysisService.h.
+    //the single check most responsible for this candidate's current standing 
     BottleneckAnalysis bottleneck;
 
-    //rule-based engineering suggestion tied directly to `bottleneck` - see
-    //RankingExplanationService.h's suggestImprovement(). Distinct from rankingExplanation ("where this
-    //candidate landed in the ranking, and why") - this answers "what would improve it," a different
-    //question for a different audience. Empty for the early turns/gap-non-convergence return, same as
-    //rankingExplanation.
+    //rule-based engineering suggestion tied directly to `bottleneck`
     std::string designNarrative;
 };

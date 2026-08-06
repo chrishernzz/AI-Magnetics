@@ -1,6 +1,5 @@
 #pragma once
 #include <optional>
-#include "Topology.h"
 
 /*
 
@@ -16,6 +15,12 @@ is the point where this struct would need to become topology-specific
 is only one implementation to generalize from.
 
 */
+
+enum class Topology {
+    Buck
+};
+
+
 struct TopologyInput {
     Topology topology = Topology::Buck;
 
