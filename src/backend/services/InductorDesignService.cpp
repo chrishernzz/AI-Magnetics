@@ -81,6 +81,7 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     thermalInputs.coreLossKnown = candidate.losses.coreLossStatus == EvaluationStatus::Evaluated;
     thermalInputs.coreEffectiveAreaMm2 = core.aeMm2;
     thermalInputs.coreMagneticPathLengthMm = core.leMm;
+    thermalInputs.coreWoundSurfaceAreaMm2 = core.surfaceAreaWoundMm2;
     candidate.thermal = evaluateThermal(thermalInputs, rules);
     if (candidate.thermal.status == ThermalStatus::PreliminaryThermalEstimate) {
         candidate.winding.estimatedHotDcrOhms = candidate.thermal.hotDcrOhms;

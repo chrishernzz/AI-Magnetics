@@ -183,6 +183,10 @@ def fetch_cores() -> list[dict]:
                 "DatasheetUrl": r.get("DatasheetUrl", ""),
                 "WindowWidthMm": float(r["WindowWidthMm"]) if r.get("WindowWidthMm") else 0.0,
                 "WindowHeightMm": float(r["WindowHeightMm"]) if r.get("WindowHeightMm") else 0.0,
+                # Real, manufacturer-published wound-coil surface area (mm^2) from this part's own
+                # datasheet "Surface Area" table - see CoreDatabase.h's CoreData::surfaceAreaWoundMm2.
+                # Blank/0.0 means not yet transcribed, never a guessed/estimated value.
+                "SurfaceAreaWoundMm2": float(r["SurfaceAreaWoundMm2"]) if r.get("SurfaceAreaWoundMm2") else 0.0,
             }
         )
 

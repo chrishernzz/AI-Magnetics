@@ -53,6 +53,11 @@ struct CoreCandidate {
     double windowWidthMm = 0.0;
     double windowHeightMm = 0.0;
 
+    //real, manufacturer-published wound-coil external surface area (mm^2) - see CoreData::surfaceAreaWoundMm2.
+    //0.0 means not yet transcribed, never a guessed/estimated value. Consumed by ThermalEvaluation as the
+    //preferred (real) input to the Rth calculation, ahead of the Ae*Le compact-solid estimate.
+    double surfaceAreaWoundMm2 = 0.0;
+
     //provenance for this core's data - see Provenance.h. source.datasheetUrl is now real (populated from
     //CoreData::datasheetUrl) for ~99% of cores in the current snapshot; datasheetRevision/dateAccessed
     //remain unset (no such data exists anywhere in the snapshot).

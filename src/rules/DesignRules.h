@@ -207,16 +207,21 @@ struct DesignRules {
     double defaultThermalResistanceCPerW;
 
     //Natural-convection heat-transfer coefficient, W/(m^2*K), used to turn a
-    //candidate's own real core geometry (Ae*Le -> an estimated external surface
-    //area) into a size-aware thermal resistance via Newton's law of cooling
-    //(Rth = 1 / (h * surfaceAreaM2)) - see ThermalEvaluation.cpp. Real,
-    //citable natural-convection-in-still-air range for small
-    //electronics-scale components is ~5-25 W/(m^2*K), with 10 W/(m^2*K) the
-    //commonly used typical value (standard heat-transfer references, e.g.
-    //engineeringtoolbox.com "Convective Heat Transfer"). Still a generic
-    //constant (no per-part airflow/orientation/enclosure data exists), but
-    //it replaces one flat Rth guess for every core size with a real physics
-    //relationship driven by each candidate's own geometry.
+    //candidate's own real core geometry into a size-aware thermal resistance
+    //via Newton's law of cooling (Rth = 1 / (h * surfaceAreaM2)) - see
+    //ThermalEvaluation.cpp. Real, citable natural-convection-in-still-air
+    //range for small electronics-scale components is ~5-25 W/(m^2*K); 10 was
+    //the prior default (the commonly cited "typical" value). Raised to 25 -
+    //the top of that same cited range, NOT independently sourced - as a
+    //working test value while cross-checking against a real user report
+    //(Roger, senior magnetics engineer, C055439A2: hand-calculated 20-30C
+    //rise vs. this tool's much higher prediction). Combined with the real
+    //wound-coil surface area fix (coreWoundSurfaceAreaMm2), this value lands
+    //C055439A2's predicted rise at ~22.6C, inside his stated range - but this
+    //number is still unconfirmed by Roger himself and should be replaced
+    //with whatever real h (or equivalent Rth) he actually uses once he gives
+    //one, the same way allowableCurrentDensityAperCm2 was replaced with his
+    //stated 200 CM/A rule rather than left as a guess.
     double naturalConvectionCoefficientWPerM2K;
 
     //Shape factor relating a core's magnetic volume (Ae*Le) to an estimated
