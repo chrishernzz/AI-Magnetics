@@ -153,6 +153,7 @@ def _serialize_core(c) -> dict:
         "materialType": c.materialType,
         "windowWidthMm": c.windowWidthMm,
         "windowHeightMm": c.windowHeightMm,
+        "surfaceAreaWoundMm2": c.surfaceAreaWoundMm2,
         "source": _serialize_source_info(c.source),
     }
 
@@ -290,6 +291,7 @@ def _serialize_thermal(t) -> dict:
         "converged": t.converged,
         "thermalResistanceCPerWUsed": t.thermalResistanceCPerWUsed,
         "thermalResistanceIsGeometryDerived": t.thermalResistanceIsGeometryDerived,
+        "thermalResistanceUsesRealSurfaceArea": t.thermalResistanceUsesRealSurfaceArea,
         "missingDataExplanation": t.missingDataExplanation,
     }
 

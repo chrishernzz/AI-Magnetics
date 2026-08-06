@@ -4,20 +4,35 @@
 namespace {
 
 //precondition: none
-//postcondition: returns rules.defaultThermalResistanceCPerW (and sets isGeometryDerivedOut=false) when
-//aeMm2 or leMm is not positive - geometry unknown, never divide by zero or fabricate a number. Otherwise
-//returns a Newton's-law-of-cooling estimate, Rth = 1/(h*surfaceAreaM2), where surfaceAreaM2 approximates
-//the core's total external surface area as a compact solid of the same real magnetic volume (Ae*Le) - see
-//DesignRules.h for the sourcing of h and the shape-factor simplification.
-double estimateThermalResistanceCPerW(double aeMm2, double leMm, const DesignRules& rules, bool& isGeometryDerivedOut) {
+//postcondition: returns a Newton's-law-of-cooling estimate, Rth = 1/(h*surfaceAreaM2), from a REAL
+//manufacturer-published wound-coil surface area when coreWoundSurfaceAreaMm2 > 0 (sets
+//usesRealSurfaceAreaOut=true); otherwise approximates surface area from the core's magnetic volume
+//(Ae*Le) as a compact solid (sets isGeometryDerivedOut=true instead); otherwise returns
+//rules.defaultThermalResistanceCPerW when neither is available - geometry unknown, never divide by zero
+//or fabricate a number.
+double estimateThermalResistanceCPerW(double aeMm2, double leMm, double coreWoundSurfaceAreaMm2, const DesignRules& rules,
+                                       bool& isGeometryDerivedOut, bool& usesRealSurfaceAreaOut) {
     isGeometryDerivedOut = false;
+    usesRealSurfaceAreaOut = false;
+    if (rules.naturalConvectionCoefficientWPerM2K <= 0.0) {
+        return rules.defaultThermalResistanceCPerW;
+    }
+
+    if (coreWoundSurfaceAreaMm2 > 0.0) {
+        constexpr double kMm2ToM2 = 1e-6;
+        double surfaceAreaM2 = coreWoundSurfaceAreaMm2 * kMm2ToM2;
+        isGeometryDerivedOut = true;
+        usesRealSurfaceAreaOut = true;
+        return 1.0 / (rules.naturalConvectionCoefficientWPerM2K * surfaceAreaM2);
+    }
+
     if (aeMm2 <= 0.0 || leMm <= 0.0) {
         return rules.defaultThermalResistanceCPerW;
     }
     constexpr double kMm3ToM3 = 1e-9;
     double volumeM3 = aeMm2 * leMm * kMm3ToM3;
     double surfaceAreaM2 = rules.compactSolidSurfaceAreaShapeFactor * std::pow(volumeM3, 2.0 / 3.0);
-    if (surfaceAreaM2 <= 0.0 || rules.naturalConvectionCoefficientWPerM2K <= 0.0) {
+    if (surfaceAreaM2 <= 0.0) {
         return rules.defaultThermalResistanceCPerW;
     }
     isGeometryDerivedOut = true;
@@ -39,7 +54,10 @@ ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, co
     }
 
     bool thermalResistanceIsGeometryDerived = false;
-    double thermalResistanceCPerWUsed = estimateThermalResistanceCPerW(inputs.coreEffectiveAreaMm2, inputs.coreMagneticPathLengthMm, rules, thermalResistanceIsGeometryDerived);
+    bool thermalResistanceUsesRealSurfaceArea = false;
+    double thermalResistanceCPerWUsed = estimateThermalResistanceCPerW(
+        inputs.coreEffectiveAreaMm2, inputs.coreMagneticPathLengthMm, inputs.coreWoundSurfaceAreaMm2, rules,
+        thermalResistanceIsGeometryDerived, thermalResistanceUsesRealSurfaceArea);
 
     double windingTempC = inputs.ambientTemperatureC;
     double hotDcrOhms = inputs.coldDcrOhmsAt20C;
@@ -86,5 +104,6 @@ ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, co
     result.converged = true;
     result.thermalResistanceCPerWUsed = thermalResistanceCPerWUsed;
     result.thermalResistanceIsGeometryDerived = thermalResistanceIsGeometryDerived;
+    result.thermalResistanceUsesRealSurfaceArea = thermalResistanceUsesRealSurfaceArea;
     return result;
 }

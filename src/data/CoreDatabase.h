@@ -43,6 +43,15 @@ struct CoreData {
     //"no linear dimension recorded", the same convention as mlt above - never a real zero-size window.
     double windowWidthMm = 0.0;
     double windowHeightMm = 0.0;
+
+    //Real, manufacturer-published external surface area of the WOUND coil (mm^2), transcribed directly
+    //from the datasheet's own "Surface Area" table (e.g. C055439A2's datasheet publishes 9,600mm^2 at a
+    //40% winding factor) - not computed or estimated. A real user report (Roger, senior magnetics
+    //engineer) flagged that estimating this from core volume (Ae*Le, a compact-solid shape-factor guess)
+    //materially under-states a wound toroid's real cooling surface, producing an inflated thermal-rise
+    //estimate. 0.0 means not yet transcribed for this part - this snapshot only has one confirmed value
+    //(C055439A2) as of this field's introduction; every other row is genuinely unpopulated, never guessed.
+    double surfaceAreaWoundMm2 = 0.0;
 };
 
 class CoreDatabase{
