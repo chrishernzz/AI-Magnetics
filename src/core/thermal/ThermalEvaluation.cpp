@@ -27,7 +27,8 @@ double estimateThermalResistanceCPerW(double aeMm2, double leMm, const DesignRul
 }  //namespace
 
 //precondition: none
-//postcondition: see header
+//postcondition: see block comment above. Iterates up to rules.maxThermalIterations times (mirrors TurnsAndGapDesign.cpp's kMaxIterations pattern), converged when the winding-temperature change between
+//iterations is below rules.thermalConvergenceThresholdC. Returns NotEvaluated (not a stale intermediate number) when copperLossGeometryKnown is false, or when the loop fails to converge within the iteration cap.
 ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, const DesignRules& rules) {
     ThermalEvaluationResult result;
 
@@ -38,8 +39,7 @@ ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, co
     }
 
     bool thermalResistanceIsGeometryDerived = false;
-    double thermalResistanceCPerWUsed = estimateThermalResistanceCPerW(
-        inputs.coreEffectiveAreaMm2, inputs.coreMagneticPathLengthMm, rules, thermalResistanceIsGeometryDerived);
+    double thermalResistanceCPerWUsed = estimateThermalResistanceCPerW(inputs.coreEffectiveAreaMm2, inputs.coreMagneticPathLengthMm, rules, thermalResistanceIsGeometryDerived);
 
     double windingTempC = inputs.ambientTemperatureC;
     double hotDcrOhms = inputs.coldDcrOhmsAt20C;
@@ -68,15 +68,10 @@ ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, co
     }
 
     if (!converged) {
-        //Genuine positive-feedback divergence (see header) for a high-current/low-DCR design is a real,
-        //reachable case here, not just a numerical edge case - the last computed intermediate temperature
+        //Genuine positive-feedback divergence (see header) for a high-current/low-DCR design is a real, reachable case here, not just a numerical edge case - the last computed intermediate temperature
         //is not a meaningful estimate in that case, so it is not reported as one.
         result.status = ThermalStatus::NotEvaluated;
-        result.missingDataExplanation =
-            "thermal loop did not converge within " + std::to_string(rules.maxThermalIterations) +
-            " iterations - this heuristic's positive feedback (hotter winding raises DCR, which raises loss, "
-            "which raises temperature further) did not stabilize, which can indicate a thermal-runaway-prone "
-            "operating point rather than a benign numerical issue; no estimate is reported";
+        result.missingDataExplanation = "thermal loop did not converge within " + std::to_string(rules.maxThermalIterations) + " iterations - this heuristic's positive feedback (hotter winding raises DCR, which raises loss, which raises temperature further) did not stabilize, which can indicate a thermal-runaway-prone operating point rather than a benign numerical issue; no estimate is reported";
         return result;
     }
 

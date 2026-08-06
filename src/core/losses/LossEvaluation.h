@@ -26,8 +26,7 @@ struct LossEvaluationResult {
     //valid only when coreLossStatus == Evaluated
     double coreLossW = 0.0;
 
-    //--- Core-loss detail (spec section 7) - surfaces what was already computed internally but never exposed.
-    //All valid only when coreLossStatus == Evaluated.
+    //--- Core-loss detail (spec section 7) - surfaces what was already computed internally but never exposed. All valid only when coreLossStatus == Evaluated.
     std::string coreLossMaterialUsed;
     //the matched coefficient row's own declared valid frequency range - not the requested switching frequency.
     double coreLossCoefficientMinFreqHz = 0.0;
@@ -39,11 +38,4 @@ struct LossEvaluationResult {
     std::vector<std::string> missingData;
 };
 
-//precondition: none
-//postcondition: computes DC copper loss only when winding.resistanceStatus == Evaluated (uses rmsCurrentA, never peak current). Computes core
-//loss only when rippleCurrentPeakToPeakA is supplied AND findCoreLossCoefficients() finds a real coefficient row for this material/frequency -
-//flux-density swing is computed as Bswing = calculatedInductanceH * ripplePkPkA / (turns * Ae_m2), the same peak-flux relationship
-//PeakFluxValidation uses, but driven by the ripple current rather than peak current. See docs/FORMULAS.md section 9 for the full explanation,
-//including why no ripple data means no core-loss number (Option 1: never approximate Bswing from peak flux). Skin-depth AC-loss risk is
-//evaluated separately by the caller - see core/losses/SkinDepthRisk.h - not part of this function.
 LossEvaluationResult evaluateLosses(const MaterialCandidate& material, const CoreCandidate& core, const TurnsAndGapResult& turnsAndGap, const WindingDesignResult& winding, double rmsCurrentA, double switchingFreqHz, const std::optional<double>& rippleCurrentPeakToPeakA);
