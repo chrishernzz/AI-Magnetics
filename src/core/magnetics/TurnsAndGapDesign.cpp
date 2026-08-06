@@ -88,6 +88,7 @@ TurnsAndGapResult solveDistributedGapCore(double targetNh, const CoreCandidate& 
 
     //get the zero bias inductance and error percent which is the current at 0 A DC bias, not the real operating current. This is the only turns count the solver ever sees, and it is fixed for the rest of this function.
     double zeroBiasNh = static_cast<double>(turns) * turns * core.al;
+    //formula is Errror % = 100 * (Lactual (inductance) - Ltarget (what user input) / Ltarget (what user input))
     double errorPercent = 100.0 * (zeroBiasNh - targetNh) / targetNh;
     result.turns = turns;
     //Identical to turns now (turns is never raised past the zero-bias solve) - kept as its own field
@@ -315,6 +316,7 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
     //there is no discrete machined air gap to report, REGARDLESS OF SHAPE. This used to also require coreShape=="Toroid", which was wrong in the other direction from the original ferrite-toroid bug: real
     //powder E-cores/blocks/EQ/LP families (e.g. Kool Mu E/U/EER, XFlux Blocks) are just as distributed-gap as powder toroids - same material, same physics, different mechanical shape
     bool isDistributedGapCore = core.materialType == "powder";
+    //this will be used for early rejection return 
     result.gapMethod = isDistributedGapCore ? GapMethod::Distributed : rules.gapMethod;
 
     //only MachinedCenterLeg has a validated formula in Phase 1 (see GapMethod.h) - any other requested method is rejected here rather than having the one validated formula silently applied to a technique
@@ -327,7 +329,6 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
 
     //target inductance is converted from microhenries to nanohenries (1uH = 1000nH)
     double targetNh = units::uHToNh(targetInductanceUH);
-
     //distributed-gap (powder) cores: even on shapes with a physical center leg (E-cores, blocks, EQ/LP), that leg is never machined with an air gap - the material itself provides the gap-equivalent property,
     //distributed through the powder. So the McLyman required-gap iteration below (which solves for an ADDITIONAL air gap on top of the ungapped AL) does not apply - the only lever available is turns.
     //Reporting a nonzero "gap" here would imply a machinable dimension that does not physically exist on this part. No gap-tolerance sweep either - there is no gap dimension for mechanical tolerance to act
@@ -336,8 +337,14 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
     
     //if the material is powder then it takes in distrbuted gap
     if(isDistributedGapCore) {
-        return solveDistributedGapCore(targetNh, core, targetInductanceUH, tolerancePercent, peakCurrentA, rmsCurrentA);
+        result = solveDistributedGapCore(targetNh, core, targetInductanceUH, tolerancePercent, peakCurrentA, rmsCurrentA);
     }
-    //else if  no distrbuted gap then return this
-    return solveMachinedGapCore(targetNh, core, material, targetInductanceUH, tolerancePercent, peakCurrentA, rmsCurrentA, rules);
+    else {
+        //else if  no distrbuted gap then return this
+        result = solveMachinedGapCore(targetNh, core, material, targetInductanceUH, tolerancePercent, peakCurrentA, rmsCurrentA, rules);
+    }
+    //get the type of gap method we use (updated since the result gets overwrited with the new information)
+    result.gapMethod = isDistributedGapCore ? GapMethod::Distributed : rules.gapMethod;
+
+    return result;
 }
