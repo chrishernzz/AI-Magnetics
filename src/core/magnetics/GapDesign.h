@@ -20,13 +20,5 @@ the loaded core data carries the winding/bobbin geometry a fringing model
 would need. This is a documented simplification, not a silent omission.
 */
 
-//Effective AL (nH/turn^2) of a core with effective area aeCm2 (cm^2),
-//magnetic path length leCm (cm), relative permeability muR, and a gap of
-//gapCm (cm) inserted in the magnetic path. gapCm = 0 reproduces the ungapped catalog AL.
 double calculateEffectiveAlNhPerTurnSq(double aeCm2, double leCm, double muR, double gapCm);
-
-//Gap length (cm) required so that `turns` turns on this core produce
-//targetInductanceNh. Returns zero or a negative value if the core's
-//ungapped AL already meets or exceeds the target at this turns count (no
-//gap needed - not an error condition).
 double calculateRequiredGapCm(int turns, double aeCm2, double leCm, double muR, double targetInductanceNh);
