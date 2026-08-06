@@ -6,28 +6,24 @@
 
 namespace {
 //precondition: none
-//postcondition: throws std::invalid_argument naming the field if value is NaN or +-infinity - never lets a
-//non-finite value silently propagate into a formula and produce a non-finite (and misleadingly "successful") result
+//postcondition: throws std::invalid_argument naming the field if value is NaN or +-infinity - never lets a non-finite value silently propagate into a formula and produce a non-finite (and misleadingly "successful") result
 void requireFinite(double value, const char* fieldName) {
     if (!std::isfinite(value)) {
         throw std::invalid_argument(std::string(fieldName) + " must be a finite number (got NaN or infinity)");
     }
 }
 
-//floating-point comparison tolerance for the CCM/DCM boundary check - not a design assumption, just enough
-//slack that a minimum current that is mathematically ~0 doesn't misclassify as negative from rounding.
+//floating-point comparison tolerance for the CCM/DCM boundary check - not a design assumption, just enough slack that a minimum current that is mathematically ~0 doesn't misclassify as negative from rounding.
 constexpr double kCcmZeroEpsilonA = 1e-6;
 
 //precondition: fswHz > 0, inductanceH > 0
-//postcondition: returns the real electrical quantities at this specific Vin, using the inductance that was
-//actually sized (at Vin_max) - not an independent re-sizing at this Vin.
+//postcondition: returns the real electrical quantities at this specific Vin, using the inductance that was actually sized (at Vin_max) - not an independent re-sizing at this Vin.
 BuckOperatingPointResult evaluateAtVin(double vinV, double voutV, double ioutA, double fswHz, double inductanceH) {
     BuckOperatingPointResult r;
     r.vinV = vinV;
     //ideal duty cycle, no diode/switch drop modeling in V1 : Formula: D = Vout / Vin
     r.dutyCycle = voutV / vinV;
-    //Formula: ripple = (Vin - Vout) * D / (fsw * L), the standard buck ripple-current equation evaluated at
-    //this Vin using the fixed sized inductance - not re-derived from a target ripple percent per point.
+    //Formula: ripple = (Vin - Vout) * D / (fsw * L), the standard buck ripple-current equation evaluated at this Vin using the fixed sized inductance - not re-derived from a target ripple percent per point.
     r.rippleCurrentPeakToPeakA = (vinV - voutV) * r.dutyCycle / (fswHz * inductanceH);
     r.peakCurrentA = ioutA + r.rippleCurrentPeakToPeakA / 2.0;
     r.minInductorCurrentA = ioutA - r.rippleCurrentPeakToPeakA / 2.0;
@@ -57,25 +53,20 @@ BuckSolveResult BuckElectricalSolver::solve(const TopologyInput& input, const De
         throw std::invalid_argument("vinMinV, vinMaxV, ioutA, switchingFreqKHz, and rippleCurrentPercent must all be positive");
     }
     if (input.rippleCurrentPercent > rules.maximumRippleCurrentPercent) {
-        throw std::invalid_argument("rippleCurrentPercent (" + std::to_string(input.rippleCurrentPercent) +
-                                     "%) exceeds the Phase 1 input-sanity bound (" + std::to_string(rules.maximumRippleCurrentPercent) +
-                                     "%) - above this the triangular-ripple CCM model is unreliable and the operating point is likely already in DCM");
+        throw std::invalid_argument("rippleCurrentPercent (" + std::to_string(input.rippleCurrentPercent) + "%) exceeds the Phase 1 input-sanity bound (" + std::to_string(rules.maximumRippleCurrentPercent) + "%) - above this the triangular-ripple CCM model is unreliable and the operating point is likely already in DCM");
     }
     if (input.vinMinV > input.vinMaxV) {
         throw std::invalid_argument("vinMinV cannot exceed vinMaxV");
     }
-    //the real binding constraint is Vout vs Vin_min, not Vin_max: at Vin = vinMinV the required duty cycle
-    //(D = Vout/Vin) is at its maximum, so a converter that could regulate at high line may be unable to at
-    //low line even though Vout < vinMaxV would suggest it can. vinMinV <= vinMaxV already holds here, so
-    //this check is strictly stronger than (and supersedes) a Vout-vs-vinMaxV check.
+    //the real binding constraint is Vout vs Vin_min, not Vin_max: at Vin = vinMinV the required duty cycle (D = Vout/Vin) is at its maximum, so a converter that could regulate at high line may be unable to at
+    //low line even though Vout < vinMaxV would suggest it can. vinMinV <= vinMaxV already holds here, so this check is strictly stronger than (and supersedes) a Vout-vs-vinMaxV check.
     if (input.voutV <= 0.0 || input.voutV >= input.vinMinV) {
         throw std::invalid_argument("voutV must be positive and less than vinMinV - a buck converter cannot regulate Vout >= Vin at the low end of the input range");
     }
 
     double fswHz = units::kHzToHz(input.switchingFreqKHz);
 
-    //worst-case point for buck ripple current is Vin_max (ripple grows as Vin - Vout grows) - inductance is
-    //sized here, then the real electrical quantities are evaluated at both Vin_min and Vin_max below.
+    //worst-case point for buck ripple current is Vin_max (ripple grows as Vin - Vout grows) - inductance is sized here, then the real electrical quantities are evaluated at both Vin_min and Vin_max below.
     double dutyAtMax = input.voutV / input.vinMaxV;
     //Formula: Iout * (ripple current percent / 100)
     double rippleTargetA = input.ioutA * (input.rippleCurrentPercent / 100.0);
@@ -94,15 +85,13 @@ BuckSolveResult BuckElectricalSolver::solve(const TopologyInput& input, const De
     //true CCM/DCM boundary check regardless of which point is worst for duty cycle or absolute peak current.
     double worstMinCurrent = out.atVinMax.minInductorCurrentA;
     if (worstMinCurrent < -kCcmZeroEpsilonA) {
-        throw std::invalid_argument("computed minimum inductor current is negative at Vin_max (" +
-                                     std::to_string(worstMinCurrent) +
-                                     " A) - this operating point enters discontinuous conduction mode (DCM), which Phase 1 does not support (CCM only)");
-    } else if (worstMinCurrent <= kCcmZeroEpsilonA) {
+        throw std::invalid_argument("computed minimum inductor current is negative at Vin_max (" + std::to_string(worstMinCurrent) + " A) - this operating point enters discontinuous conduction mode (DCM), which Phase 1 does not support (CCM only)");
+    } 
+    else if (worstMinCurrent <= kCcmZeroEpsilonA) {
         out.conductionMode = ConductionMode::CCMBoundary;
-        out.warnings.push_back(
-            "minimum inductor current is at or near zero at Vin_max - this design sits at the CCM/DCM boundary; "
-            "small load or line variation may push it into DCM");
-    } else {
+        out.warnings.push_back("minimum inductor current is at or near zero at Vin_max - this design sits at the CCM/DCM boundary; small load or line variation may push it into DCM");
+    } 
+    else {
         out.conductionMode = ConductionMode::CCM;
     }
 

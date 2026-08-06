@@ -82,7 +82,6 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     thermalInputs.coreEffectiveAreaMm2 = core.aeMm2;
     thermalInputs.coreMagneticPathLengthMm = core.leMm;
     candidate.thermal = evaluateThermal(thermalInputs, rules);
-
     if (candidate.thermal.status == ThermalStatus::PreliminaryThermalEstimate) {
         candidate.winding.estimatedHotDcrOhms = candidate.thermal.hotDcrOhms;
         if (candidate.losses.copperLossStatus == EvaluationStatus::Evaluated) {
