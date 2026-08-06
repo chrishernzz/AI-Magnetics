@@ -1,10 +1,7 @@
 #pragma once
 
-//Standard round magnet wire geometry (bare copper diameter/area) for AWG
-//8 through 30, per NEMA MW1000 - this is public reference geometry, not a
-//fabricated or measured design constant, unlike DesignRules' engineering
-//defaults.
-
+//Standard round magnet wire geometry (bare copper diameter/area) for AWG 8 through 30, per NEMA MW1000 - this is public reference geometry, not a
+//fabricated or measured design constant, unlike DesignRules' engineering defaults.
 struct AwgEntry {
     int awg;
     double diameterMm;

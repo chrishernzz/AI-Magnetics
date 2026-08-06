@@ -6,7 +6,7 @@
 /*
 DataCache<T> holds the "load once at startup, serve from memory forever
 after" logic that CoreDatabase and Materials both needed, identically.
-Before this file existed, that logic (teh cachedData member, the empty check + warning,
+Before this file existed, that logic (the cachedData member, the empty check + warning,
 setData()) was written out twice, once per file, with only the type name different. 
 This is the same logic, written once.
 
@@ -17,10 +17,8 @@ template<typename T>
 class DataCache {
 private:
     static std::vector<T> cachedData;
-    //load() is called once per material/candidate evaluated (MaterialEvaluation.cpp, CoreLoss.cpp), so an
-    //empty cache would otherwise print this same warning dozens of times per request - real log noise, not
-    //a repeated new finding each time. Warn once per process instead; the underlying "empty" fact doesn't
-    //change between calls, only whether you've already been told.
+    //load() is called once per material/candidate evaluated (MaterialEvaluation.cpp, CoreLoss.cpp), so an empty cache would otherwise print this same warning dozens of times per request - real log noise, not
+    //a repeated new finding each time. Warn once per process instead; the underlying "empty" fact doesn't change between calls, only whether you've already been told.
     static bool warnedEmpty;
 public:
     static const std::vector<T>& load(const char* label) {
@@ -38,6 +36,5 @@ public:
 
 template<typename T>
 std::vector<T> DataCache<T>::cachedData;
-
 template<typename T>
 bool DataCache<T>::warnedEmpty = false;

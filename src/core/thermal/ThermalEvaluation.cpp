@@ -10,8 +10,7 @@ namespace {
 //(Ae*Le) as a compact solid (sets isGeometryDerivedOut=true instead); otherwise returns
 //rules.defaultThermalResistanceCPerW when neither is available - geometry unknown, never divide by zero
 //or fabricate a number.
-double estimateThermalResistanceCPerW(double aeMm2, double leMm, double coreWoundSurfaceAreaMm2, const DesignRules& rules,
-                                       bool& isGeometryDerivedOut, bool& usesRealSurfaceAreaOut) {
+double estimateThermalResistanceCPerW(double aeMm2, double leMm, double coreWoundSurfaceAreaMm2, const DesignRules& rules, bool& isGeometryDerivedOut, bool& usesRealSurfaceAreaOut) {
     isGeometryDerivedOut = false;
     usesRealSurfaceAreaOut = false;
     if (rules.naturalConvectionCoefficientWPerM2K <= 0.0) {
@@ -55,9 +54,7 @@ ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, co
 
     bool thermalResistanceIsGeometryDerived = false;
     bool thermalResistanceUsesRealSurfaceArea = false;
-    double thermalResistanceCPerWUsed = estimateThermalResistanceCPerW(
-        inputs.coreEffectiveAreaMm2, inputs.coreMagneticPathLengthMm, inputs.coreWoundSurfaceAreaMm2, rules,
-        thermalResistanceIsGeometryDerived, thermalResistanceUsesRealSurfaceArea);
+    double thermalResistanceCPerWUsed = estimateThermalResistanceCPerW(inputs.coreEffectiveAreaMm2, inputs.coreMagneticPathLengthMm, inputs.coreWoundSurfaceAreaMm2, rules, thermalResistanceIsGeometryDerived, thermalResistanceUsesRealSurfaceArea);
 
     double windingTempC = inputs.ambientTemperatureC;
     double hotDcrOhms = inputs.coldDcrOhmsAt20C;

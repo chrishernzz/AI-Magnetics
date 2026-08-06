@@ -18,10 +18,8 @@ not this function's, to keep the "why did this fail" data available.
 struct CoreCandidate {
     std::string partNumber;
     std::string material;
-    //Defaulted to 0.0/false (not left indeterminate) - every real construction path sets these explicitly,
-    //but a default-constructed instance (e.g. in a test fixture) would otherwise read genuinely uninitialized
-    //garbage. See MaterialCandidate::hasBmaxData for the real g++-11-specific test failure this exact pattern
-    //caused elsewhere in this codebase.
+    //Defaulted to 0.0/false (not left indeterminate) - every real construction path sets these explicitly, but a default-constructed instance (e.g. in a test fixture) would otherwise read genuinely uninitialized
+    //garbage. See MaterialCandidate::hasBmaxData for the real g++-11-specific test failure this exact pattern caused elsewhere in this codebase.
     double mu = 0.0;
     //nH/turn^2, ungapped catalog value
     double al = 0.0;
@@ -45,32 +43,19 @@ struct CoreCandidate {
     //real material type ("ferrite"/"powder") from real_cores.csv's MaterialType column - see CoreData::materialType. Empty string means unknown, never treated as "powder".
     std::string materialType;
 
-    //real rectangular winding-window dimensions (mm) - see CoreData::windowWidthMm/windowHeightMm. 0.0 means
-    //no linear dimension recorded (always true for toroids - their window is a radial height, not a flat
-    //width/height). Consumed by WindingDesign's BundleFitValidation check (parallel-strand bundle width vs.
-    //narrowest real opening) - the raw fill-factor formula still uses the area-fraction margin/lead-exit
+    //real rectangular winding-window dimensions (mm) - see CoreData::windowWidthMm/windowHeightMm. 0.0 means no linear dimension recorded (always true for toroids - their window is a radial height, not a flat
+    //width/height). Consumed by WindingDesign's BundleFitValidation check (parallel-strand bundle width vs. narrowest real opening) - the raw fill-factor formula still uses the area-fraction margin/lead-exit
     //estimates from DesignRules, unchanged.
     double windowWidthMm = 0.0;
     double windowHeightMm = 0.0;
 
-    //real, manufacturer-published wound-coil external surface area (mm^2) - see CoreData::surfaceAreaWoundMm2.
-    //0.0 means not yet transcribed, never a guessed/estimated value. Consumed by ThermalEvaluation as the
+    //real, manufacturer-published wound-coil external surface area (mm^2) - see CoreData::surfaceAreaWoundMm2. 0.0 means not yet transcribed, never a guessed/estimated value. Consumed by ThermalEvaluation as the
     //preferred (real) input to the Rth calculation, ahead of the Ae*Le compact-solid estimate.
     double surfaceAreaWoundMm2 = 0.0;
 
-    //provenance for this core's data - see Provenance.h. source.datasheetUrl is now real (populated from
-    //CoreData::datasheetUrl) for ~99% of cores in the current snapshot; datasheetRevision/dateAccessed
+    //provenance for this core's data - see Provenance.h. source.datasheetUrl is now real (populated from CoreData::datasheetUrl) for ~99% of cores in the current snapshot; datasheetRevision/dateAccessed
     //remain unset (no such data exists anywhere in the snapshot).
     SourceInfo source;
 };
 
-
-//CoreDatabase::load() has been populated; requiredAreaProductCm4ByMaterial has one entry for every MaterialCandidate.materialFamily
-//present in compatibleMaterials (the caller builds this from the same list, so every core that finds a materialCompatible match is guaranteed a lookup hit)
-//returns every core whose material matches one of the given compatible materials, each carrying its own computed area product and whether it meets the materials own
-//requiredAreaProductCm4 (with a 5% margin) - looked up per-core by material, not a single value applied to every material alike (a flat ferrite-typical flux limit was
-//silently under-crediting higher-Bsat powder cores like MPP/Kool Mu, which can legitimately need less area product than the same request would demand of ferrite - see AreaProduct.h
-//caller in InductorDesignService.cpp for how each materials own applicableFluxLimit() now feeds this map). Cores that do not meet the requirment are still returned (meetsAreaProduct=false)
-//so callers can build an honest no_feasible_desing report (largest available Ap) instead of a silent oversized fallback - it is the callers responsibilty to reject teh deisng, not this
-//functions to keep teh "why did this fail" data available
 std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate>& compatibleMaterials, const std::unordered_map<std::string, double>& requiredAreaProductCm4ByMaterial);

@@ -56,21 +56,17 @@ struct ThermalIterationInputs {
     double coreEffectiveAreaMm2 = 0.0;
     double coreMagneticPathLengthMm = 0.0;
 
-    //CoreCandidate::surfaceAreaWoundMm2 - the REAL, manufacturer-published external surface area of the
-    //wound coil (not the bare core), straight from the datasheet's own "Surface Area" table when
-    //transcribed for this part (see data/real_cores.csv). A real user report (Roger, senior magnetics
-    //engineer, C055439A2 review) flagged that the Ae*Le/compact-solid-shape-factor estimate below
-    //materially under-states a wound toroid's real cooling surface - this is the fix: when a real
-    //published number exists for this part, use it directly instead of estimating one. 0.0 means not yet
-    //transcribed for this part (true for every part except C055439A2 as of this field's introduction) -
-    //never guessed or backfilled from the shape-factor formula.
+    //CoreCandidate::surfaceAreaWoundMm2 - the REAL, manufacturer-published external surface area of the wound coil (not the bare core), straight from the datasheet's own "Surface Area" table when
+    //transcribed for this part (see data/real_cores.csv). C055439A2 review: flagged that the Ae*Le/compact-solid-shape-factor estimate below
+    //materially under-states a wound toroid's real cooling surface - this is the fix: when a real published number exists for this part, use it directly instead of estimating one. 0.0 means not yet
+    //transcribed for this part (true for every part except C055439A2 as of this field's introduction) - never guessed or backfilled from the shape-factor formula.
     double coreWoundSurfaceAreaMm2 = 0.0;
 };
 
 struct ThermalEvaluationResult {
     ThermalStatus status = ThermalStatus::NotEvaluated;
 
-    //--- valid only when status == PreliminaryThermalEstimate ---
+    //--- valid only when status == PreliminaryThermalEstimate --- (initial start)
     double convergedWindingTempC = 0.0;
     double hotDcrOhms = 0.0;
     double copperLossAtConvergedTempW = 0.0;
