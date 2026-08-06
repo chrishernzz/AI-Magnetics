@@ -34,7 +34,8 @@ double calculateCoreLossDensity(const CoreLossCoefficientData& coefficients, dou
 }
 
 //precondition: none
-//postcondition: see header
+//postcondition: returns true if fluxDensitySwingT falls within [minFluxSwingT, maxFluxSwingT], OR if either bound is absent (nothing to check against - see CoreLossCoefficientDatabase.h, currently always the case).
+//Returns false only when a present bound is actually violated.
 bool fluxSwingWithinValidatedRange(const CoreLossCoefficientData& coefficients, double fluxDensitySwingT) {
     if (coefficients.minFluxSwingT.has_value() && fluxDensitySwingT < *coefficients.minFluxSwingT) {
         return false;

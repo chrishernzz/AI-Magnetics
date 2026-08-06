@@ -31,19 +31,16 @@ struct WindingDesignResult {
     //cross-section area of ONE strand of the selected AWG (bare copper, used for DCR)
     double conductorAreaMm2 = 0.0;
     int parallelStrands = 1;
-    //raw copper-area-over-window-area figure - informational only; WindingFitValidation gates on
-    //physicalWindowFillFactor below, not this.
+    //raw copper-area-over-window-area figure - informational only; WindingFitValidation gates on physicalWindowFillFactor below, not this.
     double fillFactor = 0.0;
     double currentDensityAperMm2 = 0.0;
     //raw copper fill vs rules.maximumFillFactor - informational only, see fillFactor above.
     bool fitsWindow = false;
 
     EvaluationStatus resistanceStatus = EvaluationStatus::NotEvaluated;
-    //valid only when resistanceStatus == Evaluated - total bare-copper length across all parallel strands
-    //for the core-winding portion only (turns x MLT x parallelStrands), same meaning as before this commit.
+    //valid only when resistanceStatus == Evaluated - total bare-copper length across all parallel strands for the core-winding portion only (turns x MLT x parallelStrands), same meaning as before this commit.
     double totalWireLengthM = 0.0;
-    //valid only when resistanceStatus == Evaluated - now includes lead/routing/connection resistance (see
-    //coldDcrOhmsAt20C below), not just core-winding resistance - an intentional realism improvement, not a
+    //valid only when resistanceStatus == Evaluated - now includes lead/routing/connection resistance (see coldDcrOhmsAt20C below), not just core-winding resistance - an intentional realism improvement, not a
     //silent behavior change: any consumer reading this field now sees the more complete number.
     double dcrOhms = 0.0;
     std::vector<std::string> missingData;
@@ -61,18 +58,13 @@ struct WindingDesignResult {
     double physicalWindowAreaMm2 = 0.0;
     double physicalWindowFillFactor = 0.0;
     bool fitsPhysicalWindow = false;
-    //currentDensityAperMm2 derated by rules.currentSharingDerateFactor when parallelStrands > 1 - informational,
-    //does not itself gate CurrentDensityValidation.
+    //currentDensityAperMm2 derated by rules.currentSharingDerateFactor when parallelStrands > 1 - informational, does not itself gate CurrentDensityValidation.
     double effectiveCurrentDensityAperMm2 = 0.0;
-    //Evaluated only when the winding is a parallel-strand bundle (parallelStrands > 1) AND the core has real
-    //window width/height (two-piece cores - see CoreCandidate::windowWidthMm/windowHeightMm). NotEvaluated
-    //for a single-strand winding (nothing to check) or a core with no real linear window dimension (every
-    //toroid, or any two-piece core missing this data) - never assumed to fit, never assumed benign.
+    //Evaluated only when the winding is a parallel-strand bundle (parallelStrands > 1) AND the core has real window width/height (two-piece cores - see CoreCandidate::windowWidthMm/windowHeightMm). NotEvaluated
+    //for a single-strand winding (nothing to check) or a core with no real linear window dimension (every toroid, or any two-piece core missing this data) - never assumed to fit, never assumed benign.
     EvaluationStatus bundleFitStatus = EvaluationStatus::NotEvaluated;
-    //valid only when bundleFitStatus == Evaluated. Conservative model: the bundle's parallelStrands
-    //insulated conductors laid side by side in a single row (bundleWidthMm) checked against the window's
-    //narrower real dimension (narrowestWindowOpeningMm = min(windowWidthMm, windowHeightMm)) - does not
-    //account for bundle twisting/multi-row arrangement, which would need real winding-pattern data this
+    //valid only when bundleFitStatus == Evaluated. Conservative model: the bundle's parallelStrands insulated conductors laid side by side in a single row (bundleWidthMm) checked against the window's
+    //narrower real dimension (narrowestWindowOpeningMm = min(windowWidthMm, windowHeightMm)) - does not account for bundle twisting/multi-row arrangement, which would need real winding-pattern data this
     //project doesn't have.
     double bundleWidthMm = 0.0;
     double narrowestWindowOpeningMm = 0.0;
@@ -97,7 +89,4 @@ struct WindingDesignResult {
     double estimatedHotDcrOhms = 0.0;
 };
 
-//precondition: core.waMm2 > 0, turns > 0, rmsCurrentA > 0
-//postcondition: selects a round-wire gauge (or parallel strands of rules.minimumSingleStrandAwg if a single strand would be impractically thick) meeting rules.allowableCurrentDensityAperCm2, and computes fill
-//factor / current density against the core's actual window area.
 WindingDesignResult designWinding(const CoreCandidate& core, int turns, double rmsCurrentA, const DesignRules& rules);
