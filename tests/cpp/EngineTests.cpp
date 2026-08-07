@@ -13,8 +13,6 @@ void runWindingDesignTests();
 void runLossTests();
 void runThermalTests();
 void runRequirementDerivationServiceTests();
-void runBottleneckAnalysisTests();
-void runRankingExplanationTests();
 void runRankingHighlightsTests();
 
 int main() {
@@ -31,8 +29,6 @@ int main() {
     runLossTests();
     runThermalTests();
     runRequirementDerivationServiceTests();
-    runBottleneckAnalysisTests();
-    runRankingExplanationTests();
     runRankingHighlightsTests();
 
     std::printf("All EngineTests passed.\n");

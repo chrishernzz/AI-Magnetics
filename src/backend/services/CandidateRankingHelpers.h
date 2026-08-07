@@ -4,9 +4,8 @@
 /*
 
 Shared per-check margin/ranking primitives, extracted from InductorDesignService.cpp's
-candidateRanksAhead() comparator (unchanged) so BottleneckAnalysisService and
-RankingHighlightsService can reuse the exact same "how good is this check's result" logic instead
-of re-deriving it.
+candidateRanksAhead() comparator (unchanged) so RankingHighlightsService can reuse
+the exact same "how good is this check's result" logic instead of re-deriving it.
 
 */
 
