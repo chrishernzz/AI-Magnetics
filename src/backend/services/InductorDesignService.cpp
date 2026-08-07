@@ -16,9 +16,7 @@
 #include "validation/RecommendationStatus.h"
 #include "RequirementDerivationService.h"
 #include "core/units/UnitConversions.h"
-#include "backend/services/RankingExplanationService.h"
 #include "backend/services/CandidateRankingHelpers.h"
-#include "backend/services/BottleneckAnalysisService.h"
 #include "backend/services/RankingHighlightsService.h"
 #include "core/sizing/FluxLimit.h"
 
@@ -126,11 +124,6 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     double fillHeadroomPercent = rules.maximumFillFactor > 0.0 ? 100.0 * (rules.maximumFillFactor - candidate.winding.physicalWindowFillFactor) / rules.maximumFillFactor : 0.0;
     double smallGapPenaltyPercent = candidate.turnsAndGap.smallGapWarning ? 25.0 : 0.0;
     candidate.manufacturabilityMarginPercent = fillHeadroomPercent - smallGapPenaltyPercent;
-
-    candidate.bottleneck = analyzeBottleneck(candidate);
-    candidate.rankingExplanation = explainRanking(candidate);
-    candidate.designNarrative = suggestImprovement(candidate);
-
     return candidate;
 }
 

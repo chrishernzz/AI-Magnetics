@@ -88,9 +88,7 @@ set(BACKEND_SERVICE_SOURCES
     src/backend/services/RequirementDerivationService.cpp
     src/backend/services/InductorDesignService.cpp
     src/backend/services/BuckElectricalSolver.cpp
-    src/backend/services/RankingExplanationService.cpp
     src/backend/services/CandidateRankingHelpers.cpp
-    src/backend/services/BottleneckAnalysisService.cpp
     src/backend/services/RankingHighlightsService.cpp
 )
 
@@ -160,8 +158,6 @@ add_executable(magnetics_engine_tests
     tests/cpp/PermeabilityRolloffTests.cpp
     tests/cpp/ThermalTests.cpp
     tests/cpp/RequirementDerivationServiceTests.cpp
-    tests/cpp/BottleneckAnalysisTests.cpp
-    tests/cpp/RankingExplanationTests.cpp
     tests/cpp/RankingHighlightsTests.cpp
 )
 

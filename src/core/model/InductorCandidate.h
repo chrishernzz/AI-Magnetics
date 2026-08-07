@@ -5,7 +5,6 @@
 #include "core/losses/LossEvaluation.h"
 #include "core/sizing/MaterialEvaluation.h"
 #include "core/model/RejectionReason.h"
-#include "core/model/BottleneckAnalysis.h"
 #include "core/thermal/ThermalEvaluation.h"
 #include "core/magnetics/TurnsAndGapDesign.h"
 #include "core/winding/WindingDesign.h"
@@ -50,13 +49,4 @@ struct InductorCandidate {
     //documented simple composite of the two concrete manufacturability signals this pipeline actually produces: physical-fill headroom (WindingDesign.h) and the small-gap manufacturability warning
     //(TurnsAndGapDesign.h) - not a new fabricated metric. See InductorDesignService.cpp for the formula.
     double manufacturabilityMarginPercent = 0.0;
-
-    //human-readable per-candidate ranking explanation - see RankingExplanationService.h.
-    std::string rankingExplanation;
-
-    //the single check most responsible for this candidate's current standing 
-    BottleneckAnalysis bottleneck;
-
-    //rule-based engineering suggestion tied directly to `bottleneck`
-    std::string designNarrative;
 };

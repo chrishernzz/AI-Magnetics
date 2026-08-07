@@ -32,7 +32,6 @@
 #include "validation/DesignValidation.h"
 #include "validation/RecommendationStatus.h"
 #include "core/model/LossSummary.h"
-#include "core/model/BottleneckAnalysis.h"
 #include "core/model/RankingHighlights.h"
 
 namespace py = pybind11;
@@ -432,20 +431,6 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("isCompleteTotal", &LossSummary::isCompleteTotal)
         .def_readwrite("label", &LossSummary::label);
 
-    py::enum_<BottleneckReason>(m, "BottleneckReason")
-        .value("FailedCheck", BottleneckReason::FailedCheck)
-        .value("NotEvaluatedCheck", BottleneckReason::NotEvaluatedCheck)
-        .value("MarginHeadroom", BottleneckReason::MarginHeadroom)
-        .value("None_", BottleneckReason::None);
-
-    py::class_<BottleneckAnalysis>(m, "BottleneckAnalysis")
-        .def(py::init<>())
-        .def_readwrite("reason", &BottleneckAnalysis::reason)
-        .def_readwrite("limitingCheckName", &BottleneckAnalysis::limitingCheckName)
-        .def_readwrite("explanation", &BottleneckAnalysis::explanation)
-        .def_readwrite("marginValue", &BottleneckAnalysis::marginValue)
-        .def_readwrite("marginValueApplicable", &BottleneckAnalysis::marginValueApplicable);
-
     py::class_<RankingHighlights>(m, "RankingHighlights")
         .def(py::init<>())
         .def_readwrite("hasCandidates", &RankingHighlights::hasCandidates)
@@ -469,10 +454,7 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("acLossRisk", &InductorCandidate::acLossRisk)
         .def_readwrite("recommendation", &InductorCandidate::recommendation)
         .def_readwrite("lossSummary", &InductorCandidate::lossSummary)
-        .def_readwrite("manufacturabilityMarginPercent", &InductorCandidate::manufacturabilityMarginPercent)
-        .def_readwrite("rankingExplanation", &InductorCandidate::rankingExplanation)
-        .def_readwrite("bottleneck", &InductorCandidate::bottleneck)
-        .def_readwrite("designNarrative", &InductorCandidate::designNarrative);
+        .def_readwrite("manufacturabilityMarginPercent", &InductorCandidate::manufacturabilityMarginPercent);
 
     py::class_<DesignRecommendation>(m, "DesignRecommendation")
         .def(py::init<>())
