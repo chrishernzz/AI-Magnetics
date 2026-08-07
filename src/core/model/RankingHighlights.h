@@ -19,8 +19,7 @@ partNumber - true today given how findSuitableCores() iterates the core database
 
 */
 struct RankingHighlights {
-    //false when recommendation.candidates is empty (no_feasible_design) - every *PartNumber field below
-    //is meaningless when this is false, never a fabricated/default part number.
+    //false when recommendation.candidates is empty (no_feasible_design) - every *PartNumber field below is meaningless when this is false, never a invented/default part number.
     bool hasCandidates = false;
     std::string thermalBestPartNumber;
     std::string lowestLossPartNumber;

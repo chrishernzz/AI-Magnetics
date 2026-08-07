@@ -132,9 +132,15 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
 //differentiation actually happens in the current dataset.
 //postcondition: true if a should rank strictly ahead of b
 bool candidateRanksAhead(const InductorCandidate& a, const InductorCandidate& b) {
+    //if tier are not the same then compare that
     if (a.recommendation.tier != b.recommendation.tier) {
         return static_cast<int>(a.recommendation.tier) < static_cast<int>(b.recommendation.tier);
     }
+    //this will now check the retention of how much percent it lost, we want more since lower will make it saturate
+    if(a.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent != b.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent) {
+        return a.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent > b.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent;
+    }
+    //if known partial loss w not the same then compare that
     if (a.lossSummary.knownPartialLossW != b.lossSummary.knownPartialLossW) {
         return a.lossSummary.knownPartialLossW < b.lossSummary.knownPartialLossW;
     }
