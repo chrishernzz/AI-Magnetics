@@ -1,10 +1,13 @@
 #include "backend/services/RankingHighlightsService.h"
 #include "backend/services/CandidateRankingHelpers.h"
 
-//precondition: see header
-//postcondition: see header
+//precondition: candidates is the already-sorted, already-passing candidates list (recommendation.candidates)
+//postcondition: identifies the best-in-category candidate by partNumber for each of the four criteria -
+//see RankingHighlights.h. Does not read or modify the sort order. hasCandidates is false (and every
+//other field is left default/empty) when candidates is empty - never a fabricated part number.
 RankingHighlights computeRankingHighlights(const std::vector<InductorCandidate>& candidates) {
     RankingHighlights result;
+    //if vector has no passing candidates then reject it right away
     if (candidates.empty()) {
         return result;
     }
@@ -12,10 +15,8 @@ RankingHighlights computeRankingHighlights(const std::vector<InductorCandidate>&
 
     double bestThermalRise = thermalRiseForRanking(candidates.front());
     double lowestLoss = candidates.front().lossSummary.knownPartialLossW;
-    //marginForRanking returns -max() for any candidate whose SaturationValidation is NotEvaluated - if
-    //every candidate in this list is in that state, the "highest" margin found is just the first
-    //candidate by iteration order (an arbitrary but harmless tie among equally-unknown values, never
-    //treated as a real measured margin).
+    //marginForRanking returns -max() for any candidate whose SaturationValidation is NotEvaluated - if every candidate in this list is in that state, the "highest" margin found is just the first
+    //candidate by iteration order (an arbitrary but harmless tie among equally-unknown values, never treated as a real measured margin).
     double highestSatMargin = marginForRanking(candidates.front(), "SaturationValidation", true);
     double smallestAreaProduct = candidates.front().core.areaProductCm4;
 
