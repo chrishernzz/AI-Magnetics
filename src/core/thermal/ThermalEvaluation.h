@@ -11,16 +11,18 @@ convergence loop (temp -> hot DCR -> copper loss -> temp rise -> repeat), mirror
 TurnsAndGapDesign.cpp's existing convergence-loop pattern (same seed/iterate/check-stability shape,
 same iteration-cap safety net).
 
-ThermalStatus deliberately has no "fully evaluated" value. The thermal resistance used each run is now a
-size-aware estimate derived from the candidate's own real core geometry (Ae*Le -> an estimated external
-surface area -> Rth = 1/(h*A), Newton's law of cooling - see estimateThermalResistanceCPerW() below and
-DesignRules.h for the sourcing of h and the shape-factor simplification), falling back to the flat
-rules.defaultThermalResistanceCPerW only when that geometry is unavailable. Either way it is still an
-estimate, never per-core measured or simulated Rth data, so this loop can only ever produce a
-PreliminaryThermalEstimate, never a full pass, no matter how complete the upstream loss coverage is.
-ThermalValidation (DesignValidation.h) still runs a real pass/fail comparison against allowableTempRiseC
-when a PreliminaryThermalEstimate is available - carried by ValidationResult::isPreliminaryEstimate, not a
-fake third status.
+ThermalStatus deliberately has no "fully evaluated" value. Thermal resistance prefers a REAL,
+manufacturer-published wound-coil surface area (coreWoundSurfaceAreaMm2, transcribed from the datasheet's
+own "Surface Area" table) when one exists for this part; otherwise it falls back to a size-aware estimate
+derived from the candidate's own core geometry (Ae*Le -> an estimated external surface area -> Rth =
+1/(h*A), Newton's law of cooling - see estimateThermalResistanceCPerW() below and DesignRules.h for the
+sourcing of h and the shape-factor simplification); and falls back further to the flat
+rules.defaultThermalResistanceCPerW only when even that geometry is unavailable. Even the real-surface-area
+path is still an Rth *estimate* (h itself remains a Phase 1 constant, not measured per-part), so this loop
+can only ever produce a PreliminaryThermalEstimate, never a full pass, no matter how complete the upstream
+loss coverage is. ThermalValidation (DesignValidation.h) still runs a real pass/fail comparison against
+allowableTempRiseC when a PreliminaryThermalEstimate is available - carried by
+ValidationResult::isPreliminaryEstimate, not a fake third status.
 
 Positive-feedback note: copper resistance rises with temperature, temperature rises with loss, and loss
 rises with resistance - a real feedback loop, not just a numerical convergence exercise. For a low-DCR,
@@ -53,12 +55,18 @@ struct ThermalIterationInputs {
     //0.0 means unknown, in which case the loop falls back to rules.defaultThermalResistanceCPerW.
     double coreEffectiveAreaMm2 = 0.0;
     double coreMagneticPathLengthMm = 0.0;
+
+    //CoreCandidate::surfaceAreaWoundMm2 - the REAL, manufacturer-published external surface area of the wound coil (not the bare core), straight from the datasheet's own "Surface Area" table when
+    //transcribed for this part (see data/real_cores.csv). C055439A2 review: flagged that the Ae*Le/compact-solid-shape-factor estimate below
+    //materially under-states a wound toroid's real cooling surface - this is the fix: when a real published number exists for this part, use it directly instead of estimating one. 0.0 means not yet
+    //transcribed for this part (true for every part except C055439A2 as of this field's introduction) - never guessed or backfilled from the shape-factor formula.
+    double coreWoundSurfaceAreaMm2 = 0.0;
 };
 
 struct ThermalEvaluationResult {
     ThermalStatus status = ThermalStatus::NotEvaluated;
 
-    //--- valid only when status == PreliminaryThermalEstimate ---
+    //--- valid only when status == PreliminaryThermalEstimate --- (initial start)
     double convergedWindingTempC = 0.0;
     double hotDcrOhms = 0.0;
     double copperLossAtConvergedTempW = 0.0;
@@ -74,6 +82,12 @@ struct ThermalEvaluationResult {
     //true when thermalResistanceCPerWUsed came from this candidate's own real Ae/Le geometry (Newton's law of cooling over an estimated compact-solid surface area) rather than the flat
     //rules.defaultThermalResistanceCPerW fallback (used only when geometry was unavailable).
     bool thermalResistanceIsGeometryDerived = false;
+    //true when thermalResistanceCPerWUsed came from the REAL, manufacturer-published wound-coil surface
+    //area (coreWoundSurfaceAreaMm2) rather than the Ae*Le compact-solid-shape-factor estimate - a real
+    //number, not an estimate of an estimate. Only ever true when thermalResistanceIsGeometryDerived is
+    //also true; false (with thermalResistanceIsGeometryDerived still possibly true) means the shape-factor
+    //estimate was used because no real published surface area exists yet for this part.
+    bool thermalResistanceUsesRealSurfaceArea = false;
 
     std::string missingDataExplanation;
 };

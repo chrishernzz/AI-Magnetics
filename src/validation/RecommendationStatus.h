@@ -43,12 +43,4 @@ struct RecommendationClassification {
     std::string explanation;
 };
 
-//precondition: validations is the candidate's full validation list (same one candidate.passed was derived from)
-//postcondition: tier == Reject whenever passed == false (mirrors, never contradicts, the existing pass/fail
-//decision - only checks flagged mandatory=true ever contribute to that decision upstream). Otherwise
-//ConditionalPass when any mandatory check is NotEvaluated, any mandatory check carries isPreliminaryEstimate
-//or usesDefaultAssumption, or acLossRisk.riskLevel is Moderate/High (acLossRisk.acLossWattsStatus is always
-//NotEvaluated in Phase 1 too - see SkinDepthRisk.h). Pass only when none of those apply to any mandatory
-//check - see the block comment above for why that is currently unreachable given this engine's real data
-//coverage. This is the single centralized function that decides tier - no other code path may assign one.
 RecommendationClassification determineRecommendationStatus(bool passed, const std::vector<ValidationResult>& validations, const SkinDepthRiskResult& acLossRisk);

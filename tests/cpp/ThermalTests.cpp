@@ -53,8 +53,9 @@ void testConvergesForTypicalCopperOnlyDesign() {
 
 //2b. When a candidate's real Ae/Le geometry is supplied, the loop must use a size-aware Rth (Newton's law
 //of cooling over an estimated compact-solid surface area) instead of the flat default - cross-checked
-//against an independent hand computation of the same formula (Ae=1000mm^2, Le=100mm, h=10 W/m^2K,
-//shapeFactor=6 -> volume=1e-4 m^3, surfaceArea=6*volume^(2/3), Rth=1/(h*surfaceArea)).
+//against an independent hand computation of the same formula (Ae=1000mm^2, Le=100mm, h=25 W/m^2K -
+//see DesignRules.h for why this is 25 and not 10, still a working test value pending Roger's real
+//number - shapeFactor=6 -> volume=1e-4 m^3, surfaceArea=6*volume^(2/3), Rth=1/(h*surfaceArea)).
 void testGeometryDerivedRthUsedWhenCoreDimensionsKnown() {
     DesignRules rules = DesignRules::phase1Default();
     ThermalIterationInputs inputs = baseInputs();
@@ -64,7 +65,7 @@ void testGeometryDerivedRthUsedWhenCoreDimensionsKnown() {
     ThermalEvaluationResult result = evaluateThermal(inputs, rules);
     assert(result.status == ThermalStatus::PreliminaryThermalEstimate);
     assert(result.thermalResistanceIsGeometryDerived);
-    assert(approxEqual(result.thermalResistanceCPerWUsed, 7.735981389354627, 1e-9));
+    assert(approxEqual(result.thermalResistanceCPerWUsed, 3.094392555741851, 1e-9));
     assert(result.thermalResistanceCPerWUsed != rules.defaultThermalResistanceCPerW);
     std::printf("testGeometryDerivedRthUsedWhenCoreDimensionsKnown: Rth=%.6f C/W (vs flat default %.1f)\n",
                 result.thermalResistanceCPerWUsed, rules.defaultThermalResistanceCPerW);

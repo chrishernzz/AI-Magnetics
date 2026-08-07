@@ -40,7 +40,7 @@ DesignRules DesignRules::phase1Default() {
     rules.assumedWindingTempCWhenThermalNotEvaluated = 90.0;
 
     rules.defaultThermalResistanceCPerW = 15.0;
-    rules.naturalConvectionCoefficientWPerM2K = 10.0;
+    rules.naturalConvectionCoefficientWPerM2K = 25.0;
     rules.compactSolidSurfaceAreaShapeFactor = 6.0;
     rules.thermalConvergenceThresholdC = 0.1;
     rules.maxThermalIterations = 20;

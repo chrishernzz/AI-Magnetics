@@ -38,23 +38,16 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
     //carried through independent of which branch above supplied rmsCurrentA - core loss needs the real ripple swing, not the derived RMS value
     out.operatingPoint.rippleCurrentPeakToPeakA = request.rippleCurrentPeakToPeakA;
 
-    //Current-consistency check (spec: peak/RMS/ripple must describe one physically real waveform). Only
-    //possible when BOTH peak and ripple are supplied - those are the only two values a minimum
-    //instantaneous inductor current can be derived from. A genuine contradiction (implied DCM, or an
-    //out-of-envelope rmsCurrentA) never throws and never blocks generation of a design - see
-    //OperatingPoint::currentConsistencyStatus. It sets NotEvaluated with a clear explanation instead,
-    //exactly like any other missing-data case; everything that doesn't depend on this (saturation via
+    //Current-consistency check (spec: peak/RMS/ripple must describe one physically real waveform). Only possible when BOTH peak and ripple are supplied - those are the only two values a minimum
+    //instantaneous inductor current can be derived from. A genuine contradiction (implied DCM, or an out-of-envelope rmsCurrentA) never throws and never blocks generation of a design - see
+    //OperatingPoint::currentConsistencyStatus. It sets NotEvaluated with a clear explanation instead, exactly like any other missing-data case; everything that doesn't depend on this (saturation via
     //peak alone, fill/current-density via RMS, core loss from the literal ripple value) still runs.
     constexpr double kCcmZeroEpsilonA = 1e-6;
 
-    //Mode 2 peak derivation: peak current is absent but rmsCurrentA (however it was obtained above) and
-    //rippleCurrentPeakToPeakA are both known. Irms^2 = Iavg^2 + ripple^2/12 (the same triangular-ripple
-    //formula already trusted above for the average+ripple -> RMS direction) can be run backwards:
-    //Iavg = sqrt(Irms^2 - ripple^2/12), peak = Iavg + ripple/2 - a real algebraic derivation, not a new
-    //assumption, and provably never less than rmsCurrentA (Irms^2 = Iavg^2 + ripple^2/12 <= (Iavg +
-    //ripple/2)^2 = peak^2 for any Iavg >= 0), so this can never trip the rms > peak sanity check below.
-    //Only attempted when Irms^2 >= ripple^2/12 - otherwise the supplied RMS/ripple combination is itself
-    //inconsistent with a triangular waveform, and no exception is thrown (matches this file's
+    //Mode 2 peak derivation: peak current is absent but rmsCurrentA (however it was obtained above) and rippleCurrentPeakToPeakA are both known. Irms^2 = Iavg^2 + ripple^2/12 (the same triangular-ripple
+    //formula already trusted above for the average+ripple -> RMS direction) can be run backwards: Iavg = sqrt(Irms^2 - ripple^2/12), peak = Iavg + ripple/2 - a real algebraic derivation, not a new
+    //assumption, and provably never less than rmsCurrentA (Irms^2 = Iavg^2 + ripple^2/12 <= (Iavg + ripple/2)^2 = peak^2 for any Iavg >= 0), so this can never trip the rms > peak sanity check below.
+    //Only attempted when Irms^2 >= ripple^2/12 - otherwise the supplied RMS/ripple combination is itself inconsistent with a triangular waveform, and no exception is thrown (matches this file's
     //soften-don't-crash policy for ripple-dependent checks) - peakCurrentA simply stays absent.
     if (!out.operatingPoint.peakCurrentA.has_value() && out.operatingPoint.rippleCurrentPeakToPeakA.has_value()) {
         double irms = out.operatingPoint.rmsCurrentA;
@@ -71,7 +64,8 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
                 "ripple waveform (Iavg = sqrt(Irms^2 - ripple^2/12), peak = Iavg + ripple/2) - derived from "
                 "the supplied RMS and ripple values, not an independent cross-check against them, and not a "
                 "directly measured value. Supply peakCurrentA directly if the real waveform is not triangular.";
-        } else {
+        } 
+        else {
             out.operatingPoint.currentConsistencyExplanation =
                 "no peakCurrentA supplied, and it cannot be derived from rmsCurrentA (" + std::to_string(irms) +
                 " A) and rippleCurrentPeakToPeakA (" + std::to_string(ripple) +
@@ -126,8 +120,7 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
                 "small load or line variation may push it into DCM";
         }
         else if (out.operatingPoint.peakCurrentDerived) {
-            //peak was derived FROM this same rms/ripple pair above, so this branch is confirming the
-            //derivation's own internal self-consistency (it is provably always self-consistent - see the
+            //peak was derived FROM this same rms/ripple pair above, so this branch is confirming the derivation's own internal self-consistency (it is provably always self-consistent - see the
             //derivation comment above), not an independent cross-check against a separately-measured peak.
             out.operatingPoint.currentConsistencyStatus = EvaluationStatus::Evaluated;
             out.operatingPoint.conductionMode = ConductionMode::CCM;
@@ -150,7 +143,7 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
         out.operatingPoint.currentConsistencyExplanation =
             "no peakCurrentA supplied - minimum inductor current and conduction mode cannot be derived from ripple alone (core loss is still computed from the ripple value on its own)";
     }
-     else if (out.operatingPoint.peakCurrentA.has_value() && !out.operatingPoint.rippleCurrentPeakToPeakA.has_value()) {
+    else if (out.operatingPoint.peakCurrentA.has_value() && !out.operatingPoint.rippleCurrentPeakToPeakA.has_value()) {
         out.operatingPoint.currentConsistencyExplanation =
             "no rippleCurrentPeakToPeakA supplied - minimum inductor current and conduction mode cannot be derived from peak current alone";
     } 
@@ -159,8 +152,7 @@ InductorRequirements RequirementDerivationService::derive(const InductorDesignRe
             "neither peakCurrentA nor rippleCurrentPeakToPeakA supplied";
     }
 
-    //Basic RMS-vs-peak sanity check, independent of ripple: RMS of any real waveform can never exceed its
-    //own peak. Kept as a hard rejection (not softened like the ripple-dependent checks above) since it's
+    //Basic RMS-vs-peak sanity check, independent of ripple: RMS of any real waveform can never exceed its own peak. Kept as a hard rejection (not softened like the ripple-dependent checks above) since it's
     //an unambiguous contradiction between two directly-entered numbers, not an assumption-dependent one.
     if (out.operatingPoint.peakCurrentA.has_value() && !out.operatingPoint.rmsCurrentDerived) {
         double peak = *out.operatingPoint.peakCurrentA;

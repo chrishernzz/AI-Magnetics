@@ -35,8 +35,7 @@ struct SkinDepthRiskResult {
     //strandRadiusMm / skinDepthMm - the heuristic's actual decision variable
     double radiusToSkinDepthRatio = 0.0;
     AcLossRiskLevel riskLevel = AcLossRiskLevel::Low;
-    //names what was evaluated (single-strand skin effect) and what was not (bundle proximity effect,
-    //proximity to the air gap) - see block comment above.
+    //names what was evaluated (single-strand skin effect) and what was not (bundle proximity effect, proximity to the air gap) - see block comment above.
     std::string reason;
 
     //permanently NotEvaluated in Phase 1 - see block comment above. A risk level is not a watts figure.
@@ -44,6 +43,4 @@ struct SkinDepthRiskResult {
     std::string acLossWattsExplanation = "no AC-loss watts model is implemented in Phase 1 - this is a qualitative skin-depth risk heuristic only";
 };
 
-//precondition: switchingFreqHz > 0, conductorAreaMm2 > 0 (one strand's bare cross-section area)
-//postcondition: see struct field comments above. riskLevel thresholds come from rules.skinDepthRiskModerateThreshold/skinDepthRiskHighThreshold - a Phase 1 heuristic boundary, not a validated Dowell/FEA AC-loss limit.
 SkinDepthRiskResult evaluateSkinDepthRisk(double switchingFreqHz, double conductorAreaMm2, const DesignRules& rules);
