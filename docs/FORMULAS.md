@@ -129,7 +129,7 @@ Ap = (2 * E * 10^4) / (Ku * Bmax * J)
 | `Ap` | Required area product | cm⁴ | **Output** — the number every candidate core is checked against (Section 3) |
 | `Ku` | Window utilization factor — the fraction of the core's window area realistically usable for copper once insulation, bobbin walls, and winding margin are accounted for | dimensionless (0-1) | `DesignRules.windowUtilization`, default 0.4 |
 | `Bmax` | Maximum allowed peak flux density | T (tesla) | `DesignRules.defaultFluxDensityLimitT`, default 0.30 T — a conservative default, not a material-specific saturation point (see Section 7) |
-| `J` | Allowable current density — how much current per unit of copper cross-section is considered safe before overheating | A/cm² | `DesignRules.allowableCurrentDensityAperCm2`, default 400 |
+| `J` | Allowable current density — how much current per unit of copper cross-section is considered safe before overheating | A/cm² | `DesignRules.allowableCurrentDensityAperCm2`, default 986.76 (Roger's stated 200 circular-mils-per-amp rule, converted to A/cm²) |
 
 ### Why it matters if this is wrong
 
@@ -298,24 +298,62 @@ pass alone is not sufficient. Separately, a calculated gap below
 rejection, since the design is still physically valid, just harder to
 reliably machine or lap by hand.
 
-Only `GapMethod.MachinedCenterLeg` has a validated formula in Phase 1 —
-`DesignRules.gapMethod` set to `Spacer`, `Distributed`, or
-`ManufacturerGapped` is rejected outright rather than having this one
-validated formula silently applied to a technique it was never checked
-against.
+This series-reluctance formula is the machined-gap path
+(`solveMachinedGapCore()`) — taken by any core whose `MaterialType` isn't
+`powder` (ferrite, or a powder E-core forced to a machined gap). Requesting
+`DesignRules.gapMethod` other than `MachinedCenterLeg` on such a core is
+rejected outright rather than silently applying this formula to a
+technique it was never checked against. Distributed-gap (powder) cores
+take a different path entirely — see "Distributed-Gap Cores: DC-Bias
+Permeability Roll-Off" below, which has its own validated model, not a
+placeholder.
 
 ### Why it matters if this is wrong
 
-This is the single most important check the old version of the tool
-skipped entirely: it recommended a core and a material but never verified
-that any achievable number of turns and gap actually produced the
-requested inductance. Getting turns/gap wrong means the real, physical part
-doesn't have the inductance it was designed for.
+Turns/gap convergence is the check that verifies an achievable number of
+turns and gap actually produces the requested inductance on a specific
+core — not just that a core and material are theoretically compatible.
+Getting turns/gap wrong means the real, physical part doesn't have the
+inductance it was designed for.
+
+### Distributed-Gap Cores: DC-Bias Permeability Roll-Off
+
+**File:** `src/core/magnetics/PermeabilityRolloff.cpp`, `TurnsAndGapDesign.cpp`'s `solveDistributedGapCore()`
+
+Powder cores (MPP, Kool Mµ, XFlux, Edge, High Flux — every core in the
+current database has `MaterialType=powder`) don't use a machined air gap;
+their permeability is inherently distributed through the core material
+itself, and that permeability rolls off as DC bias current rises. Turns
+are solved once from the catalog (0-bias) AL and held fixed —
+`calculatedInductanceUH` reflects that zero-bias inductance. The
+inductance actually delivered at the request's real operating current is
+computed separately:
+
+```
+H (Oe)        = 0.4*pi * N * I / le_cm
+%mu_retained  = 1 / (A + B*H^C) + D          // real, manufacturer-published curve-fit coefficients per material
+AL_eff        = AL0 * %mu_retained / 100
+loadedInductanceUH = AL_eff * N^2 * 1e-3
+```
+
+`I` is the real peak current when supplied, else `rmsCurrentA` as a
+guaranteed lower bound (the same convention used elsewhere for a missing
+peak current). `%mu_retained` is
+`TurnsAndGapResult::percentInitialPermeabilityAtOperatingCurrent`, and it
+is now a ranking criterion (Section 12) — a design that only retains a
+sliver of its target inductance under real current is still a valid pass,
+but no longer wins purely on a low measured-loss number. A material with
+no published curve in `data/dc_bias_curves.csv` falls back to the flat
+AL0 behavior (`usesDCBiasRolloffCurve: false`, retention stays at the
+100% struct default) rather than a guessed roll-off.
 
 ### Feeds into
 
 Magnetic validation (Section 5) and winding design (Section 6), both of
-which need the final turns count.
+which need the final turns count. `loadedInductanceUH` and
+`percentInitialPermeabilityAtOperatingCurrent` feed `SaturationValidation`
+(the real, DC-bias-corrected inductance is what determines real peak flux)
+and ranking (Section 12).
 
 ---
 
@@ -365,7 +403,7 @@ margin% = 100 * (Blimit - Bpk) / Blimit
 | Symbol | Meaning | Unit | Source |
 |---|---|---|---|
 | `margin%` | How much headroom exists below the flux limit | % | **Output** — must be >= `DesignRules.minimumSaturationMarginPercent` (default 10%) |
-| `Blimit` | The applicable flux density limit | T | Material-specific `BmaxT` if the material has one (real data for all 165 materials as of the current snapshot), otherwise `DesignRules.defaultFluxDensityLimitT` |
+| `Blimit` | The applicable flux density limit | T | Material-specific `BmaxT` if the material has one (real data for all 34 materials as of the current snapshot), otherwise `DesignRules.defaultFluxDensityLimitT` |
 
 **Important:** whenever `Blimit` falls back to the Phase 1 default instead
 of a real material-specific number, the result explicitly flags
@@ -644,12 +682,13 @@ by ripple current instead of peak current. No ripple current supplied →
 
 ### Current data coverage
 
-Real Steinmetz coefficients exist for 29 of the 165 materials in use — the
-ferrite families (3C9x, 78/79/80/95/98, N-series). The powder/Kool
-Mµ/XFlux materials aren't characterized as Steinmetz upstream at all (a
-real absence, not an export bug) and correctly stay `not_evaluated`
-regardless of ripple current — `MaterialCandidate::hasCoreLossData`
-reflects this per material.
+Real Steinmetz coefficients exist for all 34 materials in the current
+snapshot (`data/real_core_loss_coefficients.csv`), transcribed by hand
+from each material's own Magnetics "Core Loss Density Curves" fit-formula
+page. `MaterialCandidate::hasCoreLossData` reflects this per material — a
+material with no coefficient row still correctly stays `not_evaluated`
+regardless of ripple current, never guessed from a different material's
+curve.
 
 ### Saturation gate (found via real UI use, not caught by prior tests)
 
@@ -733,7 +772,7 @@ temperature it's used to predict. This is solved the same way turns/gap
 (Section 4) is: seed, compute, check for stability, repeat.
 
 ```
-thermalResistanceCPerWUsed = estimateThermalResistanceCPerW(aeMm2, leMm)  // see below, computed once
+thermalResistanceCPerWUsed = estimateThermalResistanceCPerW(aeMm2, leMm, coreWoundSurfaceAreaMm2)  // see below, computed once
 windingTempC = ambientTemperatureC
 repeat:
   hotDcrOhms  = coldDcrOhmsAt20C * (1 + copperTempCoefficientPerC * (windingTempC - 20))
@@ -744,10 +783,28 @@ repeat:
 until |newWindingTempC - windingTempC| < thermalConvergenceThresholdC (or maxThermalIterations reached)
 ```
 
-**Thermal resistance is now size-aware**, not one flat number for every
-core. `estimateThermalResistanceCPerW()` (`ThermalEvaluation.cpp`) uses
-Newton's law of cooling (`Rth = 1 / (h * surfaceAreaM2)`) over a surface
-area estimated from the candidate's own real magnetic-circuit geometry:
+**Thermal resistance is a 3-tier estimate**, not one flat number for every
+core. `estimateThermalResistanceCPerW()` (`ThermalEvaluation.cpp`) always
+applies Newton's law of cooling (`Rth = 1 / (h * surfaceAreaM2)`); what
+differs per tier is where `surfaceAreaM2` comes from:
+
+**Tier 1 — real, manufacturer-published wound-coil surface area.** When
+`CoreCandidate::surfaceAreaWoundMm2` has been transcribed for that part
+(423 of 755 cores in the current snapshot — MPP toroid datasheets publish
+a "Surface Area" table with an "N% Winding Factor" wound-coil value; no
+E-core datasheet layout has this table):
+
+```
+surfaceAreaM2 = surfaceAreaWoundMm2 * 1e-6
+thermalResistanceCPerWUsed = 1 / (naturalConvectionCoefficientWPerM2K * surfaceAreaM2)
+```
+
+`ThermalEvaluationResult::thermalResistanceUsesRealSurfaceArea` is `true`
+for this tier — the only tier grounded in a real, per-part measured number
+rather than an estimate.
+
+**Tier 2 — Ae×Le compact-solid shape-factor estimate**, when no real
+surface area is known for that part:
 
 ```
 volumeM3      = aeMm2 * leMm * 1e-9
@@ -755,22 +812,29 @@ surfaceAreaM2 = compactSolidSurfaceAreaShapeFactor * volumeM3^(2/3)   // cube ap
 thermalResistanceCPerWUsed = 1 / (naturalConvectionCoefficientWPerM2K * surfaceAreaM2)
 ```
 
-`naturalConvectionCoefficientWPerM2K` (10 W/(m²·K)) is a real, citable
-natural-convection-in-still-air value (standard heat-transfer references
-put the range at ~5–25 W/(m²·K)); `compactSolidSurfaceAreaShapeFactor`
-(6, the real cube surface-to-volume relation) is a documented
-order-of-magnitude simplification that does not yet differentiate real
-shape families (a toroid's real surface-to-volume ratio is higher than a
-cube's, so this under-states — i.e. is conservative about — a toroid's
-real surface area). When a candidate's `aeMm2`/`leMm` are unavailable, the
-loop falls back to the flat `defaultThermalResistanceCPerW` (15°C/W)
-constant this replaced. Either way, this is still an estimate, never
-per-core measured or simulated Rth data, so this loop can only ever
-produce a `PreliminaryThermalEstimate`, never a "fully evaluated" thermal
-result — `ThermalStatus` has no such value at all. `ThermalValidation`
-still runs a real pass/fail comparison against `allowableTempRiseC` on a
-preliminary result, flagged via `ValidationResult.isPreliminaryEstimate:
-true`.
+`compactSolidSurfaceAreaShapeFactor` (6, the real cube surface-to-volume
+relation) is a documented order-of-magnitude simplification that does not
+differentiate real shape families — a wound toroid's real surface-to-
+volume ratio is higher than a cube's, so this tier under-states a wound
+coil's real cooling surface area, which is exactly why Tier 1 takes
+priority whenever a real number is available for that part.
+
+**Tier 3 — flat default**, when even `aeMm2`/`leMm` are unavailable:
+`thermalResistanceCPerWUsed = defaultThermalResistanceCPerW` (15°C/W).
+
+`naturalConvectionCoefficientWPerM2K` is currently 25 W/(m²·K) — the top
+of the commonly cited natural-convection-in-still-air range
+(~5–25 W/(m²·K)), used as a working test value calibrated against a real
+reported case (predicted vs. expected temperature rise on a real
+MPP toroid) and explicitly documented in `DesignRules.h` as pending
+confirmation, not an independently sourced measurement.
+
+None of the three tiers is per-core measured or simulated Rth data, so
+this loop can only ever produce a `PreliminaryThermalEstimate`, never a
+"fully evaluated" thermal result — `ThermalStatus` has no such value at
+all. `ThermalValidation` still runs a real pass/fail comparison against
+`allowableTempRiseC` on a preliminary result, flagged via
+`ValidationResult.isPreliminaryEstimate: true`.
 
 ### Genuine non-convergence (positive-feedback divergence)
 
@@ -782,13 +846,12 @@ the loop genuinely diverges rather than converges (confirmed against an
 independent hand-simulation of the identical formula before writing
 `tests/cpp/ThermalTests.cpp`'s divergence test). A non-converged result
 reports `not_evaluated`, never a stale intermediate number. Because the
-gain scales with `thermalResistanceCPerWUsed`, moving from the flat 15°C/W
-constant to a real per-core estimate can change whether a *specific*
-candidate's loop is even stable — a large core with a real, low geometry-
-derived Rth is *less* likely to diverge than the flat constant implied,
-which can surface a genuine, previously-hidden thermal failure that used
-to sit silently at `NotEvaluated` (see the case-6 golden reference test
-for a documented real example: E100/60/28-3C90 at 28A RMS).
+gain scales with `thermalResistanceCPerWUsed`, a candidate's real Rth
+(from the 3-tier estimate in Section 10) directly determines whether its
+loop is even stable — a large core with a real, low Rth is less likely to
+diverge than the flat `defaultThermalResistanceCPerW` constant would
+imply, so this genuinely differs candidate-by-candidate rather than being
+a single fixed threshold.
 
 ### Feeds into
 
@@ -861,13 +924,20 @@ loss are `Evaluated` — labeled "Known Partial Loss," never "Total Loss."
 never becomes `Evaluated`.
 
 Ranking (`InductorDesignService.cpp`'s `candidateRanksAhead()`) sorts by
-tier first, then known evaluated loss, predicted temperature rise,
-manufacturability margin (a documented composite of physical-fill headroom
-and the small-gap warning penalty), saturation margin, current-density
-margin, area product, and finally part number as a deterministic tiebreak.
-A missing number in any tiebreaker ranks as the worst case for that
-dimension, never the best, so a gap in the data can never accidentally win
-a ranking.
+tier first, then DC-bias permeability retention
+(`turnsAndGap.percentInitialPermeabilityAtOperatingCurrent`, higher is
+better — a distributed-gap (powder) candidate that only retains a sliver
+of its target inductance under real operating current no longer outranks
+one that retains it, even when its measured loss looks better;
+machined-gap cores and any powder core with no published DC-bias curve
+default to 100% here, never penalized for a criterion with no real curve
+to evaluate against), then known evaluated loss, predicted temperature
+rise, manufacturability margin (a documented composite of physical-fill
+headroom and the small-gap warning penalty), saturation margin,
+current-density margin, area product, and finally part number as a
+deterministic tiebreak. A missing number in any tiebreaker ranks as the
+worst case for that dimension, never the best, so a gap in the data can
+never accidentally win a ranking.
 
 ---
 
@@ -904,7 +974,7 @@ a ranking.
 | Category | Examples | Source |
 |---|---|---|
 | Direct user input | `L`, `Ipk`, `Irms`, switching frequency, temperatures | The API request (`InductorDesignRequest`) |
-| Real manufacturer data | `Ae`, `Wa`, `Le`, `MLT`, `muR`, `AL`, `BmaxT`, material frequency ranges, Steinmetz coefficients | `data/real_cores.csv`, `data/real_materials.csv`, `data/real_core_loss_coefficients.csv` |
+| Real manufacturer data | `Ae`, `Wa`, `Le`, `MLT`, `muR`, `AL`, `BmaxT`, `SurfaceAreaWoundMm2`, material frequency ranges, Steinmetz coefficients, DC-bias roll-off curve coefficients | `data/real_cores.csv`, `data/real_materials.csv`, `data/real_core_loss_coefficients.csv`, `data/dc_bias_curves.csv` |
 | Engineering policy defaults | `Ku`, `Bmax` default, `J`, saturation margin, fill factor limit, tolerance, min single-strand AWG | `DesignRules::phase1Default()` — one named place, never hidden in a route handler |
 | Physics/unit constants | `0.4*pi`, cm-to-mm conversions, `0.5` in the energy formula | Fixed, not configurable — they're not design choices |
 | Computed/derived | `Ap`, `Bpk`, `gap`, `AL_eff`, `fillFactor`, `Pcu` | Calculated by the engine at request time, never stored |

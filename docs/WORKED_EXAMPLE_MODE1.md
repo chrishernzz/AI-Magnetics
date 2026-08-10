@@ -2,12 +2,11 @@
 
 Every number below came from an actual run of the tool against the real
 `data/real_cores.csv` / `data/real_materials.csv` / `data/real_core_loss_coefficients.csv`
-snapshot - nothing here is invented for illustration. Unlike
-[TESTRESULTSMEAN.md](TESTRESULTSMEAN.md) (a historical Mode 2 example against
-a since-deleted single-pick pipeline), this example starts from **Mode 1** -
-a Buck converter's operating point, not a pre-known inductor requirement -
-and is reproducible today against the live `/topology-design/buck` and
-`/inductor-design` endpoints.
+/ `data/dc_bias_curves.csv` snapshot - nothing here is invented for
+illustration. This example starts from **Mode 1** - a Buck converter's
+operating point, not a pre-known inductor requirement - and is reproducible
+today against the live `/topology-design/buck` and `/inductor-design`
+endpoints.
 
 The request below is the web UI's own default Buck-mode input, so opening
 the tool, switching to "I know my Buck converter requirements," and
@@ -73,162 +72,148 @@ same rules, regardless of which mode produced the input.
 
 ---
 
-## 2. Stored Energy and Required Area Product
+## 2. Material Candidates and Ranking Result
 
-```
-E  = 0.5 x L x Ipk^2 = 0.5 x 0.0000024 H x 44^2                = 2.323 mJ
-Ap = (2 x E x 10^4) / (Ku x Bmax x J)
-   = (2 x 2.323e-3 x 10^4) / (0.4 x 0.30 x 400)                = 0.968 cm^4
-```
-
-`Ku = 0.4`, `Bmax = 0.30 T` (Phase 1 default, only used where a material
-has no measured value), `J = 400 A/cm^2` - all three read from
-`activeRules` in the response, never hard-coded in the route layer.
-
-This run returned **5 passing candidates, 7 rejected** (12 evaluated
-total). As in the Mode 2 example, we follow the first candidate in each
-list - the closeness of the two is exactly what makes it instructive.
+This run returned **159 passing candidates, 596 rejected** (755 evaluated
+total - every core in the current Magnetics-only database is a
+distributed-gap powder material, so every candidate takes the DC-bias
+roll-off path in Section 3 below). We follow the top-ranked passing
+candidate and one representative rejected candidate.
 
 ---
 
-## 3. Two Real Cores, One Turn Each, One Diverges on the Gap
+## 3. Top-Ranked Candidate: Turns Fixed at Zero-Bias, DC-Bias Roll-Off Applied
 
-Because the target inductance here is small (2.4 uH) against a database of
-comparatively large, high-permeability cores, **both candidates seed to a
-single turn** (`N = round(sqrt(L/AL_catalog))` rounds to 1 for each).
-That's real, not simplified for the example - it's what happens when the
-required inductance is low relative to the available cores' catalog AL.
+| | Top-ranked candidate |
+|---|---|
+| Core | `00G8044E026` |
+| Material | `Edge 26` (powder E-core, mu_r = 26) |
+| Ae | 389.0 mm^2 |
+| Wa | 1362.0 mm^2 |
+| Le | 208.0 mm |
+| Catalog AL | 91.0 nH/turn^2 |
+| Area product | 52.98 cm^4 |
 
-| | First passing candidate | First rejected candidate |
-|---|---|---|
-| Core | `9498115002*` (material 98) | `B64290L0674X049` (N49) |
-| Material source | Fair-Rite, Broadband family | TDK, N family |
-| mu_r | 2258.05 | 1469.0 |
-| Ae | 233.49 mm^2 | 97.50 mm^2 |
-| Wa | 274.97 mm^2 | 408.28 mm^2 |
-| Le | 97.35 mm | 92.68 mm |
-| Catalog AL | 6805.54 nH/turn^2 | 1942.07 nH/turn^2 |
-| Area product | 6.42 cm^4 (meets 0.968 cm^4) | 3.98 cm^4 (meets it) |
+Because every core in the current database is a distributed-gap (powder)
+material, `TurnsAndGapDesign.cpp` takes `solveDistributedGapCore()`, not
+the machined-gap series-reluctance path: turns are solved **once** from
+the zero-bias catalog AL and then held fixed - there is no gap to cut for
+these materials, so `gapMm` is always `0.0` and `gapMethod` reports
+`Distributed`.
 
-Both easily clear the 0.968 cm^4 requirement - area product alone doesn't
-separate them.
-
-**Turns** (identical seed):
 ```
-Passing:  N = round(sqrt(2400 nH / 6805.54 nH/turn^2)) = round(sqrt(0.353)) = round(0.594) = 1
-Rejected: N = round(sqrt(2400 nH / 1942.07 nH/turn^2)) = round(sqrt(1.236)) = round(1.112) = 1
+N = round(sqrt(L_target_nH / AL0)) = round(sqrt(2400 / 91.0)) = round(5.13) = 5
+calculatedInductanceUH (zero-bias) = N^2 x AL0 x 1e-3 = 25 x 91.0 x 1e-3 = 2.275 uH
+inductanceErrorPercent = (2.275 - 2.4) / 2.4 x 100 = -5.21%   (within +-10% tolerance -> PASS)
 ```
 
-**Gap - this is where they diverge:**
-```
-Passing candidate gap  = 0.4*pi x 1^2 x 2.3349cm^2 x 10/2400 - 9.735/2258.05
-                        = 0.01221 - 0.00431              = 0.00795 cm -> rounds UP to 0.08 mm
+**DC-bias roll-off**, applied against those same fixed 5 turns at the real
+44 A peak current:
 
-Rejected candidate gap = 0.4*pi x 1^2 x 0.9750cm^2 x 10/2400 - 9.268/1469.0
-                        = 0.00510 - 0.00631              = negative -> rounds DOWN to 0.00 mm (no gap)
+```
+H (Oe)  = 0.4*pi * N * Ipk / Le_cm = 0.4*pi * 5 * 44 / 20.8 = 13.29 Oe
 ```
 
-The rejected candidate's required gap comes out **negative** - its
-ungapped catalog AL is already lower than what 1 turn needs, so the
-solver applies no gap at all and the core keeps its full catalog AL. The
-passing candidate needs (and gets) a real, if small, 0.08 mm gap, which
-lowers its effective AL below catalog.
-
-**Resulting inductance** (`L = N^2 x AL_eff`, and `N = 1` here so this is
-just `AL_eff` itself, in nH):
-```
-Passing:  AL_eff = 2383.26 nH/turn^2 -> L = 2.383262 uH -> error = -0.697%  (within +-10%)
-Rejected: AL_eff = 1942.07 nH/turn^2 (= catalog, no gap) -> L = 1.942068 uH -> error = -19.081% (outside +-10%)
-```
-
-The rejected candidate fails **InductanceValidation** outright here - not
-a close call on this check. But the more interesting failure is next.
+`Edge 26` has a published roll-off curve in `data/dc_bias_curves.csv`
+(`usesDCBiasRolloffCurve: true`). At this H, the real percent-of-catalog
+permeability retained comes back at **99.9986%** - negligible roll-off at
+this low field strength - so `loadedInductanceUH` (the real inductance
+this winding delivers at 44 A) is essentially unchanged from the zero-bias
+value: **2.2750 uH**, vs. 2.275 uH at 0 A.
 
 ---
 
-## 4. Why the Rejected Candidate Also Saturates
+## 4. Validation Results (Top-Ranked Candidate)
+
+| Check | Status | Value | Limit | Result |
+|---|---|---|---|---|
+| CurrentConsistencyValidation | Evaluated | 36.0 | - | PASS (diagnostic only) |
+| InductanceValidation | Evaluated | 5.21% error | 10% | **PASS** |
+| PeakFluxValidation | Evaluated | 0.0515 T | 1.5 T (material `BmaxT`) | **PASS** |
+| SaturationValidation | Evaluated | 96.57% margin | 10% required | **PASS** |
+| WindingFitValidation | Evaluated | 3.88% physical fill | 60% max | **PASS** |
+| CurrentDensityValidation | Evaluated | 6.95 A/mm^2 | 9.87 A/mm^2 | **PASS** |
+| BundleFitValidation | Evaluated | 7.52 mm bundle | 34.37 mm opening | **PASS** |
+| ThermalValidation | Evaluated | 21.32 C rise | 40 C allowed | **PASS** (preliminary) |
+
+`PeakFluxValidation`/`SaturationValidation` are computed from
+`loadedInductanceUH` (the real, DC-bias-corrected inductance at 44 A), not
+`calculatedInductanceUH` (the zero-bias design value) - saturation risk
+has to be judged against what the core actually does at real current.
+
+**Winding:** 7x AWG18 parallel strands, single-build magnet wire. Cold DCR
+= 0.001895 ohm; copper loss = 3.357 W (`Evaluated`, real geometry-derived
+MLT). Core loss = 2.627 W (`Evaluated` - `Edge 26` has real Steinmetz
+coefficients covering 500 kHz).
+
+**Thermal:** converges to a 21.32 C predicted rise, `PreliminaryThermalEstimate`,
+`thermalResistanceUsesRealSurfaceArea: false` - this specific part's
+wound-coil surface area hasn't been transcribed yet, so the estimate used
+the Ae x Le shape-factor fallback (Tier 2), not a real datasheet number
+(Tier 1). See [FORMULAS.md](FORMULAS.md) section 10.
+
+**Recommendation tier:** `ConditionalPass` - every mandatory check passed,
+but `ThermalValidation` always carries `isPreliminaryEstimate: true` (no
+fully-measured thermal model exists), which caps every real candidate at
+`ConditionalPass`, never `Pass`.
+
+---
+
+## 5. A Representative Rejected Candidate: Two Real Failures
+
+| | Rejected candidate |
+|---|---|
+| Core | `0055138AY` |
+| Material | `MPP 160` (powder toroid, mu_r = 160) |
+| Ae | 1.3 mm^2 |
+| Wa | 1.63 mm^2 |
+| Le | 8.06 mm |
+| Catalog AL | very high relative to size (small toroid, high permeability) |
 
 ```
-Bpk = L(H) x Ipk(A) / (N x Ae(m^2))
+N = round(sqrt(2400 / AL0)) = 9 turns
+calculatedInductanceUH (zero-bias) = 2.673 uH
+inductanceErrorPercent = +11.375%   (outside +-10% tolerance -> FAIL)
 ```
 
-| | First passing candidate | First rejected candidate |
-|---|---|---|
-| Calculated inductance | 2.383 uH (-0.70%) | 1.942 uH (-19.08%) |
-| Peak flux density (Bpk) | 0.4491 T | 0.8764 T |
-| Material Bmax (`BmaxT`, material-specific) | 0.501 T | 0.4914 T |
-| PeakFluxValidation | PASS (under limit) | **FAIL - over the limit** |
-| Saturation margin `(Bmax-Bpk)/Bmax` | 10.36% (>= 10% required) | **-78.35%** |
-| SaturationValidation | PASS | **FAIL** |
+This core's window is tiny (`Wa` = 1.63 mm^2) relative to the copper this
+design needs for 40 A - `WindingFitValidation` reports a **physical fill
+of 4963%** against a 60% limit, a real, honest, physically-impossible-to-build
+number, not a formula error: this specific core is simply far too small
+for this current, and the tool says so plainly rather than clamping the
+number to something that looks more reasonable.
 
-Unlike the Mode 2 example (where the rejected candidate stayed just under
-the hard limit and failed only on margin), this rejected candidate's flux
-density **exceeds its own material's saturation limit outright** - not a
-thin-margin case, a real overshoot. The root cause traces the same way it
-did in the Mode 2 example: no gap was applied, so the core kept its full,
-higher, ungapped AL for the same single turn, and that extra inductance
-directly inflates `Bpk` in the formula above. This candidate is rejected
-by three independent checks at once (`InductanceValidation`,
-`PeakFluxValidation`, `SaturationValidation`) - a direct illustration of
-the project's rule that **every failed check is reported, not just the
+At H = 13.29 Oe (same formula as Section 3, different core/turns), MPP
+160's real DC-bias curve reports only **0.128%** permeability retained -
+severe roll-off - so `loadedInductanceUH` collapses to 0.0034 uH, a
+fraction of the 2.4 uH target. `BundleFitValidation`/`ThermalValidation`
+never even run (`NotEvaluated`) since the winding design itself already
+failed.
+
+```
+rejected: InductanceValidation - calculated inductance 2.673 uH vs target
+  2.4 uH (error 11.375%), tolerance 10.000%
+rejected: WindingFitValidation - physical window fill 4963.47% vs
+  maximum 60.00% (raw copper-only fill was 3180.92%)
+```
+
+Two independent, real failures on the same candidate - exactly the
+project's rule that **every failed check is reported, not just the
 first one found**.
 
 ---
 
-## 5. Winding and Losses (First Passing Candidate)
+## 6. Why the Top-Ranked Candidate Beat 158 Other Passing Candidates
 
-```
-requiredAreaMm2 = Irms / J x 100 = 40.07 / 400 x 100 = 10.02 mm^2
-```
-
-A single AWG18 strand (0.823 mm^2) is far too small for 40 A - the
-winding design falls back to **13 parallel strands of AWG18**
-(`DesignRules.minimumSingleStrandAwg`), for a total conductor area of
-13 x 0.823 = 10.70 mm^2:
-
-```
-Fill factor      = (turns x conductorArea x strands) / Wa
-                 = (1 x 0.823 x 13) / 274.97                = 3.89%   (limit 60%) - PASS
-Current density  = Irms / (conductorArea x strands)
-                 = 40.07 / (0.823 x 13)                     = 3.745 A/mm^2  (limit 4.00) - PASS
-```
-
-DCR came from a real geometry-derived mean-length-per-turn (`mltMm =
-63.1 mm` for this core, see [DATA_FILES.md](DATA_FILES.md)):
-
-```
-DCR = 0.0001017 ohms   (total wire length 0.820 m)
-Pcu = Irms^2 x DCR = 40.07^2 x 0.0001017          = 0.163 W
-```
-
-**Core loss:** `not_evaluated` for this specific candidate - material 98
-has coefficients in `data/real_core_loss_coefficients.csv` at other
-frequencies, but not one covering 500 kHz, so `CoreLoss.cpp` correctly
-reports it can't compute a real number rather than guessing. (The
-rejected N49 candidate, for contrast, *does* have coefficients at this
-frequency and returns a real - and very large, 36.3 W - core loss number,
-which is itself further evidence of how poor a choice that candidate
-would be, on top of already failing three validation checks.)
-
-**Thermal:** `not_evaluated` - no thermal-resistance model or
-surface-area data exists in either CSV yet (see [WORKFLOW.md](WORKFLOW.md)'s
-Stage 4+ section).
-
----
-
-## 6. The Two Outcomes, Side by Side
-
-| | First passing candidate | First rejected candidate |
-|---|---|---|
-| Core | `9498115002*` | `B64290L0674X049` (N49) |
-| Turns / Gap | 1 turn, 0.08 mm | 1 turn, 0.00 mm (no gap) |
-| Calculated L (error) | 2.383 uH (-0.70%) | 1.942 uH (-19.08%) |
-| Peak flux vs. limit | 0.449 T / 0.501 T - PASS | 0.876 T / 0.491 T - **FAIL** |
-| Saturation margin | 10.36% - PASS | -78.35% - **FAIL** |
-| Fill factor / current density | 3.89% / 3.745 A/mm^2 - both PASS | 2.62% / 3.745 A/mm^2 - both PASS |
-| Copper loss | 0.163 W (real DCR) | 0.111 W (real DCR) |
-| Core loss | not_evaluated (no coefficients at 500 kHz) | 36.27 W (real, and it's rejected anyway) |
-| Result | **PASS** | **REJECTED** - 3 failed checks |
+Ranking (`candidateRanksAhead()`, see [FORMULAS.md](FORMULAS.md) section 12)
+sorts tier first, then DC-bias permeability retention (higher is better),
+then known evaluated loss, predicted temperature rise, manufacturability
+margin, saturation margin, current-density margin, area product, and part
+number as a final tiebreak. `00G8044E026` isn't the only candidate near
+100% retention at this operating point - low H at 44 A across a
+comparatively large core keeps roll-off negligible for many candidates -
+so the real differentiator among the near-100%-retention group is known
+loss and thermal rise, both of which this candidate wins on.
 
 ## How to Reproduce This
 
@@ -244,4 +229,6 @@ Take that response's fields directly as the body of `POST /inductor-design`
 (they're already the right shape - see [API_REFERENCE.md](API_REFERENCE.md)),
 or just use the web UI: switch to "I know my Buck converter requirements,"
 leave the pre-filled defaults, click **Calculate Magnetic Requirements**,
-then **Generate Recommendation**.
+then **Generate Recommendation**. Check the DC-Bias Physics tab on the
+top-ranked candidate to see the roll-off curve/retention numbers rendered
+the same way as Sections 3-4 above.

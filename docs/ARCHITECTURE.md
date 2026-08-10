@@ -93,17 +93,17 @@ CMake builds this as a Python extension module and places the compiled `.pyd`/`.
 | TurnsAndGapDesign | `src/core/magnetics/TurnsAndGapDesign.cpp` | ✅ Implemented — iterates turns and gap together until the integer turns count stabilizes or is rejected (impractical gap, non-convergence) |
 | MaterialEvaluation | `src/core/sizing/MaterialEvaluation.cpp` | ✅ Implemented — `findSuitableMaterials()`, returns every frequency-compatible material as its own candidate |
 | CoreEvaluation | `src/core/sizing/CoreEvaluation.cpp` | ✅ Implemented — `findSuitableCores()`, returns every material-compatible core with its own `meetsAreaProduct` flag; never silently substitutes an oversized core |
-| DesignValidation | `validation/DesignValidation.cpp` | ✅ Implemented — six named checks (Inductance, PeakFlux, Saturation, WindingFit, CurrentDensity, Thermal), each its own `ValidationResult` (now also carrying `isPreliminaryEstimate`); plus `calculateFluxLimitTiers()`, an informational 2-of-4-real flux-limit breakdown |
+| DesignValidation | `validation/DesignValidation.cpp` | ✅ Implemented — eight named checks (CurrentConsistency, Inductance, PeakFlux, Saturation, WindingFit, CurrentDensity, BundleFit, Thermal), each its own `ValidationResult` (carrying `isPreliminaryEstimate`); plus `calculateFluxLimitTiers()`, an informational 2-of-4-real flux-limit breakdown |
 | WindingDesign | `src/core/winding/WindingDesign.cpp` | ✅ Implemented — AWG wire selection, raw copper fill factor, current density always computed; a separate realistic **physical window fill** (insulation, packing factor, bobbin/margin/lead-exit derates) is what `WindingFitValidation` actually gates on. DCR (now including lead/routing/connection resistance) and wire length real for most cores via a geometry-derived mean-length-per-turn estimate, `not_evaluated` only for cores whose upstream geometry doesn't support it |
 | CopperLoss | `src/core/losses/CopperLoss.cpp` | ✅ Implemented — `Pcu_dc = Irms^2 * DCR`, only called when DCR is available; the reported figure is overwritten with the thermal loop's converged hot-DCR value when that loop converges |
 | CoreLoss | `src/core/losses/CoreLoss.cpp` | ✅ Implemented — real Steinmetz equation `Pv = k*f^alpha*B^beta` (W/m³) using `data/real_core_loss_coefficients.csv`; `Evaluated` when the material has coefficients at this frequency, the request supplies `rippleCurrentPeakToPeakA` (needed for flux-density swing — never approximated from peak flux), AND the computed swing falls within the coefficient's optional valid range (currently always unset, so a documented no-op), `NotEvaluated` otherwise. Temperature correction (ct0/ct1/ct2) not yet applied |
 | SkinDepthRisk | `src/core/losses/SkinDepthRisk.cpp` (renamed from the dead `HighFrequencyLosses.cpp` stub) | ✅ Implemented — real qualitative Low/Moderate/High AC-loss risk from strand-radius-vs-skin-depth; `acLossWattsStatus` permanently `NotEvaluated` (no AC-loss watts model exists — a risk level is not a watts figure) |
 | LossEvaluation | `src/core/losses/LossEvaluation.cpp` | ✅ Implemented — orchestrates CopperLoss/CoreLoss (SkinDepthRisk is evaluated separately by the caller, not part of this struct), reports each as `Evaluated`/`NotEvaluated`, plus core-loss detail fields (material used, coefficient frequency range, flux swing, volume, density) |
-| ThermalEvaluation | `src/core/thermal/ThermalEvaluation.cpp` | ✅ Implemented — real iterative convergence loop (temp → hot DCR → copper loss → temp rise → repeat) using a size-aware Rth estimate derived from each candidate's own real Ae/Le geometry via Newton's law of cooling (`naturalConvectionCoefficientWPerM2K`/`compactSolidSurfaceAreaShapeFactor`), falling back to the flat `DesignRules.defaultThermalResistanceCPerW` only when that geometry is unavailable — neither is per-core measured data. Caps at `PreliminaryThermalEstimate` — `ThermalStatus` has no "fully evaluated" value. `NotEvaluated` when DCR geometry is unknown or the loop's real positive-feedback iteration diverges |
-| RecommendationStatus | `src/validation/RecommendationStatus.cpp` | ✅ Implemented — 3-tier `Pass`/`ConditionalPass`/`Reject` classification replacing the old frontend-only "Recommended" sugar; `Pass` currently unreachable in practice (ThermalValidation always flags isPreliminaryEstimate) |
+| ThermalEvaluation | `src/core/thermal/ThermalEvaluation.cpp` | ✅ Implemented — real iterative convergence loop (temp → hot DCR → copper loss → temp rise → repeat). `estimateThermalResistanceCPerW()` is a 3-tier estimate: (1) a real, manufacturer-published wound-coil surface area (`CoreCandidate::surfaceAreaWoundMm2`) via Newton's law of cooling when transcribed for that part; (2) an Ae×Le compact-solid shape-factor estimate (`naturalConvectionCoefficientWPerM2K`/`compactSolidSurfaceAreaShapeFactor`) when it isn't; (3) the flat `DesignRules.defaultThermalResistanceCPerW` when even core geometry is unavailable. `ThermalEvaluationResult::thermalResistanceUsesRealSurfaceArea` reports which tier ran. None of the three is per-core measured data — result still caps at `PreliminaryThermalEstimate`, `ThermalStatus` has no "fully evaluated" value. `NotEvaluated` when DCR geometry is unknown or the loop's real positive-feedback iteration diverges |
+| RecommendationStatus | `src/validation/RecommendationStatus.cpp` | ✅ Implemented — 3-tier `Pass`/`ConditionalPass`/`Reject` classification; `Pass` currently unreachable in practice (ThermalValidation always flags isPreliminaryEstimate) |
 | DataCache<T> | `src/data/DataCache.h` | ✅ Implemented — shared template holding the "cache once, warn if empty" logic that `CoreDatabase`, `MaterialDatabase`, and `CoreLossCoefficientDatabase` all use, instead of each repeating it |
 | CoreDatabase | `src/data/CoreDatabase.h` | ✅ Implemented — real data loaded once at startup from a bundled snapshot (`data/real_cores.csv`, hand-curated from Magnetics Inc.'s own catalog — see "Data Source" below); no CSV fallback, startup fails loudly if this fails. `load()` returns by `const&`, not by value |
-| MaterialDatabase | `src/data/MaterialDatabase.h` | ✅ Implemented — same pattern as CoreDatabase; `MaterialData` now also carries a real, material-specific `bmaxT` for all 165 materials |
+| MaterialDatabase | `src/data/MaterialDatabase.h` | ✅ Implemented — same pattern as CoreDatabase; `MaterialData` carries a real, material-specific `bmaxT` for all 34 materials in the current snapshot |
 | Validation | `src/validation/Validation.h` | ✅ Implemented — `ValidationResult{passed, checkName, calculatedValue, limitValue, unit, explanation, usesDefaultAssumption}`, compiled via `VALIDATION_SOURCES` |
 | DesignRules | `src/rules/DesignRules.h`/`.cpp` | ✅ Implemented — `DesignRules::phase1Default()` is the single source of Ku/Bmax/J/tolerance defaults, compiled via `RULES_SOURCES` |
 | RequirementDerivationService | `backend/services/RequirementDerivationService.cpp` | ✅ Implemented — unit conversion + RMS-current-from-ripple derivation (triangular ripple only) |
@@ -164,13 +164,16 @@ InductorDesignService::run() (C++):
      then DesignValidation's checks (including PeakFluxValidation/
      SaturationValidation, which still independently verify the result),
      designWinding(), evaluateLosses(), evaluateThermal()
-  6. Passing candidates ranked by real total loss (copper + core, whichever
-     are Evaluated) ascending - the actual "Optimization" half of Option 2
-     (Physics-Based Calculation and Optimization), not just a size sort.
-     Candidates with no loss data at all fall back to area-product-ascending
-     so missing data never silently wins or loses a comparison; area product
-     is always the tiebreaker. Everything else goes to rejectedCandidates
-     with every failed check listed
+  6. Passing candidates ranked by candidateRanksAhead() - recommendation
+     tier, then DC-bias permeability retention (higher is better - a
+     distributed-gap candidate that barely holds its target inductance
+     under real operating current never outranks one that retains it, even
+     if its measured loss looks better), then known evaluated loss (copper
+     + core, whichever are Evaluated) ascending, predicted temperature rise
+     ascending, manufacturability margin, saturation margin, current-density
+     margin, area product, and part number as a final deterministic
+     tiebreak - never a hidden/undocumented tiebreaker. Everything else goes
+     to rejectedCandidates with every failed check listed
 ↓
 Route serializes the returned DesignRecommendation to JSON and responds
 ↓
@@ -181,37 +184,17 @@ assumption.
 
 ---
 
-## Recommendation Confidence, Bottleneck Analysis, and Ranking Highlights
-
-Five additive fields on top of the existing pipeline (nothing about the turns/gap solver,
-validation checks, or the primary candidate sort changes) - added to make the engine's existing
-honesty mechanisms visible, not to add new ones.
+## Peak-Current Derivation and Ranking Highlights
 
 **Mode 2 peak-current derivation** (`RequirementDerivationService.cpp`): when RMS current and
-ripple current are both supplied but peak current is not, the engine now derives a real peak
-current from them - `Iavg = sqrt(Irms^2 - ripple^2/12)`, `peak = Iavg + ripple/2` - the algebraic
-inverse of the same triangular-ripple formula already used elsewhere in this file for the
-average+ripple → RMS direction, not a new assumption. `OperatingPoint::peakCurrentDerived`/
-`peakCurrentAssumption` (mirroring `rmsCurrentDerived`/`rmsCurrentAssumption`) make sure this is
-always labeled as derived, never presented as a directly measured value. When the derivation is
-mathematically impossible for a triangular waveform (`Irms^2 < ripple^2/12`), it never throws -
-`peakCurrentA` simply stays absent, matching this file's existing soften-don't-crash policy.
-
-**`BottleneckAnalysis`** (`core/model/BottleneckAnalysis.h`, `BottleneckAnalysisService`):
-identifies the single check most responsible for a candidate's current standing - the failed check
-closest to passing (rejected candidates), the mandatory check that couldn't run at all because
-required data wasn't supplied (a data-completeness gap, always reported ahead of margin headroom -
-"we don't know" outranks "it has margin on what we could check"), or the evaluated check with the
-smallest normalized margin (`margin / limitValue`, since raw margins across checks have
-incommensurable units - %, T, °C, mm, A/mm²). `CurrentConsistencyValidation` is excluded from
-every margin comparison (diagnostic, not a physical gate - it cannot fail).
-
-**`suggestImprovement()`** (`RankingExplanationService.cpp`): a rule-based mapping from
-`candidate.bottleneck` to a short engineering suggestion, stored in the new
-`InductorCandidate::designNarrative` field (distinct from `rankingExplanation`, which answers "why
-did this rank here," not "what would improve it"). When the bottleneck is specifically missing
-peak current, always returns the exact phrase `"supply peak current to evaluate saturation risk"` -
-never a generic guess when the real blocker is a missing input.
+ripple current are both supplied but peak current is not, the engine derives a real peak current
+from them - `Iavg = sqrt(Irms^2 - ripple^2/12)`, `peak = Iavg + ripple/2` - the algebraic inverse of
+the same triangular-ripple formula used elsewhere in this file for the average+ripple → RMS
+direction, not a new assumption. `OperatingPoint::peakCurrentDerived`/`peakCurrentAssumption`
+(mirroring `rmsCurrentDerived`/`rmsCurrentAssumption`) make sure this is always labeled as derived,
+never presented as a directly measured value. When the derivation is mathematically impossible for
+a triangular waveform (`Irms^2 < ripple^2/12`), it never throws - `peakCurrentA` simply stays
+absent.
 
 **`RankingHighlights`** (`core/model/RankingHighlights.h`, `RankingHighlightsService`): among the
 already-sorted, already-passing `recommendation.candidates` list, identifies the best-in-category
@@ -219,32 +202,26 @@ core (by `partNumber`, not list index - an index would silently break under any 
 pagination) for thermal rise, known partial loss, saturation margin, and area product. Purely
 additive - `candidateRanksAhead()`'s own sort order and tier logic are untouched.
 
-**A fact this round surfaced rather than fixed**: `RecommendationTier::Pass` (the top tier) is
-already *structurally unreachable* in Phase 1 - `ThermalValidation` sets `isPreliminaryEstimate=true`
-on every result it ever produces, since no fully-validated thermal model exists yet, and `Pass`
-requires every mandatory check to rest on measured (never preliminary/default) data. This is
-documented directly in `RecommendationStatus.h` and is a correct, honest constraint - every real
-candidate this engine produces today is capped at `ConditionalPass` at best, which is exactly why
-`BottleneckAnalysis` exists: to make clear *why* a candidate is capped there, not to pretend the cap
-doesn't exist.
+**`RecommendationTier::Pass` (the top tier) is structurally unreachable** - `ThermalValidation` sets
+`isPreliminaryEstimate=true` on every result it ever produces, since no fully-validated thermal
+model exists yet, and `Pass` requires every mandatory check to rest on measured (never
+preliminary/default) data. This is documented directly in `RecommendationStatus.h`: every real
+candidate this engine produces today is capped at `ConditionalPass` at best.
 
 ---
 
 ## Powder-Core DC-Bias Permeability Roll-Off
 
-A real, previously-missing piece of physics for distributed-gap (powder) toroids - `TurnsAndGapDesign.cpp`
-used to solve `N = round(sqrt(L/AL0))` once against the core's catalog AL and call it done, reporting the
-exact same inductance at 0 A and at the request's real operating current. Real powder cores (MPP, Kool Mµ,
-High Flux, XFlux, Edge, Mix) don't work that way - permeability rolls off as DC bias current rises, so the
-true inductance at current is measurably below the 0-bias catalog number. A real user report ("at 0 you get
-3mH and at 5 amps you should see less than 3mH") caught this.
+Real powder cores (MPP, Kool Mµ, High Flux, XFlux, Edge) don't hold a flat inductance as current rises -
+permeability rolls off with DC bias, so the true inductance delivered at a real operating current is
+measurably below the core's 0-bias catalog number. `TurnsAndGapDesign.cpp`'s distributed-gap branch models
+this directly rather than reporting the same inductance at 0 A and at the request's real operating current.
 
 **`data/dc_bias_curves.csv` / `DCBiasCurveDatabase.h`**: real, manufacturer-published curve-fit coefficients
 (`a`, `b`, `c`, `d`) for `%initial_permeability = 1/(a + b*H^c) + d` (H in Oersteds), transcribed directly
-from Magnetics Inc.'s and Micrometals' own "Permeability vs. DC Bias" datasheet pages (Toroid shape family)
-- not derived, fitted, or estimated by this project. Currently covers six materials (MPP 60, Kool Mµ 60,
-High Flux 14, High Flux 26, XFlux 60, Edge 60, Mix 26); a distributed-gap material with no row here falls
-back to the original flat-AL0 behavior, never a guessed curve.
+from Magnetics Inc.'s own "Permeability vs. DC Bias" datasheet pages (Toroid shape family) - not derived,
+fitted, or estimated by this project. Covers 33 of the 34 materials in the current snapshot; a
+distributed-gap material with no row here falls back to the flat-AL0 behavior, never a guessed curve.
 
 **`core/magnetics/PermeabilityRolloff.h/.cpp`**: `findDCBiasCurve()` (lookup, mirrors
 `findCoreLossCoefficients()`'s pattern), `dcMagnetizingForceOe()` (`H = 0.4*pi*N*I/le`, le in cm - the
@@ -295,17 +272,15 @@ cores actually work.
 
 ## Data Source: Real Data, Hand-Curated from Magnetics Inc. — No Third-Party Library
 
-`cores.csv` and `materials.csv` (the old hand-typed placeholder files) are
-gone for good. In their place: **`data/real_materials.csv`** and
-**`data/real_cores.csv`** — also plain CSVs, but their *contents* are real,
-sourced data. As of the current snapshot, every row is transcribed by hand
-from Magnetics Inc.'s own live catalog (mag-inc.com's Advanced Part Number
-Finder) — MPP powder toroids and Magnetics E-cores only (755 cores, 34
-materials). There is no PyOpenMagnetics (or any other third-party magnetics
-library) dependency anywhere in this project, at build time or runtime —
-an earlier version of this project sourced data that way, found real errors
-in the sampled result for this project's actual scope (missing permeability
-grades, mismatched catalog numbers), and replaced it entirely.
+**`data/real_materials.csv`** and **`data/real_cores.csv`** are plain CSVs
+whose contents are real, sourced data. As of the current snapshot, every
+row is transcribed by hand from Magnetics Inc.'s own live catalog
+(mag-inc.com's Advanced Part Number Finder) — MPP powder toroids and
+Magnetics E-cores only (755 cores, 34 materials). There is no
+PyOpenMagnetics (or any other third-party magnetics library) dependency
+anywhere in this project, at build time or runtime — all core, material,
+DC-bias-curve, core-loss-coefficient, and surface-area data is hand-curated
+directly from Magnetics Inc.'s own published datasheets.
 (`reference_designs.csv` and `test_scenarios.csv` are unrelated to any of
 this and are still used, for validation.)
 

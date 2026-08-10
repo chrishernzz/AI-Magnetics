@@ -26,7 +26,7 @@
 `data/real_core_loss_coefficients.csv`
 **Used by:** `python/services/magnetics_data.py`
 **Format:**
-`PartNumber,Material,Mu,AL,Ae,Wa,Le,Mlt,PartCost,Vendor,MaxCurrent_A,MaxFreq_kHz,CoreShape,ShapeFamily,MaterialType,DatasheetUrl,WindowWidthMm,WindowHeightMm`
+`PartNumber,Material,Mu,AL,Ae,Wa,Le,Mlt,PartCost,Vendor,MaxCurrent_A,MaxFreq_kHz,CoreShape,ShapeFamily,MaterialType,DatasheetUrl,WindowWidthMm,WindowHeightMm,SurfaceAreaWoundMm2`
 for cores, `Name,MuOpt,MinFrequencyHz,MaxFrequencyHz,Reason,Alternatives,BmaxT,MaterialType,Manufacturer,DatasheetUrl`
 for materials, and `MaterialName,MinFrequencyHz,MaxFrequencyHz,K,Alpha,Beta,Ct0,Ct1,Ct2`
 (one row per frequency range) for the Steinmetz core-loss coefficients.
@@ -47,7 +47,7 @@ formula actually branches on). `DatasheetUrl`/`Manufacturer`/`WindowWidthMm`/
 below.
 
 **Why three separate files, not one:** materials:cores is a real
-many-to-one relationship (1276 cores share 165 materials) - merging them
+many-to-one relationship (755 cores share 34 materials) - merging them
 would repeat every material-level fact (MuOpt, BmaxT, Reason, ...) on
 every core row that uses it. materials:core-loss-coefficients is a real
 one-to-many relationship with a variable row count per material (0 to
@@ -117,8 +117,18 @@ Source" for the full process.
   parallel-strand bundle-fit check (`bundleFitStatus`) now evaluates for
   real E-core candidates instead of always `NotEvaluated`.
 - **Deliberately not added:** distributor cost (`PartCost` stays `0.0` for
-  every row — no check in this project consumes cost today) and
-  `thermalResistance` (not published by Magnetics for these parts).
+  every row — no check in this project consumes cost today).
+- `SurfaceAreaWoundMm2` (cores) — the real, manufacturer-published external
+  surface area of the wound coil, transcribed from each datasheet's own
+  "Surface Area" table (the "N% Winding Factor" row) when that table exists
+  for that part's layout. Populated for 423 of 755 cores — present on MPP
+  toroid datasheets, absent from every E-core datasheet layout (no such
+  table exists there, confirmed by inspection, not a transcription gap).
+  Blank (`0.0`) means not yet transcribed or not published for that layout
+  — never guessed or back-filled from a formula. Feeds
+  `ThermalEvaluation.cpp`'s `estimateThermalResistanceCPerW()` as the
+  highest-priority tier of its Rth estimate, ahead of the Ae×Le
+  shape-factor estimate that runs when this is `0.0`.
 
 ---
 
@@ -229,7 +239,7 @@ AL ≈ 0.4π × µ₀ × µᵣ × (Ae / Le) × 10⁹ (nH/100T; µ₀ = 4π×10�
 | MaxFrequencyHz | Hz | 250000 | Maximum operating frequency |
 | Reason | — | "Balanced performance 50-250kHz..." | Why this material suits its range |
 | Alternatives | — | `Ferrite\|Powder Iron` | Pipe-separated alternatives; passed through as a raw string by the API, not parsed into a list |
-| BmaxT | T | 1.0 | Max flux density — as of today's Phase 1 engine, `PeakFluxValidation`/`SaturationValidation` (`DesignValidation.cpp`) prefer a material's own `BmaxT` over the `DesignRules` default (0.30 T) whenever it's populated. (This is the deprecated hand-typed format — the real snapshot, `real_materials.csv`, now has real `BmaxT` for all 165 materials; see the section above.) Not a hard-coded value in `src/core/sizing/AreaProduct.cpp` anymore - see [FORMULAS.md](FORMULAS.md) section 7 |
+| BmaxT | T | 1.0 | Max flux density — as of today's Phase 1 engine, `PeakFluxValidation`/`SaturationValidation` (`DesignValidation.cpp`) prefer a material's own `BmaxT` over the `DesignRules` default (0.30 T) whenever it's populated. (This is the deprecated hand-typed format — the real snapshot, `real_materials.csv`, has real `BmaxT` for all 34 materials in the current snapshot; see the section above.) Not a hard-coded value in `src/core/sizing/AreaProduct.cpp` anymore - see [FORMULAS.md](FORMULAS.md) section 7 |
 | CuLossFactor | — | 1.15 | Multiplier for AC copper loss — retired from the real snapshot in favor of real Steinmetz coefficients in `data/real_core_loss_coefficients.csv` (see the section above), now driving a real core-loss computation whenever ripple current is supplied. See [FORMULAS.md](FORMULAS.md) section 9 |
 
 ### Frequency Ranges (current data)
@@ -267,7 +277,7 @@ AL ≈ 0.4π × µ₀ × µᵣ × (Ae / Le) × 10⁹ (nH/100T; µ₀ = 4π×10�
 **Note:** this is a much smaller schema than a full design package (no current, frequency, or loss columns) — it exists purely to sanity-check core/turns selection against one known real part, documented in `TESTRESULTSMEAN.md`.
 
 ### How to Use
-Add more real designs here as they become available — each new row is another point to validate the tool's core selection and turns/gap design against (`tests/python/test_reference_designs.py`). Note that `real_cores.csv` is currently Ferroxcube-only, so a Kool Mu/Powder Iron reference part like `i77006` won't have a matching core in the live database yet — see the data gap note above.
+Add more real designs here as they become available — each new row is another point to validate the tool's core selection and turns/gap design against (`tests/python/test_reference_designs.py`). Note that `real_cores.csv` is currently Magnetics-only (MPP toroids and Kool Mu/Edge/XFlux/High Flux E-cores), so a reference part sourced from a different manufacturer's catalog, like `i77006`, won't have a matching core part number in the live database — `test_expected_core_and_turns_match_original_catalog` is `xfail`-marked for this exact reason, not a bug.
 
 ---
 
@@ -291,7 +301,7 @@ Add more real designs here as they become available — each new row is another 
 | TestDescription | "Real IntelliPower spec; should match" | Why this scenario matters |
 
 ### How to Run Tests (current process)
-Run `pytest tests/python` from the repo root. `test_scenario_produces_a_feasible_or_honestly_infeasible_result` runs every row through `magnetics_cpp.run_inductor_design()` and checks the engine never crashes and always returns a well-formed status. `test_expected_core_and_turns_match_original_catalog` is `xfail`-marked, not skipped: `ExpectedCore`/`ExpectedTurns` values (e.g. `0077440A7`) were calibrated against a Kool Mu/Powder Iron catalog that doesn't exist in `data/real_cores.csv` (Ferroxcube-only) — a real data-source mismatch between this fixture and the live core database, not an engine bug.
+Run `pytest tests/python` from the repo root. `test_scenario_produces_a_feasible_or_honestly_infeasible_result` runs every row through `magnetics_cpp.run_inductor_design()` and checks the engine never crashes and always returns a well-formed status. `test_expected_core_and_turns_match_original_catalog` is `xfail`-marked, not skipped: `ExpectedCore`/`ExpectedTurns` values (e.g. `0077440A7`) were calibrated against a catalog whose part numbers don't exist in `data/real_cores.csv` (Magnetics-only, MPP toroids and Kool Mu/Edge/XFlux/High Flux E-cores) — a real data-source mismatch between this fixture and the live core database, not an engine bug.
 
 ### Adding Test Cases
 When you find a bug or edge case:

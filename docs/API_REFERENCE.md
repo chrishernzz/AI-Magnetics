@@ -58,34 +58,33 @@ which is never physically possible for any real waveform.
   "message": "1 candidate(s) passed every check; 2 rejected.",
   "candidates": [
     {
-      "material": { "materialFamily": "3C90", "muOpt": 2249.28, "hasBmaxData": true, "source": { "confidence": "Manufacturer", "..." : "..." }, "missingDataWarnings": ["..."], "..." : "..." },
-      "core": { "partNumber": "E100/60/28-3C90", "vendor": "Ferroxcube", "areaProductCm4": 15.7, "meetsAreaProduct": true, "source": { "..." : "..." }, "..." : "..." },
-      "turnsAndGap": { "turns": 42, "gapMm": 1.15, "calculatedInductanceUH": 249.8, "inductanceErrorPercent": -0.08, "withinTolerance": true, "converged": true, "gapMinMm": 1.035, "gapMaxMm": 1.265, "inductanceWithinToleranceAcrossGapRange": true, "smallGapWarning": false },
-      "validations": [ { "checkName": "InductanceValidation", "passed": true, "isPreliminaryEstimate": false, "..." : "..." }, "... five more (including ThermalValidation, isPreliminaryEstimate: true when Evaluated) ..." ],
+      "material": { "materialFamily": "MPP", "muOpt": 60.0, "hasBmaxData": true, "source": { "confidence": "Manufacturer", "..." : "..." }, "missingDataWarnings": ["..."], "..." : "..." },
+      "core": { "partNumber": "C055439A2", "vendor": "Magnetics", "material": "MPP 60", "areaProductCm4": 15.7, "meetsAreaProduct": true, "surfaceAreaWoundMm2": 9600.0, "source": { "..." : "..." }, "..." : "..." },
+      "turnsAndGap": { "turns": 149, "gapMm": 0.0, "gapMethod": "Distributed", "calculatedInductanceUH": 3031.0, "loadedInductanceUH": 44.4, "inductanceErrorPercent": 1.03, "withinTolerance": true, "converged": true, "usesDCBiasRolloffCurve": true, "dcMagnetizingForceOe": 63.3, "percentInitialPermeabilityAtOperatingCurrent": 1.5, "smallGapWarning": false },
+      "validations": [ { "checkName": "InductanceValidation", "passed": true, "isPreliminaryEstimate": false, "..." : "..." }, "... seven more (including BundleFitValidation, ThermalValidation - isPreliminaryEstimate: true when Evaluated) ..." ],
       "winding": { "wireDescription": "AWG18 single strand", "fillFactor": 0.11, "fitsWindow": true, "physicalWindowFillFactor": 0.21, "fitsPhysicalWindow": true, "resistanceStatus": "Evaluated", "coldDcrOhmsAt20C": 0.045, "estimatedHotDcrOhms": 0.052, "physicalDescription": "AWG18 magnet wire (bare 1.02 mm, insulated ~1.07 mm), single strand", "missingData": [] },
       "losses": { "copperLossStatus": "Evaluated", "copperLossW": 0.55, "coreLossStatus": "NotEvaluated", "missingData": ["..."] },
-      "thermal": { "status": "PreliminaryThermalEstimate", "convergedWindingTempC": 38.2, "predictedTempRiseC": 13.2, "converged": true, "iterationsUsed": 3, "thermalResistanceCPerWUsed": 15.0 },
+      "thermal": { "status": "PreliminaryThermalEstimate", "convergedWindingTempC": 38.2, "predictedTempRiseC": 13.2, "converged": true, "iterationsUsed": 3, "thermalResistanceCPerWUsed": 4.17, "thermalResistanceUsesRealSurfaceArea": true },
       "acLossRisk": { "riskLevel": "Low", "reason": "evaluated: single-strand skin effect...", "acLossWattsStatus": "NotEvaluated" },
       "fluxLimits": { "absoluteSaturationT": 0.47, "recommendedOperatingT": 0.3995, "temperatureAdjustedStatus": "NotEvaluated", "coreLossLimitedStatus": "NotEvaluated" },
-      "recommendation": { "tier": "ConditionalPass", "checksEvaluatedCount": 7, "checksPassedCount": 7, "checksNotEvaluatedCount": 0, "explanation": "conditional pass: every mandatory check that ran, passed, but at least one mandatory check rests on a Phase 1 default assumption or preliminary estimate, not measured data; " },
+      "recommendation": { "tier": "ConditionalPass", "checksEvaluatedCount": 7, "checksPassedCount": 7, "checksNotEvaluatedCount": 1, "explanation": "conditional pass: every mandatory check that ran, passed, but at least one mandatory check rests on a Phase 1 default assumption or preliminary estimate, not measured data; " },
       "lossSummary": { "knownPartialLossW": 0.55, "isCompleteTotal": false, "label": "Known Partial Loss (copper - AC/skin-effect loss not modeled)" },
       "manufacturabilityMarginPercent": 71.4,
-      "rankingExplanation": "[ConditionalPass] passed every check that ran, but ...",
       "passed": true,
       "rejectionReasons": []
     }
   ],
-  "candidatesByTechnology": { "3C90": ["... same candidate objects as candidates[], grouped by technology family (e.g. \"MPP\", \"Kool Mu\", \"3C90\") for presentation - see routes/inductor_design.py's _technology_family() ..."] },
+  "candidatesByTechnology": { "MPP": ["... same candidate objects as candidates[], grouped by technology family (e.g. \"MPP\", \"Kool Mu\", \"XFlux\") for presentation - see routes/inductor_design.py's _technology_family() ..."] },
   "rejectedCandidates": ["... same shape, passed=false, rejectionReasons populated, recommendation.tier=Rejected ..."],
-  "activeRules": { "windowUtilization": 0.4, "allowableCurrentDensityAperCm2": 400.0, "defaultFluxDensityLimitT": 0.30, "minimumSaturationMarginPercent": 10.0, "maximumFillFactor": 0.6, "defaultInductanceTolerancePercent": 10.0, "minimumSingleStrandAwg": 18, "gapTolerancePercent": 10.0, "defaultThermalResistanceCPerW": 15.0, "...": "30 fields total - see DesignRules.h" },
+  "activeRules": { "windowUtilization": 0.4, "allowableCurrentDensityAperCm2": 986.76, "defaultFluxDensityLimitT": 0.30, "minimumSaturationMarginPercent": 10.0, "maximumFillFactor": 0.6, "defaultInductanceTolerancePercent": 10.0, "minimumSingleStrandAwg": 18, "gapTolerancePercent": 10.0, "defaultThermalResistanceCPerW": 15.0, "naturalConvectionCoefficientWPerM2K": 25.0, "compactSolidSurfaceAreaShapeFactor": 6.0, "...": "30 fields total - see DesignRules.h" },
   "requiredAreaProductCm4": 0.0,
   "largestAvailableAreaProductCm4": 0.0,
-  "versions": { "calculationEngineVersion": "1.1.0", "designRulesVersion": "1.1.0", "coreDatabaseVersion": "1276 rows, sha256:...", "materialDatabaseVersion": "165 rows, sha256:..." },
-  "rankingHighlights": { "hasCandidates": true, "thermalBestPartNumber": "E100/60/28-3C90", "lowestLossPartNumber": "B65919A0000R088 (N88)", "highestSaturationMarginPartNumber": "...", "smallestCorePartNumber": "..." }
+  "versions": { "calculationEngineVersion": "1.1.0", "designRulesVersion": "1.1.0", "coreDatabaseVersion": "755 rows, sha256:...", "materialDatabaseVersion": "34 rows, sha256:..." },
+  "rankingHighlights": { "hasCandidates": true, "thermalBestPartNumber": "00T7228E040", "lowestLossPartNumber": "...", "highestSaturationMarginPartNumber": "...", "smallestCorePartNumber": "..." }
 }
 ```
 
-`candidatesByTechnology` groups the same candidate objects in `candidates` by technology family - e.g. `"MPP 60"` and `"MPP 125"` both bucket under `"MPP"`, while ferrite grade codes (no permeability-grade suffix, e.g. `"3C90"`, `"N87"`) are used as-is. Presentation-only - it doesn't change ranking, and the flat `candidates` array is still the source of truth for order. Added after a real report that a single ranked list let ferrite dominate the top of the results even when powder candidates existed further down.
+`candidatesByTechnology` groups the same candidate objects in `candidates` by technology family - e.g. `"MPP 60"` and `"MPP 125"` both bucket under `"MPP"`. Presentation-only - it doesn't change ranking, and the flat `candidates` array is still the source of truth for order.
 
 `rankingHighlights` identifies, among the already-ranked `candidates`, the single best-in-category core (by `partNumber`) for a few individual criteria an engineer might care about even when it isn't the overall top-ranked pick - thermal rise, known partial loss, saturation margin, and area product. Purely additive; doesn't change `candidates`' own sort order. `hasCandidates: false` when `candidates` is empty - every `*PartNumber` field is meaningless in that case, never a fabricated part number.
 
@@ -116,11 +115,12 @@ just a console warning:
 **Data-gap fields you may still see today:** `thermal.status` is
 `"PreliminaryThermalEstimate"` at best, never a "fully evaluated" value —
 `ThermalStatus` has no such value at all, since the loop always runs on
-an estimated `thermal.thermalResistanceCPerWUsed` (size-aware, derived
-from each candidate's own real Ae/Le geometry when available - see
-`thermal.thermalResistanceIsGeometryDerived` - falling back to the flat
-`DesignRules.defaultThermalResistanceCPerW` only when it isn't), never
-per-core measured data either way. `acLossRisk.acLossWattsStatus` is permanently
+an estimated `thermal.thermalResistanceCPerWUsed` (a real, manufacturer-
+published wound-coil surface area when transcribed for that part - see
+`thermal.thermalResistanceUsesRealSurfaceArea` - falling back to an Ae×Le
+shape-factor estimate, and finally a flat
+`DesignRules.defaultThermalResistanceCPerW` when even core geometry is
+unavailable), never per-core measured data at any tier. `acLossRisk.acLossWattsStatus` is permanently
 `"NotEvaluated"` — the skin-depth heuristic produces a risk *level*, never
 a watts figure. `winding.resistanceStatus` and `losses.copperLossStatus`
 are `"Evaluated"` for most candidates (real, geometry-derived
@@ -272,7 +272,7 @@ FastAPI also auto-generates interactive docs at **http://127.0.0.1:8000/docs** �
 | `ioutA` | number (A, `/topology-design/buck` only) | 40 |
 | `rippleCurrentPercent` | number (% of `ioutA`, `/topology-design/buck` only) | 20 |
 | `status` | string | "ok" \| "no_feasible_design" |
-| `materialFamily` | string | "3C90" |
+| `materialFamily` | string | "MPP" |
 | `alternatives` | string (pipe-delimited) | "None" |
 | `areaProductCm4` | number (cm⁴) | 3.2 |
 | `aeMm2`, `waMm2` | number (mm²) | 735.05, 2138.7 |
@@ -304,25 +304,38 @@ The rest are conditionally real, never fabricated:
 - **Core loss** (`losses.coreLossStatus`) — `Evaluated` when the material
   has real Steinmetz coefficients for the request's frequency AND the
   request supplied `rippleCurrentPeakToPeakA`; `not_evaluated` otherwise
-  (29 of 165 materials have coefficients; ripple current is optional on
-  every request; run `scripts/audit_material_core_database.py` for the
-  current live count).
-- **DCR / total wire length** (`winding.resistanceStatus`) and **DC
-  copper loss** (`losses.copperLossStatus`) — `Evaluated` for most
-  candidates via a real, geometry-derived mean-length-per-turn estimate,
-  `not_evaluated` only for the subset of cores whose upstream geometry
-  doesn't support it. DCR now includes lead/routing/connection resistance
-  (`DesignRules` allowances), not just core-winding resistance.
+  (all 34 materials in the current snapshot have coefficients; ripple
+  current is optional on every request).
+- **DCR / total wire length** (`winding.resistanceStatus`) and **copper
+  loss** (`losses.copperLossStatus`) — `Evaluated` for most candidates via
+  a real, geometry-derived mean-length-per-turn estimate, `not_evaluated`
+  only for the subset of cores whose upstream geometry doesn't support it.
+  DCR includes lead/routing/connection resistance (`DesignRules`
+  allowances), not just core-winding resistance.
+- **DC-bias permeability retention**
+  (`turnsAndGap.percentInitialPermeabilityAtOperatingCurrent`) — real for
+  distributed-gap (powder) candidates whose material has a published curve
+  in `data/dc_bias_curves.csv` (33 of 34 materials); stays at its 100%
+  struct default for machined-gap (ferrite/powder-E-core-with-gap)
+  candidates, which aren't subject to this roll-off, and for the one
+  material with no published curve.
+- **Thermal resistance source**
+  (`thermal.thermalResistanceUsesRealSurfaceArea`) — `true` when
+  `thermal.thermalResistanceCPerWUsed` came from a real, manufacturer-
+  published wound-coil surface area (423 of 755 cores in the current
+  snapshot); `false` when it fell back to the Ae×Le shape-factor estimate.
 
 **Recommendation tier** (`recommendation.tier`): `Pass` |
-`ConditionalPass` | `Reject`, replacing the old frontend-only
-"Recommended" UI sugar. `Reject` always mirrors `passed`. No real Phase 1
+`ConditionalPass` | `Reject`. `Reject` always mirrors `passed`. No real
 request reaches `Pass` today, since `ThermalValidation`
 always sets `isPreliminaryEstimate: true` — see FORMULAS.md section 12.
 
-**Ranking:** passing candidates are ranked by tier first, then by real
-known evaluated loss (copper + core, whichever are `Evaluated`,
-`lossSummary.knownPartialLossW`), predicted temperature rise,
+**Ranking:** passing candidates are ranked by tier first, then DC-bias
+permeability retention (higher is better — a distributed-gap candidate
+that barely holds its target inductance under real operating current
+never outranks one that retains it, even when its measured loss looks
+better), then real known evaluated loss (copper + core, whichever are
+`Evaluated`, `lossSummary.knownPartialLossW`), predicted temperature rise,
 manufacturability margin, saturation margin, current-density margin, area
 product, and finally part number — see FORMULAS.md section 12 for the full
 comparator. A missing number in any tiebreaker ranks as the worst case for
