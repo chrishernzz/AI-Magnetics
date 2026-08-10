@@ -1,22 +1,5 @@
 # Data Files Guide
 
-> **⚠️ `cores.csv` and `materials.csv` (the original hand-typed files) no
-> longer exist.** They've been replaced by **`data/real_materials.csv`**
-> and **`data/real_cores.csv`** — same idea (CSV, read at startup), but the
-> *contents* are real, sourced data instead of hand-typed values. See
-> "real_materials.csv / real_cores.csv" below for the current format, and
-> `docs/ARCHITECTURE.md` → "Data Source" for why they're a bundled
-> snapshot rather than a live query. The sections further down describing
-> the *old* `cores.csv`/`materials.csv` format are kept only as historical
-> reference.
->
-> `reference_designs.csv` and `test_scenarios.csv` are **unaffected** —
-> they're the validation suite, not a data source, and are still read
-> directly, same as always. Note: `test_scenarios.csv`'s `ExpectedCore`
-> values (e.g. `0077440A7`) are old part numbers from the original CSVs —
-> real data uses different part numbers, so those expected values need to
-> be re-verified and updated, not treated as still valid.
-
 ---
 
 ## real_materials.csv / real_cores.csv (current, actually used)
