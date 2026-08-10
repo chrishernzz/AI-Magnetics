@@ -74,11 +74,11 @@ validation, winding, and losses, see [WORKED_EXAMPLE_MODE1.md](WORKED_EXAMPLE_MO
 - `switchingFreqHz` — how fast the circuit switches
 
 **Output:**
-- Material name (Powder Iron, Kool Mu, Ferrite 3C90, etc.)
+- Material name (e.g. `MPP 60`, `Kool Mu 40`, `XFlux 26`)
 - Optimal permeability (µ_opt)
-- Reason + alternatives (pipe-separated string, e.g. `"Ferrite|Kool Mu"`)
+- Reason + alternatives (pipe-separated string)
 
-**How it works:** loops through the loaded material list (`data/real_materials.csv` — see `docs/ARCHITECTURE.md` for how it got there) and returns the first material whose `[MinFrequencyHz, MaxFrequencyHz)` range contains the input frequency.
+**How it works:** loops through the loaded material list (`data/real_materials.csv` — see `docs/ARCHITECTURE.md` for how it got there) and returns every material whose `[MinFrequencyHz, MaxFrequencyHz)` range contains the input frequency as its own candidate, not just the first match.
 
 **Historical note:** the now-removed `MaterialSelectionInput` struct also declared `inductanceH`, `peakCurrentA`, `allowableTempRiseC`, and `waveformFactor`, but only `switchingFreqHz` was ever read from it - the others were accepted but ignored, and current waveform shape had no effect on material selection. That struct is gone along with the old single-stage endpoints (see `docs/ARCHITECTURE.md`).
 
@@ -109,7 +109,7 @@ E_max = 0.5 × 250µ × 25 = 3.125 mJ
 Ap ≈ 3 cm⁴ (core must satisfy this minimum)
 ```
 
-**Note:** `windowUtilization`, `fluxDensityT`, and `currentDensityAPerCm2` are sourced from `DesignRules::phase1Default()` (Ku=0.4, Bmax=0.30 T, J=400 A/cm²) - a named C++ ruleset, not a hard-coded Python constant (spec section 7; see `src/rules/DesignRules.cpp`). The Phase 1 pipeline's `PeakFluxValidation`/`SaturationValidation` checks prefer a material-specific `BmaxT` over this default when one exists - `data/real_materials.csv`'s `BmaxT` is real, material-specific data for all 165 materials, so the default is now only a fallback for a material with no measured value, and every check that uses the default flags `usesDefaultAssumption: true` rather than presenting 0.30 T as a material fact.
+**Note:** `windowUtilization`, `fluxDensityT`, and `currentDensityAPerCm2` are sourced from `DesignRules::phase1Default()` (Ku=0.4, Bmax=0.30 T, J=986.76 A/cm² - Roger's stated 200 circular-mils-per-amp rule) - a named C++ ruleset, not a hard-coded Python constant (spec section 7; see `src/rules/DesignRules.cpp`). The pipeline's `PeakFluxValidation`/`SaturationValidation` checks prefer a material-specific `BmaxT` over this default when one exists - `data/real_materials.csv`'s `BmaxT` is real, material-specific data for all 34 materials in the current snapshot, so the default is only a fallback for a material with no measured value, and every check that uses the default flags `usesDefaultAssumption: true` rather than presenting 0.30 T as a material fact.
 
 ---
 
@@ -159,9 +159,9 @@ AL0(nH/turn^2) = 0.4*pi * muR * Ae_cm2 / Le_cm * 10                       (ungap
 lg_cm          = 0.4*pi * N^2 * Ae_cm2 * 10 / L_target_nH - Le_cm/muR      (required gap for N turns)
 AL_eff(nH/turn^2) = 0.4*pi * Ae_cm2 * 10 / (Le_cm/muR + gapCm)             (gapped AL)
 ```
-`src/core/magnetics/TurnsAndGapDesign.cpp` seeds turns from the existing `src/core/magnetics/TurnsCalculation.cpp` formula (`N = round(sqrt(L/AL))` against the ungapped AL - this file was previously mis-documented elsewhere as a stub; it has always been implemented), then iterates gap -> effective AL -> turns until the integer turns count stabilizes (2-4 iterations typical) or is rejected (gap exceeds 40% of the core's magnetic path length, or no convergence within 15 iterations). Verified against `data/real_cores.csv`'s `E100/60/28-3C90` row to <0.03% (see `tests/cpp/EngineTests.cpp`).
+`src/core/magnetics/TurnsAndGapDesign.cpp` dispatches per candidate to `solveMachinedGapCore()` (any non-powder core: seeds turns from `src/core/magnetics/TurnsCalculation.cpp`'s `N = round(sqrt(L/AL))` against the ungapped AL, then iterates gap -> effective AL -> turns until the integer turns count stabilizes (2-4 iterations typical) or is rejected - gap exceeds 40% of the core's magnetic path length, or no convergence within 15 iterations) or `solveDistributedGapCore()` (any powder core: turns solved once from the zero-bias catalog AL and held fixed, DC-bias permeability roll-off applied against those fixed turns - see FORMULAS.md section 4). Verified numerically against `data/real_cores.csv` to <0.03% (see `tests/cpp/EngineTests.cpp`).
 
-**Magnetic validation (six named checks, `DesignValidation.cpp`):** InductanceValidation, PeakFluxValidation (`Bpk = L*Ipk/(N*Ae)` vs. the applicable flux limit), SaturationValidation (margin vs. `DesignRules.minimumSaturationMarginPercent`), WindingFitValidation, CurrentDensityValidation, ThermalValidation. Every failed check is reported, not just the first.
+**Magnetic validation (eight named checks, `DesignValidation.cpp`):** CurrentConsistencyValidation, InductanceValidation, PeakFluxValidation (`Bpk = L*Ipk/(N*Ae)` vs. the applicable flux limit), SaturationValidation (margin vs. `DesignRules.minimumSaturationMarginPercent`), WindingFitValidation, CurrentDensityValidation, BundleFitValidation, ThermalValidation. Every failed check is reported, not just the first.
 
 **Winding design (`src/core/winding/WindingDesign.cpp`):** required conductor area from RMS current and `DesignRules.allowableCurrentDensityAperCm2`, AWG gauge selection (`src/data/AwgTable.h`, standard NEMA MW1000 reference geometry) with parallel strands when a single strand would be impractically thick, raw copper fill factor, current density - all computed. A separate, realistic **physical window fill** (insulation build-up, achievable packing density, bobbin wall thickness, margin/lead-exit clearance - all `DesignRules` estimates) is what `WindingFitValidation` actually gates on; the raw copper-only figure stays as an informational field. DCR (now including lead/routing/connection resistance, not just core-winding resistance) and total wire length are computed from `CoreCandidate.mltMm` (a real-geometry estimate, `data/real_cores.csv`'s `Mlt` column) when it's available, `not_evaluated` for the subset of cores whose upstream geometry doesn't support that estimate. See FORMULAS.md section 6.
 
@@ -176,19 +176,21 @@ Computed whenever `WindingDesign` produced a real DCR - real for most candidates
 Pv (W/m^3) = k * f^alpha * B^beta
 Bswing (T) = calculatedInductanceH * ripplePeakToPeakA / (turns * Ae_m2)
 ```
-Real for candidates whose material has coefficients in `data/real_core_loss_coefficients.csv` (29 of 165) AND whose request supplied `rippleCurrentPeakToPeakA` - `MaterialCandidate.hasCoreLossData` now reflects real coefficient availability, not the retired `CuLossFactor` field. No ripple current means no flux-density swing to compute Bswing from, so `losses.coreLossStatus` stays `not_evaluated` rather than approximating it from peak flux. Coefficients' temperature-correction terms (ct0/ct1/ct2) are not yet applied.
+Real for candidates whose material has coefficients in `data/real_core_loss_coefficients.csv` (all 34 materials in the current snapshot) AND whose request supplied `rippleCurrentPeakToPeakA` - `MaterialCandidate.hasCoreLossData` reflects real coefficient availability. No ripple current means no flux-density swing to compute Bswing from, so `losses.coreLossStatus` stays `not_evaluated` rather than approximating it from peak flux. Coefficients' temperature-correction terms (ct0/ct1/ct2) are not yet applied.
 
 **Skin-depth AC-loss risk (`src/core/losses/SkinDepthRisk.cpp`, renamed from the dead `HighFrequencyLosses.cpp` stub):** a real, qualitative Low/Moderate/High risk level based on the selected strand's bare radius vs. the classical skin depth at the switching frequency - never a watts figure (`acLossWattsStatus` is permanently `not_evaluated`, since no AC-loss watts model exists). Named explicitly what it evaluates (single-strand skin effect) and what it doesn't (bundle proximity effect, proximity to the air gap). See FORMULAS.md section 11.
 
-**Thermal evaluation (`src/core/thermal/ThermalEvaluation.cpp`):** a real iterative convergence loop (temp → hot DCR → copper loss → temp rise → repeat, mirroring the turns/gap loop above) now runs, using a size-aware thermal resistance estimated from each candidate's own real Ae/Le core geometry via Newton's law of cooling (falls back to the flat `DesignRules.defaultThermalResistanceCPerW` only when that geometry is unavailable) - neither is per-core measured data. Caps at `PreliminaryThermalEstimate` - never a "fully evaluated" value exists. Reports `not_evaluated` when winding DCR geometry is unknown, or when the loop's real positive-feedback iteration diverges rather than converges (a genuine possibility for high-current, low-DCR designs, not just a numerical edge case). See FORMULAS.md section 10.
+**Thermal evaluation (`src/core/thermal/ThermalEvaluation.cpp`):** a real iterative convergence loop (temp → hot DCR → copper loss → temp rise → repeat, mirroring the turns/gap loop above) runs, using a 3-tier thermal resistance estimate: a real, manufacturer-published wound-coil surface area when transcribed for that part (423 of 755 cores), an Ae×Le compact-solid shape-factor estimate when it isn't, or the flat `DesignRules.defaultThermalResistanceCPerW` when even core geometry is unavailable - none of the three is per-core measured data. Caps at `PreliminaryThermalEstimate` at every tier - never a "fully evaluated" value exists. Reports `not_evaluated` when winding DCR geometry is unknown, or when the loop's real positive-feedback iteration diverges rather than converges (a genuine possibility for high-current, low-DCR designs, not just a numerical edge case). See FORMULAS.md section 10.
 
-**3-tier recommendation (`src/validation/RecommendationStatus.cpp`):** `Pass` / `ConditionalPass` / `Reject` replaces the old frontend-only "Recommended" sugar. `Reject` always mirrors the six-check pass/fail decision above. No real request reaches `Pass` today, since `ThermalValidation` always flags its result as a preliminary estimate. See FORMULAS.md section 12.
+**3-tier recommendation (`src/validation/RecommendationStatus.cpp`):** `Pass` / `ConditionalPass` / `Reject`. `Reject` always mirrors the eight-check pass/fail decision above. No real request reaches `Pass` today, since `ThermalValidation` always flags its result as a preliminary estimate. See FORMULAS.md section 12.
 
-**Turns count sanity, once real turns exist:** the tool doesn't flag turns < 5 or > 100 as impractical yet - only the six named validation checks above run.
+**Ranking:** passing candidates are ranked by tier, then DC-bias permeability retention (a distributed-gap candidate that barely holds its target inductance under real operating current no longer outranks one that retains it), then known evaluated loss, predicted temperature rise, manufacturability margin, saturation margin, current-density margin, area product, and part number as a final tiebreak. See FORMULAS.md section 12.
+
+**Turns count sanity, once real turns exist:** the tool doesn't flag turns < 5 or > 100 as impractical yet - only the eight named validation checks above run.
 
 **Worked example (real tool output via `POST /inductor-design`):**
 
-For the reference part i77006 (250 µH target, peak 5 A, RMS 3.5 A, 100 kHz, 25°C ambient, 40°C allowed rise) run against the current Ferroxcube-only `data/real_cores.csv`/`data/real_materials.csv` snapshot: see `tests/python/test_reference_designs.py::test_reference_design_i77006` for the exact request and how to reproduce it. The snapshot's cores don't include an i77006-equivalent part (it's a Kool Mu/Powder Iron design; the bundled snapshot is Ferroxcube-only ferrite), so this test checks turns count feasibility rather than an exact core match - see `docs/DATA_FILES.md` for the underlying data coverage gap.
+For the reference part i77006 (250 µH target, peak 5 A, RMS 3.5 A, 100 kHz, 25°C ambient, 40°C allowed rise) run against the current `data/real_cores.csv`/`data/real_materials.csv` snapshot (Magnetics MPP toroids and powder E-cores only): see `tests/python/test_reference_designs.py::test_reference_design_i77006` for the exact request and how to reproduce it. The snapshot's cores don't include an i77006-equivalent part number (i77006 is sourced from a different manufacturer's catalog), so this test checks turns count feasibility rather than an exact core match - see `docs/DATA_FILES.md` for the underlying data coverage gap.
 
 ---
 
@@ -209,10 +211,11 @@ A basic sanity check (`test_scenario_produces_a_feasible_or_honestly_infeasible_
 confirms every scenario runs without crashing and always returns a
 well-formed `status`. **`ExpectedCore`/`ExpectedTurns` exact-match checks
 are `xfail`-marked, not silently skipped** (`test_expected_core_and_turns_match_original_catalog`):
-these values were calibrated against a Kool Mu/Powder Iron catalog whose
-part numbers don't exist in `data/real_cores.csv` (Ferroxcube-only) - a
-data-source mismatch between this fixture and the live core database, not
-an engine bug. See [DATA_FILES.md](DATA_FILES.md).
+these values were calibrated against a catalog whose part numbers don't
+exist in `data/real_cores.csv` (Magnetics-only: MPP toroids and Kool
+Mu/Edge/XFlux/High Flux E-cores) - a data-source mismatch between this
+fixture and the live core database, not an engine bug. See
+[DATA_FILES.md](DATA_FILES.md).
 
 ---
 
@@ -225,8 +228,8 @@ an engine bug. See [DATA_FILES.md](DATA_FILES.md).
 | Frequency | kHz | 25 – 1000 | Higher f → smaller core, ferrite better |
 | Temp Rise (ΔT) | °C | 25 – 60 | Checked by ThermalValidation against a real iterative loop's converged result - `PreliminaryThermalEstimate` at best (never fully evaluated), `not_evaluated` if DCR geometry is unknown or the loop diverges |
 | Window Utilization (Ku) | – | 0.4, from `DesignRules::phase1Default()` | Not yet configurable per-request |
-| Flux Density (Bmax) | T | 0.30 default, from `DesignRules::phase1Default()` | Used unless a material carries its own `BmaxT` (real, material-specific data in `real_materials.csv` for all 165 materials) |
-| Current Density (J) | A/cm² | 400, from `DesignRules::phase1Default()` | Not yet configurable per-request |
+| Flux Density (Bmax) | T | 0.30 default, from `DesignRules::phase1Default()` | Used unless a material carries its own `BmaxT` (real, material-specific data in `real_materials.csv` for all 34 materials) |
+| Current Density (J) | A/cm² | 986.76, from `DesignRules::phase1Default()` (Roger's 200 CM/A rule) | Not yet configurable per-request |
 
 ---
 

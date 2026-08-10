@@ -117,7 +117,7 @@ above instead - it fills these in for you.
 ### 5. Ambient Temperature (°C)
 **What it is:** The environment temperature the inductor operates in.
 **Example:** `25`
-**Current status:** accepted and threaded through to `ThermalEvaluation`, which runs a real iterative convergence loop (temp → hot DCR → copper loss → temp rise → repeat) using a size-aware Rth estimated from each candidate's own real core geometry (Newton's law of cooling; falls back to a flat Phase 1 default only when geometry is unavailable) and caps at `PreliminaryThermalEstimate` either way, never per-core measured data; reports `not_evaluated` only when DCR geometry is unknown or the loop diverges.
+**Current status:** accepted and threaded through to `ThermalEvaluation`, which runs a real iterative convergence loop (temp → hot DCR → copper loss → temp rise → repeat) using a 3-tier Rth estimate — a real, manufacturer-published wound-coil surface area when transcribed for that part, an Ae×Le shape-factor estimate when it isn't, or a flat Phase 1 default when core geometry itself is unavailable — and caps at `PreliminaryThermalEstimate` at every tier, never per-core measured data; reports `not_evaluated` only when DCR geometry is unknown or the loop diverges.
 
 ### 6. Allowable Temperature Rise (°C)
 **What it is:** How much hotter than ambient the core can get.
@@ -164,6 +164,8 @@ Clicking a row opens its full detail in a **slide-in side panel** from the right
 
 **Candidate detail panel layout**: the panel header repeats the core part number, its real shape, material, and pass/reject state. The body leads with an always-visible **Overview** — a 5-box KPI strip (Known Partial Loss, Core Loss, Physical Fill %, Current Density, Turns/Gap) plus a one-line status carrying the completeness chip and tier — the numbers and outcome a candidate is actually judged by, never collapsed. Below that, **Validation Checks** (open by default), **Sources**, and **Missing-data warnings** are each their own `<details class="detail-group">` group, wired as a real accordion (`wireDetailGroupAccordion()` in `app.js`) - opening one closes the others, so the panel never has more than one section expanded fighting for space at once. Nothing about any check is ever stated in two different places — there's exactly one row per check, and that row is the only place its numbers and its reason live.
 
+**DC-Bias Physics tab**: a second tab alongside Overview, shown for any distributed-gap (powder) candidate whose material has a published DC-bias curve (`turnsAndGap.usesDCBiasRolloffCurve`). Compares "Initial Design (~0 A)" (turns and inductance from the zero-bias catalog AL — what winding-fit, copper loss, and thermal are evaluated against) against "DC Bias Performance (your operating current)" (the same fixed turns count, but the real inductance delivered at your actual current — what saturation risk is evaluated against), a **Retention** percentage with an Excellent/Good/Marginal/Severe tier badge, and the real magnetizing-force/permeability-vs-bias formula with its source curve cited. For a candidate whose material has no published curve, or whose core isn't distributed-gap at all, the tab explains why instead of showing an empty chart.
+
 ### Input validation
 A real client-side hard block, not a soft warning next to an enabled button: `validateDirectInputs()` checks the same physical relationships the backend's `RequirementDerivationService::derive()` and `CurrentConsistencyValidation` would otherwise only catch after a full round trip (RMS exceeding peak, ripple implying a negative minimum inductor current). While any error is present, an `.input-validation-card` lists every fix needed and the Generate button is disabled (`:disabled` gets its own dimmed style, not just a functional no-op) — checked live on every keystroke, and defensively re-checked inside `generateRecommendation()` itself regardless of what triggered it.
 
@@ -175,7 +177,7 @@ A real client-side hard block, not a soft warning next to an enabled button: `va
 This is a real, structured result now, not a console-only warning — check the feasibility panel for the reason (e.g. `requiredAreaProductCm4` vs. `largestAvailableAreaProductCm4` for an area-product shortfall) and the candidates table (filtered to Rejected) for per-check failures.
 
 ### A candidate's winding/loss fields say "not evaluated"
-Core loss is now real (`Pv = k*f^alpha*B^beta`) when the material has Steinmetz coefficients in `data/real_core_loss_coefficients.csv` (29 of 165 materials) AND the request supplied `rippleCurrentPeakToPeakA` — `not_evaluated` for the rest, since flux-density swing can only be computed from real ripple current, never approximated from peak flux. The form now has an optional **Ripple Current p-p (A)** field for exactly this — leave it blank and core loss honestly reports `not_evaluated`; fill it and core loss (and total-loss ranking) become real. DC copper loss and DCR are now real for cores with a usable mean-length-per-turn estimate (`data/real_cores.csv`'s `Mlt` column) — `not_evaluated` only for the subset of cores whose upstream geometry doesn't support that estimate. High-frequency loss and thermal rise remain genuinely unimplemented. See [DATA_FILES.md](DATA_FILES.md) — these are real data gaps, not silent bugs, and the tool says so explicitly via `missingData`/`missingDataWarnings`, surfaced in the UI as amber "not evaluated" chips rather than blank cells or fake zeros.
+Core loss is real (`Pv = k*f^alpha*B^beta`) when the material has Steinmetz coefficients in `data/real_core_loss_coefficients.csv` (all 34 materials in the current snapshot) AND the request supplied `rippleCurrentPeakToPeakA` — `not_evaluated` for the rest, since flux-density swing can only be computed from real ripple current, never approximated from peak flux. The form now has an optional **Ripple Current p-p (A)** field for exactly this — leave it blank and core loss honestly reports `not_evaluated`; fill it and core loss (and total-loss ranking) become real. DC copper loss and DCR are now real for cores with a usable mean-length-per-turn estimate (`data/real_cores.csv`'s `Mlt` column) — `not_evaluated` only for the subset of cores whose upstream geometry doesn't support that estimate. High-frequency loss and thermal rise remain genuinely unimplemented. See [DATA_FILES.md](DATA_FILES.md) — these are real data gaps, not silent bugs, and the tool says so explicitly via `missingData`/`missingDataWarnings`, surfaced in the UI as amber "not evaluated" chips rather than blank cells or fake zeros.
 
 ### RMS current shows a warning under the input
 The form flags (but does not block) RMS current entered higher than peak current — physically that would mean the waveform's average heating effect exceeds its own instantaneous maximum, which cannot happen. It's a sanity check on typos, not a hard validation rule.
@@ -184,11 +186,13 @@ The form flags (but does not block) RMS current entered higher than peak current
 
 ## Typical Design Scenarios
 
-### Low-Power Example
-L = 10 µH, Ipk = 1.5 A, Irms = 1.0 A, f = 500 kHz, Tambient = 25°C, ΔT = 40°C → expect a small, high-frequency-rated ferrite core
+The current database is Magnetics-only — MPP powder toroids and Kool Mu/Edge/XFlux/High Flux powder E-cores, all distributed-gap materials (see [DATA_FILES.md](DATA_FILES.md)). Every material's real frequency range tops out around 2 MHz depending on grade; a request above that range returns `no_feasible_design` rather than a silent fallback.
+
+### Small-Signal Example
+L = 10 µH, Ipk = 1.5 A, Irms = 1.0 A, f = 500 kHz, Tambient = 25°C, ΔT = 40°C → expect a small MPP or Kool Mu toroid candidate; check the DC-Bias Physics tab for retention at this current
 
 ### Mid-Power Example
-L = 250 µH, Ipk = 3 A, Irms = 2.1 A, f = 100 kHz, Tambient = 25°C, ΔT = 40°C → expect a mid-size ferrite core with turns/gap computed
+L = 250 µH, Ipk = 3 A, Irms = 2.1 A, f = 100 kHz, Tambient = 25°C, ΔT = 40°C → expect a mid-size powder toroid or E-core with turns solved from the zero-bias catalog AL and DC-bias roll-off applied
 
 ### High-Power Example
-L = 500 µH, Ipk = 7 A, Irms = 4.9 A, f = 50 kHz, Tambient = 25°C, ΔT = 50°C → check whether the bundled Ferroxcube-only snapshot has a large enough core, or expect `no_feasible_design`
+L = 3000 µH, Irms = 5 A, f = 100 kHz, Tambient = 25°C, ΔT = 40°C (no peak current supplied) → `SaturationValidation`/`PeakFluxValidation` report `not_evaluated` per candidate; check the DC-Bias Physics tab on the top-ranked result — DC-bias retention is a ranking criterion, so the top candidate should show a high retention percentage, not just a low measured loss
