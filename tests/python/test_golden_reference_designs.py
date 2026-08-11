@@ -394,10 +394,9 @@ def test_case14_mode2_rms_plus_ripple_derives_peak_and_evaluates_saturation():
 
 def test_case15_rms_only_reports_saturation_not_evaluated():
     """Case 15 (recommendation-confidence round): a genuinely RMS-only request (3000uH, 5A RMS,
-    100kHz, no peak, no ripple - the original "Roger" reproduction case) - probed live: 45 of 157
-    candidates report bottleneck.reason == NotEvaluatedCheck with limitingCheckName ==
-    "SaturationValidation", and designNarrative is the exact required phrase, never a generic
-    "increase turns" guess when the real blocker is missing data."""
+    100kHz, no peak, no ripple - the original "Roger" reproduction case) - probed live: candidates
+    correctly report SaturationValidation as NotEvaluated (never silently passed) when no peak
+    current was supplied to evaluate it against."""
     result = magnetics_cpp.run_inductor_design(
         _design_request(inductanceUH=3000.0, rmsCurrentA=5.0, switchingFreqKHz=100.0,
                          ambientTemperatureC=25.0, allowableTempRiseC=40.0, peakCurrentA=None)
@@ -407,6 +406,6 @@ def test_case15_rms_only_reports_saturation_not_evaluated():
     all_candidates = list(result.candidates) + list(result.rejectedCandidates)
     not_evaluated_candidates = [
         c for c in all_candidates
-        if any(v.checkName == "SaturationValidation" and v.status.name == "NotEvaluated" for v in c.validation)
+        if any(v.checkName == "SaturationValidation" and v.status.name == "NotEvaluated" for v in c.validations)
     ]
     assert not_evaluated_candidates, "expected at least one candidate with SaturationValidation NotEvaluated"
