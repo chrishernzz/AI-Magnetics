@@ -32,3 +32,13 @@ XFlux 26,0.01,6.30419882821459e-10,2.7138308977134473,0.0,Magnetics,https://www.
 XFlux 40,0.01,1.843446682077158e-08,2.358499169678752,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFLUX-Cores/XFLUX-Material-Curves
 XFlux 60,0.01,1.4887928186564399e-08,2.612552871704276,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFLUX-Cores/XFLUX-Material-Curves
 XFlux Ultra 26,0.01,2.6987935484104006e-09,2.454083767038844,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/XFlux-Ultra-Cores/XFLUX-Ultra-Material-Curves
+High Flux 14,0.01,1.657e-09,2.441,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 26,0.01,4.205e-09,2.426,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 40,0.01,1.843e-08,2.358,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 75,0.01,4.884e-08,2.441,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 90,0.01,9.693e-08,2.391,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 125,0.01,1.403e-07,2.465,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 147,0.01,8.155e-08,2.714,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+High Flux 160,0.01,1.671e-07,2.572,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/High-Flux-Cores/High-Flux-Material-Curves
+Kool Mµ 75,0.01,3.885e-06,1.819,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Cores/Kool-Mu-Material-Curves
+Kool Mµ 125,0.01,2.209e-05,1.636,0.0,Magnetics,https://www.mag-inc.com/Products/Powder-Cores/Kool-Mu-Cores/Kool-Mu-Material-Curves
