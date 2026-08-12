@@ -78,7 +78,10 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("datasheetUrl", &CoreData::datasheetUrl)
         .def_readwrite("windowWidthMm", &CoreData::windowWidthMm)
         .def_readwrite("windowHeightMm", &CoreData::windowHeightMm)
-        .def_readwrite("surfaceAreaWoundMm2", &CoreData::surfaceAreaWoundMm2);
+        .def_readwrite("surfaceAreaWoundMm2", &CoreData::surfaceAreaWoundMm2)
+        .def_readwrite("odInches", &CoreData::odInches)
+        .def_readwrite("idInches", &CoreData::idInches)
+        .def_readwrite("htInches", &CoreData::htInches);
     py::class_<MaterialData>(m, "MaterialData")
         .def(py::init<>())
         .def_readwrite("name", &MaterialData::name)

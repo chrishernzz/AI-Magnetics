@@ -136,6 +136,11 @@ bool candidateRanksAhead(const InductorCandidate& a, const InductorCandidate& b)
     if (a.recommendation.tier != b.recommendation.tier) {
         return static_cast<int>(a.recommendation.tier) < static_cast<int>(b.recommendation.tier);
     }
+    //this will now check the OD core size and we want the smallest size
+    if(a.core.odInches != b.core.odInches) {
+        //we want the lowest OD inches so it can give us the small size
+        return a.core.odInches < b.core.odInches;
+    }
     //this will now check the retention of how much percent it lost, we want more since lower will make it saturate
     if(a.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent != b.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent) {
         return a.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent > b.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent;
