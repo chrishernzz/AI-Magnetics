@@ -141,36 +141,36 @@ bool candidateRanksAhead(const InductorCandidate& a, const InductorCandidate& b)
         //we want the lowest OD inches so it can give us the small size
         return a.core.odInches < b.core.odInches;
     }
-    // //this will now check the retention of how much percent it lost, we want more since lower will make it saturate
-    // if(a.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent != b.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent) {
-    //     return a.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent > b.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent;
-    // }
-    // //if known partial loss w not the same then compare that
-    // if (a.lossSummary.knownPartialLossW != b.lossSummary.knownPartialLossW) {
-    //     return a.lossSummary.knownPartialLossW < b.lossSummary.knownPartialLossW;
-    // }
-    // double riseA = thermalRiseForRanking(a);
-    // double riseB = thermalRiseForRanking(b);
-    // if (riseA != riseB) {
-    //     return riseA < riseB;
-    // }
-    // if (a.manufacturabilityMarginPercent != b.manufacturabilityMarginPercent) {
-    //     return a.manufacturabilityMarginPercent > b.manufacturabilityMarginPercent;
-    // }
-    // double satA = marginForRanking(a, "SaturationValidation", true);
-    // double satB = marginForRanking(b, "SaturationValidation", true);
-    // if (satA != satB) {
-    //     return satA > satB;
-    // }
-    // double cdA = marginForRanking(a, "CurrentDensityValidation", false);
-    // double cdB = marginForRanking(b, "CurrentDensityValidation", false);
-    // if (cdA != cdB) {
-    //     return cdA > cdB;
-    // }
-    // if (a.core.areaProductCm4 != b.core.areaProductCm4) {
-    //     return a.core.areaProductCm4 < b.core.areaProductCm4;
-    // }
-     //deterministic final tiebreak
+    //this will now check the retention of how much percent it lost, we want more since lower will make it saturate
+    if(a.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent != b.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent) {
+        return a.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent > b.turnsAndGap.percentInitialPermeabilityAtOperatingCurrent;
+    }
+    //if known partial loss w not the same then compare that
+    if (a.lossSummary.knownPartialLossW != b.lossSummary.knownPartialLossW) {
+        return a.lossSummary.knownPartialLossW < b.lossSummary.knownPartialLossW;
+    }
+    double riseA = thermalRiseForRanking(a);
+    double riseB = thermalRiseForRanking(b);
+    if (riseA != riseB) {
+        return riseA < riseB;
+    }
+    if (a.manufacturabilityMarginPercent != b.manufacturabilityMarginPercent) {
+        return a.manufacturabilityMarginPercent > b.manufacturabilityMarginPercent;
+    }
+    double satA = marginForRanking(a, "SaturationValidation", true);
+    double satB = marginForRanking(b, "SaturationValidation", true);
+    if (satA != satB) {
+        return satA > satB;
+    }
+    double cdA = marginForRanking(a, "CurrentDensityValidation", false);
+    double cdB = marginForRanking(b, "CurrentDensityValidation", false);
+    if (cdA != cdB) {
+        return cdA > cdB;
+    }
+    if (a.core.areaProductCm4 != b.core.areaProductCm4) {
+        return a.core.areaProductCm4 < b.core.areaProductCm4;
+    }
+    //deterministic final tiebreak
     return a.core.partNumber < b.core.partNumber; 
 }
 

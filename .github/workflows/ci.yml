@@ -26,7 +26,11 @@ jobs:
       - name: Install build toolchain
         #this installs everything needed to compile my C++ Python module
         run: |
-          dnf install -y git gcc-c++ cmake python3.12 python3.12-devel
+          dnf install -y git gcc-c++ cmake python3.12 python3.12-devel python3.12-pip
+
+      #need to have the pybind11 installed to run
+      - name: Install pybind11
+        run: python3.12 -m pip install pybind11
 
       - name: Checkout
         #uses tells github to use an existing github action that has been used by someone so instead of of writing everything from scratch, this allows to reuse actions built by github
@@ -36,6 +40,7 @@ jobs:
       #this tells git that this is trusted repo directory, allow commands to run here
       - name: Mark workspace as safe for git
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
 
       #does not compile here, it just tells Cmake how the project should be built
       - name: Configure
