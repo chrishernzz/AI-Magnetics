@@ -13,10 +13,6 @@ on:
       - "src/**"
       - "CMakeLists.txt"
 
-#this gives the workflow permission to git add, git commit, git push which it needs becuase it's going to push the rebuilt .so back to main: this is now down automation than manually
-permisions:
-  contents: write
-
 #this will be the major unit of work inside the github actions workflow
 jobs:
   #this is the job (only have 1)
@@ -65,12 +61,12 @@ jobs:
       #checking if the binary actually changed or if the .so stay the same version that was committed
       - name: Commit rebuilt .so if it changed
         run: |
-          if git diff --quite -- python/magnetics_cpp.cpython-312-x86_64-linux-gnu.so; then
+          if git diff --quiet -- python/magnetics_cpp.cpython-312-x86_64-linux-gnu.so; then
             echo "No change to the .so - nothing to commit."
             exit 0
           fi
           git config user.name "chrishernzz"
           git config user.email "christianhernandez1014@gmail.com"
           git add python/magnetics_cpp.cpython-312-x86_64-linux-gnu.so
-          git commit -m "chore(ci)" rebuild magnetics_cpp .so for updated C++ bindings [skip ci]"
+          git commit -m "chore(ci): rebuild magnetics_cpp .so for updated C++ bindings [skip ci]"
           git push origin HEAD:main
