@@ -68,6 +68,9 @@ std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate
         candidate.windowWidthMm = core.windowWidthMm;
         candidate.windowHeightMm = core.windowHeightMm;
         candidate.surfaceAreaWoundMm2 = core.surfaceAreaWoundMm2;
+        candidate.odInches = core.odInches;
+        candidate.idInches = core.idInches;
+        candidate.htInches = core.htInches;
         candidate.source.manufacturer = core.vendor.empty() ? std::nullopt : std::optional<std::string>(core.vendor);
         candidate.source.partNumber = core.partNumber;
         candidate.source.materialGrade = core.material;

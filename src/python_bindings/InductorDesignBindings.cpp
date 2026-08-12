@@ -253,6 +253,9 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("windowWidthMm", &CoreCandidate::windowWidthMm)
         .def_readwrite("windowHeightMm", &CoreCandidate::windowHeightMm)
         .def_readwrite("surfaceAreaWoundMm2", &CoreCandidate::surfaceAreaWoundMm2)
+        .def_readwrite("odInches", &CoreCandidate::odInches)
+        .def_readwrite("idInches", &CoreCandidate::idInches)
+        .def_readwrite("htInches", &CoreCandidate::htInches)
         .def_readwrite("source", &CoreCandidate::source);
 
     py::class_<TurnsAndGapResult>(m, "TurnsAndGapResult")

@@ -37,6 +37,11 @@ struct CoreData {
     //Real, manufacturer-published external surface area of the WOUND coil (mm^2), transcribed directly from the datasheet's own "Surface Area" table (e.g. C055439A2's datasheet publishes 9,600mm^2 at a
     //40% winding factor) - not computed or estimated. 0.0 means not yet transcribed for this part - this snapshot only has one confirmed value
     double surfaceAreaWoundMm2 = 0.0;
+
+    //Real, manufacturer-published external OD, ID, HT (inches), transcribed directly from the datasheet's own "Dimensions" table (e.g. C055439A2's datasheet publishes OD=1.840in, ID=0.950in, HT=0.710in) - not computed or estimated. 0.0 means not yet transcribed for this part
+    double odInches = 0.0;
+    double idInches = 0.0;
+    double htInches = 0.0;
 };
 
 class CoreDatabase{

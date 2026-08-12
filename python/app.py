@@ -1,3 +1,8 @@
+"""
+app.py:
+starts the FastAPI backend, serves the frontend, loads the magnetics database when the application starts, converts python magnetics_data.py 
+data into C++ objects, give those objects to the C++ engine, and connects the API routes like (inductor_design.py and topology_desing.py)
+"""
 #type: ignore
 import sys
 from pathlib import Path
