@@ -154,6 +154,9 @@ def _serialize_core(c) -> dict:
         "windowWidthMm": c.windowWidthMm,
         "windowHeightMm": c.windowHeightMm,
         "surfaceAreaWoundMm2": c.surfaceAreaWoundMm2,
+        "odInches": c.odInches,
+        "idInches": c.idInches,
+        "htInches": c.htInches,
         "source": _serialize_source_info(c.source),
     }
 

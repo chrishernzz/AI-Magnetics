@@ -52,6 +52,11 @@ struct CoreCandidate {
     //real, manufacturer-published wound-coil external surface area (mm^2) - see CoreData::surfaceAreaWoundMm2. 0.0 means not yet transcribed, never a guessed/estimated value. Consumed by ThermalEvaluation as the
     //preferred (real) input to the Rth calculation, ahead of the Ae*Le compact-solid estimate.
     double surfaceAreaWoundMm2 = 0.0;
+    
+    //Real, manufacturer-published external OD, ID, HT (inches), transcribed directly from the datasheet's own "Dimensions" table (e.g. C055439A2's datasheet publishes OD=1.840in, ID=0.950in, HT=0.710in) - not computed or estimated. 0.0 means not yet transcribed for this part
+    double odInches = 0.0;
+    double idInches = 0.0;
+    double htInches = 0.0;
 
     //provenance for this core's data - see Provenance.h. source.datasheetUrl is now real (populated from CoreData::datasheetUrl) for ~99% of cores in the current snapshot; datasheetRevision/dateAccessed
     //remain unset (no such data exists anywhere in the snapshot).
