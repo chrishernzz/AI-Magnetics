@@ -927,7 +927,33 @@ function shapeCellLabel(core) {
     return `<span class="chip chip-shape" title="Shape family: ${core.shapeFamily || "unknown"}">${label}</span>`;
 }
 
+// Dimensions row: real, manufacturer-published OD/ID/HT (see CoreCandidate::odInches/idInches/htInches).
+// 0.0 means not yet transcribed for this part - never shown as if it were a real value.
+function renderDimensionsDetail(candidate) {
+    const core = candidate.core;
+    const hasDims = core.odInches > 0 || core.idInches > 0 || core.htInches > 0;
+    if (!hasDims) return "";
 
+    const rows = [
+        ["OD", core.odInches],
+        ["ID", core.idInches],
+        ["HT", core.htInches],
+        ["Ae", core.aeMm2 > 0 ? `${core.aeMm2.toFixed(2)} mm²` : null],
+        ["Wa", core.waMm2 > 0 ? `${core.waMm2.toFixed(2)} mm²` : null],
+        ["Le", core.leMm > 0 ? `${core.leMm.toFixed(2)} mm` : null],
+        ["MLT", core.mltMm > 0 ? `${core.mltMm.toFixed(2)} mm` : null],
+        ["Window Width", core.windowWidthMm > 0 ? `${core.windowWidthMm.toFixed(2)} mm` : null],
+        ["Window Height", core.windowHeightMm > 0 ? `${core.windowHeightMm.toFixed(2)} mm` : null],
+    ]
+        .filter(([, val]) => val !== null && val !== 0)
+        .map(([label, val]) => {
+            const display = typeof val === "number" ? `${val.toFixed(3)} in` : val;
+            return `<li><span class="detail-group-list-label">${label}</span> ${display}</li>`;
+        })
+        .join("");
+
+    return `<details class="detail-group"><summary>Dimensions</summary><ul class="detail-group-list">${rows}</ul></details>`;
+}
 // Sources row: manufacturer/confidence/note for the material and core, collapsed
 // by default - real provenance where it exists (core Vendor column), honestly
 // blank where it doesn't (see Provenance.h - datasheet revision/URL/date-accessed
@@ -1058,6 +1084,7 @@ function renderCandidateDetail(candidate) {
                 ${usesDefaultAssumption ? '<p class="validation-footnote">* Phase 1 default limit, not a material-specific value</p>' : ""}
             </details>
             ${renderSourcesDetail(candidate)}
+            ${renderDimensionsDetail(candidate)}
             ${
                 warnings.length
                     ? `<details class="detail-group"><summary>Missing-data warnings <span class="detail-group-count">(${warnings.length})</span></summary><ul class="detail-group-list detail-group-list-warn">${warnings.map((w) => `<li>${w}</li>`).join("")}</ul></details>`
