@@ -54,14 +54,12 @@ jobs:
         run: cmake --build build --target magnetics_cpp -- -j"$(nproc)"
       
       #find the newly created .so, the built_so will be used after compiling and it searches for the right one instead of hardcoding it
-      - name: Install rebuilt .so into place
+      - name: Verify rebuilt .so
         run: |
-          built_so=$(find build -name "magnetics_cpp*.so" | head -n1)
-          if [ -z "$built_so" ]; then
+          if [ ! -f python/magnetics_cpp.cpython-312-x86_64-linux-gnu.so ]; then
             echo "::error::no magnetics_cpp .so produced by the build"
             exit 1
           fi
-          cp "$built_so" python/magnetics_cpp.cpython-312-x86_64-linux-gnu.so
         
       #checking if the binary actually changed or if the .so stay the same version that was committed
       - name: Commit rebuilt .so if it changed
