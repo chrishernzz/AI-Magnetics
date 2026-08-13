@@ -310,6 +310,12 @@ body {
     grid-column: 1 / -1;
 }
 
+.field-grid .field label {
+    display: flex;
+    align-items: flex-end;
+    min-height: 2.8em;
+}
+
 /* Results and live diagnostics stay in view while scrolling a long
    requirements form, instead of disappearing off the top the moment you
    scroll past them. */
