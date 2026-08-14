@@ -58,10 +58,10 @@ struct BuckSolveResult {
 
 class BuckElectricalSolver {
 public:
-    //throws std::invalid_argument if input.topology != Topology::Buck; if any numeric field is non-finite (NaN/infinity); if the electrical inputs are not physically valid (vinMinV <= voutV - the real
-    //binding constraint is Vout vs Vin_min, since duty cycle is maximum at the low end of the input range - not vinMaxV, which is only the worst case for ripple current; any of
-    //vinMinV/vinMaxV/ioutA/switchingFreqKHz/rippleCurrentPercent not positive; rippleCurrentPercent above rules.maximumRippleCurrentPercent; or vinMinV > vinMaxV); or if the computed
-    //minimum inductor current at Vin_max is negative, meaning the operating point is already in discontinuous conduction mode (DCM), which Phase 1's formulas do not support.
-    //never divides by zero or returns a negative/NaN inductance silently.
+    /*throws std::invalid_argument if input.topology != Topology::Buck; if any numeric field is non-finite (NaN/infinity); if the electrical inputs are not physically valid (vinMinV <= voutV - the real
+    binding constraint is Vout vs Vin_min, since duty cycle is maximum at the low end of the input range - not vinMaxV, which is only the worst case for ripple current; any of
+    vinMinV/vinMaxV/ioutA/switchingFreqKHz/rippleCurrentPercent not positive; rippleCurrentPercent above rules.maximumRippleCurrentPercent; or vinMinV > vinMaxV); or if the computed
+    minimum inductor current at Vin_max is negative, meaning the operating point is already in discontinuous conduction mode (DCM), which Phase 1's formulas do not support.
+    never divides by zero or returns a negative/NaN inductance silently*/
     static BuckSolveResult solve(const TopologyInput& input, const DesignRules& rules);
 };

@@ -17,8 +17,10 @@ template<typename T>
 class DataCache {
 private:
     static std::vector<T> cachedData;
-    //load() is called once per material/candidate evaluated (MaterialEvaluation.cpp, CoreLoss.cpp), so an empty cache would otherwise print this same warning dozens of times per request - real log noise, not
-    //a repeated new finding each time. Warn once per process instead; the underlying "empty" fact doesn't change between calls, only whether you've already been told.
+    /*
+    load() is called once per material/candidate evaluated (MaterialEvaluation.cpp, CoreLoss.cpp), so an empty cache would otherwise print this same warning dozens of times per request - real log noise, not
+    a repeated new finding each time. Warn once per process instead; the underlying "empty" fact doesn't change between calls, only whether you've already been told.
+    */
     static bool warnedEmpty;
 public:
     static const std::vector<T>& load(const char* label) {

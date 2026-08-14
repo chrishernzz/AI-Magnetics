@@ -53,19 +53,22 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     double targetInductanceUH = units::hToUH(requirements.operatingPoint.inductanceH);
     candidate.turnsAndGap = designTurnsAndGap(core, material, targetInductanceUH, requirements.inductanceTolerancePercent, requirements.operatingPoint.peakCurrentA, requirements.operatingPoint.rmsCurrentA, rules);
 
-    //Non-convergence used to return here immediately - 0 downstream checks ever evaluated, no matter how close the solver's last-attempted point actually was. But that last-attempted point is now a
-    //real (turns, calculatedInductanceUH) pair - see TurnsAndGapDesign.cpp - not a placeholder zero, so there's a real turns count to design a winding around even when the target inductance itself was
-    //never reached. Continuing the SAME pipeline below against that turns count means a non-converged candidate gets real WindingFit/CurrentDensity/Thermal/etc. numbers instead of a bare "didn't
-    //converge" - useful context (e.g. "this also wouldn't have physically fit"), not just a possible reason. This can never turn a non-converged design into a pass: InductanceValidation below always
-    //fails when !converged (see DesignValidation.cpp), which alone forces candidate.passed=false via the loop further down - same REJECT outcome, just with real numbers on every other axis instead of an empty 0/0.
+    /*
+    Non-convergence used to return here immediately - 0 downstream checks ever evaluated, no matter how close the solver's last-attempted point actually was. But that last-attempted point is now a
+    real (turns, calculatedInductanceUH) pair - see TurnsAndGapDesign.cpp - not a placeholder zero, so there's a real turns count to design a winding around even when the target inductance itself was
+    never reached. Continuing the SAME pipeline below against that turns count means a non-converged candidate gets real WindingFit/CurrentDensity/Thermal/etc. numbers instead of a bare "didn't
+    converge" - useful context (e.g. "this also wouldn't have physically fit"), not just a possible reason. This can never turn a non-converged design into a pass: InductanceValidation below always
+    fails when !converged (see DesignValidation.cpp), which alone forces candidate.passed=false via the loop further down - same REJECT outcome, just with real numbers on every other axis instead of an empty 0/0.
+    */
     if (!candidate.turnsAndGap.converged) {
         for (const auto& reason : candidate.turnsAndGap.rejectionReasons) {
             candidate.rejectionReasons.push_back({"TurnsAndGapDesign", reason});
         }
     }
-
-    //Call order: winding (geometry + cold-reference DCR) -> losses (core loss, cold-reference copper loss) -> thermal (the iterative loop, fed by both) -> overwrite the cold-reference hot-DCR/copper-loss
-    //estimates with the converged result, but ONLY if the loop actually converged - otherwise the honest cold-reference/sanity-check values computed above remain untouched -> skin-depth risk -> validations.
+    /*
+    Call order: winding (geometry + cold-reference DCR) -> losses (core loss, cold-reference copper loss) -> thermal (the iterative loop, fed by both) -> overwrite the cold-reference hot-DCR/copper-loss
+    estimates with the converged result, but ONLY if the loop actually converged - otherwise the honest cold-reference/sanity-check values computed above remain untouched -> skin-depth risk -> validations.
+    */
     candidate.winding = designWinding(core, candidate.turnsAndGap.turns, requirements.operatingPoint.rmsCurrentA, rules);
 
     candidate.losses = evaluateLosses(material, core, candidate.turnsAndGap, candidate.winding, requirements.operatingPoint.rmsCurrentA, requirements.operatingPoint.switchingFreqHz, requirements.operatingPoint.rippleCurrentPeakToPeakA);
@@ -88,10 +91,12 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
         }
     }
 
-    //Deliberately read-only against the winding already chosen above by designWinding() - AC-loss risk (skin/proximity effect at the switching frequency) is reported as its own separate, informational
-    //validation, never fed back into strand count or wire gauge. A real user report (Roger) asked that the wire-selection algorithm not silently add a parallel strand just because AC risk comes back
-    //High - it already doesn't (strand count is decided purely by allowableCurrentDensityAperCm2 in designWinding(), before this line ever runs), but this comment exists so that stays true on purpose,
-    //not by accident, if this code is ever touched again.
+    /*
+    Deliberately read-only against the winding already chosen above by designWinding() - AC-loss risk (skin/proximity effect at the switching frequency) is reported as its own separate, informational
+    validation, never fed back into strand count or wire gauge. A real user report (Roger) asked that the wire-selection algorithm not silently add a parallel strand just because AC risk comes back
+    High - it already doesn't (strand count is decided purely by allowableCurrentDensityAperCm2 in designWinding(), before this line ever runs), but this comment exists so that stays true on purpose,
+    not by accident, if this code is ever touched again.
+    */
     candidate.acLossRisk = evaluateSkinDepthRisk(requirements.operatingPoint.switchingFreqHz, candidate.winding.conductorAreaMm2, rules);
 
     candidate.validations = {
@@ -105,9 +110,11 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
         ThermalValidation(candidate.thermal, requirements.allowableTempRiseC, candidate.turnsAndGap.converged),
     };
 
-    //A candidate is blocked only by checks that actually ran and failed. A not_evaluated check (e.g. ThermalValidation with no thermal model
-    //available) is surfaced in candidate.validations either way, but it is a warning, not a rejection reason - spec section 10 says a missing
-    //check must never be presented as a pass, not that it must block every candidate forever until the data exists.
+    /*
+    A candidate is blocked only by checks that actually ran and failed. A not_evaluated check (e.g. ThermalValidation with no thermal model
+    available) is surfaced in candidate.validations either way, but it is a warning, not a rejection reason - spec section 10 says a missing
+    check must never be presented as a pass, not that it must block every candidate forever until the data exists.
+    */
     candidate.passed = true;
     for (const auto& validation : candidate.validations) {
         if (validation.status == EvaluationStatus::Evaluated && !validation.passed) {
@@ -119,8 +126,10 @@ InductorCandidate evaluateCandidate(const CoreCandidate& core, const MaterialCan
     candidate.recommendation = determineRecommendationStatus(candidate.passed, candidate.validations, candidate.acLossRisk);
     candidate.lossSummary = buildLossSummary(candidate.losses);
 
-    //Manufacturability margin (spec section 11): a documented simple composite of the two concrete manufacturability signals this pipeline actually produces - physical-fill headroom against
-    //rules.maximumFillFactor, and a fixed penalty when the calculated gap triggered the small-gap manufacturability warning (TurnsAndGapDesign.h). Not a validated single-number metric.
+    /*
+    Manufacturability margin (spec section 11): a documented simple composite of the two concrete manufacturability signals this pipeline actually produces - physical-fill headroom against
+    rules.maximumFillFactor, and a fixed penalty when the calculated gap triggered the small-gap manufacturability warning (TurnsAndGapDesign.h). Not a validated single-number metric.
+    */
     double fillHeadroomPercent = rules.maximumFillFactor > 0.0 ? 100.0 * (rules.maximumFillFactor - candidate.winding.physicalWindowFillFactor) / rules.maximumFillFactor : 0.0;
     double smallGapPenaltyPercent = candidate.turnsAndGap.smallGapWarning ? 25.0 : 0.0;
     candidate.manufacturabilityMarginPercent = fillHeadroomPercent - smallGapPenaltyPercent;
@@ -192,9 +201,11 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
 
     //what the inductor MUST have, so it goes to the derivation to get the correct information
     InductorRequirements requirements = RequirementDerivationService::derive(request, rules);
-    //Area-Product pre-filter needs a real peak current (Ap's stored-energy formula is 0.5*L*Ipk^2) - when peak wasn't supplied, there is no honest number to feed it, and substituting RMS in Ipk's place would
-    //understate the real peak and silently undersize the core, which this engine never does. In that case every frequency/material-compatible core is evaluated directly instead (requiredAreaProductCm4 of 0.0
-    //makes findSuitableCores() flag every core as meeting it, which is the correct "no pre-filter" result - PeakFluxValidation/SaturationValidation report the real gap per candidate instead).
+    /*
+    Area-Product pre-filter needs a real peak current (Ap's stored-energy formula is 0.5*L*Ipk^2) - when peak wasn't supplied, there is no honest number to feed it, and substituting RMS in Ipk's place would
+    understate the real peak and silently undersize the core, which this engine never does. In that case every frequency/material-compatible core is evaluated directly instead (requiredAreaProductCm4 of 0.0
+    makes findSuitableCores() flag every core as meeting it, which is the correct "no pre-filter" result - PeakFluxValidation/SaturationValidation report the real gap per candidate instead).
+    */
     bool peakSupplied = requirements.operatingPoint.peakCurrentA.has_value();
 
     //this will loop through the material database and grab the materials that are within the range of the frequency
@@ -204,13 +215,17 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
         recommendation.message = "No material candidate has a frequency range covering the requested switching frequency.";
         return recommendation;
     }
-    //computed PER Material, not once for the whole request - Ap is inversely proportional to the flux density limit used (see AreaProduct.cpp) and that limit is genuinely different per material (a ferrite-typical Bmax vs
-    //a powder core real, usually much higher, Bsat from real_materials.csv). Using one flat default here for every material silently under-credited high-Bsat pwoder cores (MPP, Kool Mu, XFlux, etc) - they need real_materials.csv own applicableFluxLimit()
-    //to size correctly, but were being judged against a ferrite-typical number instead, dropping otherwise-viable candidates before they ever reached the real per-candidate SturationValidation/PeakFluxValidation checks
+    /*
+    computed PER Material, not once for the whole request - Ap is inversely proportional to the flux density limit used (see AreaProduct.cpp) and that limit is genuinely different per material (a ferrite-typical Bmax vs
+    a powder core real, usually much higher, Bsat from real_materials.csv). Using one flat default here for every material silently under-credited high-Bsat pwoder cores (MPP, Kool Mu, XFlux, etc) - they need real_materials.csv own applicableFluxLimit()
+    to size correctly, but were being judged against a ferrite-typical number instead, dropping otherwise-viable candidates before they ever reached the real per-candidate SturationValidation/PeakFluxValidation checks
+    */
     std::unordered_map<std::string, double> requiredAreaProductCm4ByMaterial;
-    //smallest requirement across all compatible materials - the easiest one to satisfy - not any single materials own number
-    //since there is no longer one "the" requried Ap for the whole request. Used only for the no_feasible_design report below: 
-    //"even the easiest material requirment wasnt met" is an honest, non-misleading single number to show, unlike averaging or picking an arbitrary material
+    /*
+    smallest requirement across all compatible materials - the easiest one to satisfy - not any single materials own number
+    since there is no longer one "the" requried Ap for the whole request. Used only for the no_feasible_design report below: 
+    "even the easiest material requirment wasnt met" is an honest, non-misleading single number to show, unlike averaging or picking an arbitrary material
+    */
     double smallestRequiredAreaProductCm4 = 0.0;
     bool haveSmallest = false;
     //inserting a new key - value pair if the key does not already exists
@@ -267,9 +282,11 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
         }
     }
 
-    //if there is no core that has a large enough area product to meet the requirements, return a no feasible design recommendation with the required and largest available area product values.
-    //when peak wasn't supplied, requiredAreaProductCm4 is 0.0 and every material-compatible core unimportant meets it - this branch is then only reachable if there were zero material-compatible cores at all,
-    //which findSuitableCores() would only produce for a materials list with no matching cores in the DB.
+    /*
+    if there is no core that has a large enough area product to meet the requirements, return a no feasible design recommendation with the required and largest available area product values.
+    when peak wasn't supplied, requiredAreaProductCm4 is 0.0 and every material-compatible core unimportant meets it - this branch is then only reachable if there were zero material-compatible cores at all,
+    which findSuitableCores() would only produce for a materials list with no matching cores in the DB.
+    */
     if (feasibleCores.empty()) {
         recommendation.status = "no_feasible_design";
         recommendation.message = peakSupplied ? "No core met the area-product requirement." : "No core found for the compatible materials at this frequency (no peak current was supplied, so no area-product pre-filter was applied - this means the database itself has no matching core, not that one was filtered out).";
@@ -291,8 +308,10 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
         }
     }
 
-    //Optimization layer (spec sections 10-11): rank by 3-tier recommendation classification first (see RecommendationStatus.h), then within a tier by known evaluated loss, predicted temperature rise,
-    //manufacturability margin, saturation margin, current-density margin, area product, and finally part number as a deterministic final tiebreak - see candidateRanksAhead() above for the full comparator.
+    /*
+    Optimization layer (spec sections 10-11): rank by 3-tier recommendation classification first (see RecommendationStatus.h), then within a tier by known evaluated loss, predicted temperature rise,
+    manufacturability margin, saturation margin, current-density margin, area product, and finally part number as a deterministic final tiebreak - see candidateRanksAhead() above for the full comparator.
+    */
     std::stable_sort(recommendation.candidates.begin(), recommendation.candidates.end(), candidateRanksAhead);
     recommendation.rankingHighlights = computeRankingHighlights(recommendation.candidates);
 

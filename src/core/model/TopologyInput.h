@@ -30,10 +30,12 @@ struct TopologyInput {
     double ioutA;
     double switchingFreqKHz;
 
-    //Target inductor ripple current as a percentage of ioutA (e.g. 20 for
-    //20%). Sizing uses vinMaxV as the worst-case point - buck ripple
-    //current increases with Vin, so sizing L at Vin_max keeps ripple at
-    //or under this target across the whole Vin range.
+    /*
+    Target inductor ripple current as a percentage of ioutA (e.g. 20 for
+    20%). Sizing uses vinMaxV as the worst-case point - buck ripple
+    current increases with Vin, so sizing L at Vin_max keeps ripple at
+    or under this target across the whole Vin range.
+    */
     double rippleCurrentPercent;
 
     double ambientTemperatureC;

@@ -60,12 +60,16 @@ struct WindingDesignResult {
     bool fitsPhysicalWindow = false;
     //currentDensityAperMm2 derated by rules.currentSharingDerateFactor when parallelStrands > 1 - informational, does not itself gate CurrentDensityValidation.
     double effectiveCurrentDensityAperMm2 = 0.0;
-    //Evaluated only when the winding is a parallel-strand bundle (parallelStrands > 1) AND the core has real window width/height (two-piece cores - see CoreCandidate::windowWidthMm/windowHeightMm). NotEvaluated
-    //for a single-strand winding (nothing to check) or a core with no real linear window dimension (every toroid, or any two-piece core missing this data) - never assumed to fit, never assumed benign.
+    /*
+    Evaluated only when the winding is a parallel-strand bundle (parallelStrands > 1) AND the core has real window width/height (two-piece cores - see CoreCandidate::windowWidthMm/windowHeightMm). NotEvaluated
+    for a single-strand winding (nothing to check) or a core with no real linear window dimension (every toroid, or any two-piece core missing this data) - never assumed to fit, never assumed benign.
+    */
     EvaluationStatus bundleFitStatus = EvaluationStatus::NotEvaluated;
-    //valid only when bundleFitStatus == Evaluated. Conservative model: the bundle's parallelStrands insulated conductors laid side by side in a single row (bundleWidthMm) checked against the window's
-    //narrower real dimension (narrowestWindowOpeningMm = min(windowWidthMm, windowHeightMm)) - does not account for bundle twisting/multi-row arrangement, which would need real winding-pattern data this
-    //project doesn't have.
+    /*
+    valid only when bundleFitStatus == Evaluated. Conservative model: the bundle's parallelStrands insulated conductors laid side by side in a single row (bundleWidthMm) checked against the window's
+    narrower real dimension (narrowestWindowOpeningMm = min(windowWidthMm, windowHeightMm)) - does not account for bundle twisting/multi-row arrangement, which would need real winding-pattern data this
+    project doesn't have.
+    */
     double bundleWidthMm = 0.0;
     double narrowestWindowOpeningMm = 0.0;
     bool bundleFitsWindowOpening = false;

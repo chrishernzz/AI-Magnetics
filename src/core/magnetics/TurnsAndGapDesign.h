@@ -35,8 +35,10 @@ struct TurnsAndGapResult {
     bool converged = false;
     std::vector<std::string> rejectionReasons;
 
-    //which gapping technique this result assumes - see GapMethod.h. Only MachinedCenterLeg has a validated formula in Phase 1; any other value in rules.gapMethod is rejected before this struct's other fields
-    //are populated (converged=false with a clear reason).
+    /*
+    which gapping technique this result assumes - see GapMethod.h. Only MachinedCenterLeg has a validated formula in Phase 1; any other value in rules.gapMethod is rejected before this struct's other fields
+    are populated (converged=false with a clear reason).
+    */
     GapMethod gapMethod = GapMethod::MachinedCenterLeg;
 
     //nominal gap swept by +-rules.gapTolerancePercent, turns held fixed at the converged value.
@@ -44,49 +46,65 @@ struct TurnsAndGapResult {
     double gapMaxMm = 0.0;
     double inductanceAtMinGapUH = 0.0;
     double inductanceAtMaxGapUH = 0.0;
-    //true only if BOTH gap extremes keep calculated inductance within tolerancePercent of the target - a nominal gap that looks fine but whose realistic manufacturing tolerance pushes inductance out of
-    //spec at either extreme sets this false, with a rejection reason explaining which extreme failed.
+    /*
+    true only if BOTH gap extremes keep calculated inductance within tolerancePercent of the target - a nominal gap that looks fine but whose realistic manufacturing tolerance pushes inductance out of
+    spec at either extreme sets this false, with a rejection reason explaining which extreme failed.
+    */
     bool inductanceWithinToleranceAcrossGapRange = false;
 
     //true when 0 < gapMm < rules.minManufacturableGapMm - a warning (design still proceeds), not a rejection, since it's a manufacturability caveat rather than a physical impossibility.
     bool smallGapWarning = false;
     std::string smallGapWarningReason;
 
-    //true when the flux-aware seed (minimumTurnsForSaturationMargin, see .cpp) exceeded the plain inductance-matching seed turns, raising the starting turns count specifically to respect
-    //rules.minimumSaturationMarginPercent before iterating turns/gap - either against a real supplied peakCurrentA, or (see turnsRaisedUsingRmsFloor) against rmsCurrentA used as a guaranteed lower bound
-    //when peak is absent. Always false when neither current is available. Never a promise that the resulting design actually passes PeakFluxValidation/SaturationValidation - those still run
-    //independently against whatever (turns, gap) the solver converges to.
+    /*
+    true when the flux-aware seed (minimumTurnsForSaturationMargin, see .cpp) exceeded the plain inductance-matching seed turns, raising the starting turns count specifically to respect
+    rules.minimumSaturationMarginPercent before iterating turns/gap - either against a real supplied peakCurrentA, or (see turnsRaisedUsingRmsFloor) against rmsCurrentA used as a guaranteed lower bound
+    when peak is absent. Always false when neither current is available. Never a promise that the resulting design actually passes PeakFluxValidation/SaturationValidation - those still run
+    independently against whatever (turns, gap) the solver converges to.
+    */
     bool turnsRaisedForSaturationMargin = false;
     std::string turnsRaisedForSaturationMarginReason;
 
-    //true when turnsRaisedForSaturationMargin fired using rmsCurrentA as a guaranteed lower bound on peak (peakCurrentA was absent) rather than a real supplied peak - see designTurnsAndGap()'s rmsCurrentA
-    //parameter. The real peak current, unknown here, could still require more margin than this floor guarantees - this seed only protects against the worst, most-obviously-wrong designs.
+    /*
+    true when turnsRaisedForSaturationMargin fired using rmsCurrentA as a guaranteed lower bound on peak (peakCurrentA was absent) rather than a real supplied peak - see designTurnsAndGap()'s rmsCurrentA
+    parameter. The real peak current, unknown here, could still require more margin than this floor guarantees - this seed only protects against the worst, most-obviously-wrong designs.
+    */
     bool turnsRaisedUsingRmsFloor = false;
 
-    //Powder-core (distributed-gap) DC-bias permeability roll-off - see PermeabilityRolloff.h. true only when a real manufacturer-published DC-bias curve was found for this material AND a real operating
-    //current was available to evaluate it against - turns/effectiveAlNHPerTurnSquared/calculatedInductanceUH above already reflect the rolled-off AL, not the flat catalog AL0, whenever this is true. False (with
-    //effectiveAlNHPerTurnSquared == core.al, the old Phase 1 behavior) when either is missing - a distributed- gap core whose material has no curve in data/dc_bias_curves.csv yet, or whose request supplied neither
-    //peak nor RMS current - never silently guessed.
+    /*
+    Powder-core (distributed-gap) DC-bias permeability roll-off - see PermeabilityRolloff.h. true only when a real manufacturer-published DC-bias curve was found for this material AND a real operating
+    current was available to evaluate it against - turns/effectiveAlNHPerTurnSquared/calculatedInductanceUH above already reflect the rolled-off AL, not the flat catalog AL0, whenever this is true. False (with
+    effectiveAlNHPerTurnSquared == core.al, the old Phase 1 behavior) when either is missing - a distributed- gap core whose material has no curve in data/dc_bias_curves.csv yet, or whose request supplied neither
+    peak nor RMS current - never silently guessed.
+    */
     bool usesDCBiasRolloffCurve = false;
 
-    //DC magnetizing force (Oersteds) and %initial-permeability-remaining at the FIXED turns count above - 0.0 Oe / 100% when usesDCBiasRolloffCurve is false (no rolloff applied, not "0% bias confirmed"). Real,
-    //per-material curve values when true - see percentInitialPermeability().
+    /*
+    DC magnetizing force (Oersteds) and %initial-permeability-remaining at the FIXED turns count above - 0.0 Oe / 100% when usesDCBiasRolloffCurve is false (no rolloff applied, not "0% bias confirmed"). Real,
+    per-material curve values when true - see percentInitialPermeability().
+    */
     double dcMagnetizingForceOe = 0.0;
     double percentInitialPermeabilityAtOperatingCurrent = 100.0;
 
-    //true when the roll-off above was evaluated against rmsCurrentA as a guaranteed lower bound on peak (peakCurrentA was absent) - same RMS-floor convention and same warning as turnsRaisedUsingRmsFloor: the
-    //real (unsupplied) peak current could drive H, and therefore the true roll-off, higher than this floor reflects. Only meaningful when usesDCBiasRolloffCurve is true.
+    /*
+    true when the roll-off above was evaluated against rmsCurrentA as a guaranteed lower bound on peak (peakCurrentA was absent) - same RMS-floor convention and same warning as turnsRaisedUsingRmsFloor: the
+    real (unsupplied) peak current could drive H, and therefore the true roll-off, higher than this floor reflects. Only meaningful when usesDCBiasRolloffCurve is true.
+    */
     bool dcBiasRolloffUsedRmsFloor = false;
 
-    //The turns count the zero-bias catalog AL0 calls for (N = round(sqrt(L/AL0))) - identical to `turns` above now that turns is never raised for DC-bias compensation 
-    //C055439A2 case: the tool used to compensate turns upward - e.g. 149 to 289 - so the CALCULATED inductance still hit target at real operating current; turns must instead be fixed at the zero-bias
-    //value and DC-bias roll-off reported as a separate, informational inductance-at-current number, see loadedInductanceUH below). Kept as its own field (rather than just reusing `turns`) since the frontend
-    //still labels it as the explicit "zero-bias reference" figure. 0 when usesDCBiasRolloffCurve is false.
+    /*
+    The turns count the zero-bias catalog AL0 calls for (N = round(sqrt(L/AL0))) - identical to `turns` above now that turns is never raised for DC-bias compensation 
+    C055439A2 case: the tool used to compensate turns upward - e.g. 149 to 289 - so the CALCULATED inductance still hit target at real operating current; turns must instead be fixed at the zero-bias
+    value and DC-bias roll-off reported as a separate, informational inductance-at-current number, see loadedInductanceUH below). Kept as its own field (rather than just reusing `turns`) since the frontend
+    still labels it as the explicit "zero-bias reference" figure. 0 when usesDCBiasRolloffCurve is false.
+    */
     int zeroBiasSeedTurns = 0;
 
-    //The real inductance this FIXED winding actually delivers at the request's real operating current, after DC-bias roll-off - distinct from calculatedInductanceUH above, which is the zero-bias design
-    //value turns was solved to hit. Equal to calculatedInductanceUH whenever there's no rolloff to apply (usesDCBiasRolloffCurve false, or a machined-gap/ferrite core, which has no separate 0-bias/loaded
-    //distinction at all). This is what PeakFluxValidation/SaturationValidation check saturation risk against - real B-field at real current, never the zero-bias number.
+    /*
+    The real inductance this FIXED winding actually delivers at the request's real operating current, after DC-bias roll-off - distinct from calculatedInductanceUH above, which is the zero-bias design
+    value turns was solved to hit. Equal to calculatedInductanceUH whenever there's no rolloff to apply (usesDCBiasRolloffCurve false, or a machined-gap/ferrite core, which has no separate 0-bias/loaded
+    distinction at all). This is what PeakFluxValidation/SaturationValidation check saturation risk against - real B-field at real current, never the zero-bias number.
+    */
     double loadedInductanceUH = 0.0;
 };
 

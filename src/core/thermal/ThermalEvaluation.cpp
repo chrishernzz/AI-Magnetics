@@ -96,8 +96,10 @@ ThermalEvaluationResult evaluateThermal(const ThermalIterationInputs& inputs, co
     }
 
     if (!converged) {
-        //Genuine positive-feedback divergence (see header) for a high-current/low-DCR design is a real, reachable case here, not just a numerical edge case - the last computed intermediate temperature
-        //is not a meaningful estimate in that case, so it is not reported as one.
+        /*
+        Genuine positive-feedback divergence (see header) for a high-current/low-DCR design is a real, reachable case here, not just a numerical edge case - the last computed intermediate temperature
+        is not a meaningful estimate in that case, so it is not reported as one.
+        */
         result.status = ThermalStatus::NotEvaluated;
         result.missingDataExplanation = "thermal loop did not converge within " + std::to_string(rules.maxThermalIterations) + " iterations - this heuristic's positive feedback (hotter winding raises DCR, which raises loss, which raises temperature further) did not stabilize, which can indicate a thermal-runaway-prone operating point rather than a benign numerical issue; no estimate is reported";
         return result;

@@ -492,7 +492,11 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("preferredMaterialFamily", &InductorDesignRequest::preferredMaterialFamily)
         .def_readwrite("preferredCoreGeometry", &InductorDesignRequest::preferredCoreGeometry);
 
-    m.def("run_inductor_design", &InductorDesignService::run,
+    /*
+    added a call_guard to release the GIL during the run() call, since it can take a long time and we don't want to block other Python threads which allows 
+    other requests to be processed while this one is running
+    */
+    m.def("run_inductor_design", &InductorDesignService::run, py::call_guard<py::gil_scoped_release>(),
           "Run the full Phase 1 inductor design pipeline and return an explainable DesignRecommendation");
 
     /*
@@ -538,7 +542,11 @@ PYBIND11_MODULE(magnetics_cpp, m) {
         .def_readwrite("assumptions", &BuckSolveResult::assumptions)
         .def_readwrite("warnings", &BuckSolveResult::warnings);
 
-    m.def("solve_buck_topology", &BuckElectricalSolver::solve,
+    /*
+    added a call_guard to release the GIL during the run() call, since it can take a long time and we don't want to block other Python threads which allows 
+    other requests to be processed while this one is running
+    */
+    m.def("solve_buck_topology", &BuckElectricalSolver::solve, py::call_guard<py::gil_scoped_release>(),
           "MODE 1: derive a BuckSolveResult (sized InductorDesignRequest, real "
           "electrical quantities at both Vin_min and Vin_max, CCM/DCM classification, "
           "and stated Phase 1 assumptions) from Buck converter operating requirements");
