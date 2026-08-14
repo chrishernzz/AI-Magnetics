@@ -63,4 +63,4 @@ struct CoreCandidate {
     SourceInfo source;
 };
 
-std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate>& compatibleMaterials, const std::unordered_map<std::string, double>& requiredAreaProductCm4ByMaterial);
+std::vector<CoreCandidate> findSuitableCores(const std::unordered_map<std::string, MaterialCandidate>& compatibleMaterials, const std::unordered_map<std::string, double>& requiredAreaProductCm4ByMaterial, double& largestAvailableAreaProductCm4);

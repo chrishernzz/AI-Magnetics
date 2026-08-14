@@ -14,32 +14,26 @@ static double coreAreaProductCm4(double aeMm2, double waMm2) {
 //precondition: returns every core whose material matches one of the given compatible materials, each carrying its own computed area product and whether it meets the materials own requiredAreaProductCm4 (with a 5% margin) - looked up per-core by material, not a single value applied to every material alike (a flat ferrite-typical flux limit was
 //silently under-crediting higher-Bsat powder cores like MPP/Kool Mu, which can legitimately need less area product than the same request would demand of ferrite - see AreaProduct.h caller in InductorDesignService.cpp for how each materials own applicableFluxLimit() now feeds this map). Cores that do not meet the requirment are still returned (meetsAreaProduct=false)
 //so callers can build an honest no_feasible_desing report (largest available Ap) instead of a silent oversized fallback - it is the callers responsibilty to reject teh deisng, not this functions to keep teh "why did this fail" data available
-std::vector<CoreCandidate> findSuitableCores(const std::vector<MaterialCandidate>& compatibleMaterials, const std::unordered_map<std::string, double>& requiredAreaProductCm4ByMaterial) {
+std::vector<CoreCandidate> findSuitableCores(const std::unordered_map<std::string, MaterialCandidate>& compatibleMaterials, const std::unordered_map<std::string, double>& requiredAreaProductCm4ByMaterial, double& largestAvailableAreaProductCm4) {
     const auto& cores = CoreDatabase::load();
     std::vector<CoreCandidate> candidates;
 
     for (const auto& core : cores) {
-        bool materialCompatible = false;
+        //this looksup the core's material in the compatibleMaterials map, then if its found it returns the values for that key
+        auto materialIt = compatibleMaterials.find(core.material);
 
-        //loop through the compatible materials
-        for(const auto& material: compatibleMaterials) {
-            //check if any recommended material is compatible with the core's material, if not continue to the next core
-            if(material.materialFamily == core.material) {
-                materialCompatible = true;
-                break;
-            }
-        }
-
-        if(!materialCompatible) {
+        //if reach the end of the map then this core's material is not compatible with any of the suitable materials 
+        if(materialIt == compatibleMaterials.end()) {
             continue;
         }
-
+        
         double apCm4 = coreAreaProductCm4(core.ae, core.wa);
+        //gets the largest Ap among the avilable compatible cores and this value is used to explain how close the available cores are to the required Ap for the inductor design
+        largestAvailableAreaProductCm4 = std::max(largestAvailableAreaProductCm4, apCm4);
 
         //this core's own material requiredAp - never the same flat number for every material (a ferrite-typical flux limit was silently under-crediting higher-Bsat powder cores). The lookup is guaranteed to hit: materialCompatible above only became
         //true because some entry in compatibleMaterials has materialFamily == core.material, and the caller builds this map from that exact same list, one entry per material. Down below we are calling the strings (key) values which is a double
         double requiredAreaProductCm4 = requiredAreaProductCm4ByMaterial.at(core.material);
-
 
         CoreCandidate candidate;
         candidate.partNumber = core.partNumber;
