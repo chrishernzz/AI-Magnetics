@@ -192,6 +192,10 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
 
     //what the inductor MUST have, so it goes to the derivation to get the correct information
     InductorRequirements requirements = RequirementDerivationService::derive(request, rules);
+    //Area-Product pre-filter needs a real peak current (Ap's stored-energy formula is 0.5*L*Ipk^2) - when peak wasn't supplied, there is no honest number to feed it, and substituting RMS in Ipk's place would
+    //understate the real peak and silently undersize the core, which this engine never does. In that case every frequency/material-compatible core is evaluated directly instead (requiredAreaProductCm4 of 0.0
+    //makes findSuitableCores() flag every core as meeting it, which is the correct "no pre-filter" result - PeakFluxValidation/SaturationValidation report the real gap per candidate instead).
+    bool peakSupplied = requirements.operatingPoint.peakCurrentA.has_value();
 
     //this will loop through the material database and grab the materials that are within the range of the frequency
     std::vector<MaterialCandidate> materials = findSuitableMaterials(requirements.operatingPoint);
@@ -200,17 +204,20 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
         recommendation.message = "No material candidate has a frequency range covering the requested switching frequency.";
         return recommendation;
     }
-
-    //Area-Product pre-filter needs a real peak current (Ap's stored-energy formula is 0.5*L*Ipk^2) - when peak wasn't supplied, there is no honest number to feed it, and substituting RMS in Ipk's place would
-    //understate the real peak and silently undersize the core, which this engine never does. In that case every frequency/material-compatible core is evaluated directly instead (requiredAreaProductCm4 of 0.0
-    //makes findSuitableCores() flag every core as meeting it, which is the correct "no pre-filter" result - PeakFluxValidation/SaturationValidation report the real gap per candidate instead).
-    bool peakSupplied = requirements.operatingPoint.peakCurrentA.has_value();
-
     //computed PER Material, not once for the whole request - Ap is inversely proportional to the flux density limit used (see AreaProduct.cpp) and that limit is genuinely different per material (a ferrite-typical Bmax vs
     //a powder core real, usually much higher, Bsat from real_materials.csv). Using one flat default here for every material silently under-credited high-Bsat pwoder cores (MPP, Kool Mu, XFlux, etc) - they need real_materials.csv own applicableFluxLimit()
     //to size correctly, but were being judged against a ferrite-typical number instead, dropping otherwise-viable candidates before they ever reached the real per-candidate SturationValidation/PeakFluxValidation checks
     std::unordered_map<std::string, double> requiredAreaProductCm4ByMaterial;
-    for(const auto& material: materials){
+    //smallest requirement across all compatible materials - the easiest one to satisfy - not any single materials own number
+    //since there is no longer one "the" requried Ap for the whole request. Used only for the no_feasible_design report below: 
+    //"even the easiest material requirment wasnt met" is an honest, non-misleading single number to show, unlike averaging or picking an arbitrary material
+    double smallestRequiredAreaProductCm4 = 0.0;
+    bool haveSmallest = false;
+    //inserting a new key - value pair if the key does not already exists
+    std::unordered_map<std::string, MaterialCandidate> materialsByName;
+
+    //this loop will do the following for each material: calculate the required Ap, store it in a map with the material name as the key, and also find the smallest required Ap across all materials for reporting if no core meets any of the requirements, and also store the material in a map with the material name as the key for later use when evaluating candidates
+    for (const auto& material : materials) {
         double requiredAreaProductCm4 = 0.0;
         //if there is a peak current then do the Ap else do not do it and skip the filter
         if (peakSupplied) {
@@ -224,36 +231,33 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
             apInput.currentDensityAPerCm2 = rules.allowableCurrentDensityAperCm2;
             //call the function to calculate the required area product for the inductor design based on the input parameters
             requiredAreaProductCm4 = calculateAp(apInput);
-        }
-        //call the key and set the value equal to that which is required Ap for that specific material
-        requiredAreaProductCm4ByMaterial[material.materialFamily] = requiredAreaProductCm4;
-    }
+            
+            //call the key and set the value equal to that which is required Ap for that specific material
+            requiredAreaProductCm4ByMaterial[material.materialFamily] = requiredAreaProductCm4;
 
-    //smallest requirement across all compatible materials - the easiest one to satisfy - not any single materials own number
-    //since there is no longer one "the" requried Ap for the whole request. Used only for the no_feasible_design report below: 
-    //"even the easiest material requirment wasnt met" is an honest, non-misleading single number to show, unlike averaging or picking an arbitrary material
-    double smallestRequiredAreaProductCm4 = 0.0;
-    if(peakSupplied && !requiredAreaProductCm4ByMaterial.empty()) {
-        //will start at the beginning of the unordered map
-        smallestRequiredAreaProductCm4 = requiredAreaProductCm4ByMaterial.begin()->second;
-        for(const auto& materialRequiremnet : requiredAreaProductCm4ByMaterial) {
-            if(materialRequiremnet.second < smallestRequiredAreaProductCm4) {
-                //if small then now update it so we can recheck the others to the new small number
-                smallestRequiredAreaProductCm4 = materialRequiremnet.second;
+            //if it is the first material then set the smallest required area product to that value, else compare it to the current smallest and set it to the smaller of the two
+            if(!haveSmallest) {
+                smallestRequiredAreaProductCm4 = requiredAreaProductCm4;
+                //flag it back to true so that the next time it will compare the value to the current smallest
+                haveSmallest = true;
+            }
+            else {
+                smallestRequiredAreaProductCm4 = std::min(smallestRequiredAreaProductCm4, requiredAreaProductCm4);
             }
         }
-
+        else {
+            //call the key and set the value equal to that which is required Ap for that specific material
+            requiredAreaProductCm4ByMaterial[material.materialFamily] = requiredAreaProductCm4;
+        }
+        
+        //constructs and inserts a new element directly into the container without creating a temp object
+        materialsByName.emplace(material.materialFamily, material);
     }
-
-
-    //CoreCandiate now gets get picked based on if they meet the required area product and if they are compatible with the suitable materials from stage 1
-    std::vector<CoreCandidate> cores = findSuitableCores(materials, requiredAreaProductCm4ByMaterial);
-
+    
     //find the largest Ap among the avilable compatible cores and this value is used to explain how close the available cores are to the required Ap for the inductor design
     double largestAvailableAreaProductCm4 = 0.0;
-    for (const auto& core : cores) {
-        largestAvailableAreaProductCm4 = std::max(largestAvailableAreaProductCm4, core.areaProductCm4);
-    }
+    //CoreCandiate now gets get picked based on if they meet the required area product and if they are compatible with the suitable materials from stage 1
+    std::vector<CoreCandidate> cores = findSuitableCores(materialsByName, requiredAreaProductCm4ByMaterial, largestAvailableAreaProductCm4);
 
     //will keep the cores that meet or exceed the required Ap; Note these cores will continue to the detailed winding and magnetic validation stage
     std::vector<CoreCandidate> feasibleCores;
@@ -268,19 +272,10 @@ DesignRecommendation InductorDesignService::run(const InductorDesignRequest& req
     //which findSuitableCores() would only produce for a materials list with no matching cores in the DB.
     if (feasibleCores.empty()) {
         recommendation.status = "no_feasible_design";
-        recommendation.message = peakSupplied
-            ? "No core met the area-product requirement."
-            : "No core found for the compatible materials at this frequency (no peak current was supplied, so no area-product pre-filter was applied - this means the database itself has no matching core, not that one was filtered out).";
+        recommendation.message = peakSupplied ? "No core met the area-product requirement." : "No core found for the compatible materials at this frequency (no peak current was supplied, so no area-product pre-filter was applied - this means the database itself has no matching core, not that one was filtered out).";
         recommendation.requiredAreaProductCm4 = smallestRequiredAreaProductCm4;
         recommendation.largestAvailableAreaProductCm4 = largestAvailableAreaProductCm4;
         return recommendation;
-    }
-
-    //inserting a new key - value pair if the key does not already exists
-    std::unordered_map<std::string, MaterialCandidate> materialsByName;
-    for (const auto& material : materials) {
-        //constructs and inserts a new element directly into the container without creating a temp object
-        materialsByName.emplace(material.materialFamily, material);
     }
 
     for (const auto& core : feasibleCores) {
