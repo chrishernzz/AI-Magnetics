@@ -16,8 +16,10 @@ struct CoreLossCoefficientData {
     double ct1;
     double ct2;
 
-    //valid flux-density-swing range and reference test temperature this coefficient row was fitted over - always std::nullopt against the current real_core_loss_coefficients.csv, which carries no such columns.
-    //CoreLoss.cpp's range check is written to skip when these are absent, so this is a documented no-op today, not a claim that flux-swing extrapolation is currently being guarded against.
+    /*
+    valid flux-density-swing range and reference test temperature this coefficient row was fitted over - always std::nullopt against the current real_core_loss_coefficients.csv, which carries no such columns.
+    CoreLoss.cpp's range check is written to skip when these are absent, so this is a documented no-op today, not a claim that flux-swing extrapolation is currently being guarded against.
+    */
     std::optional<double> minFluxSwingT;
     std::optional<double> maxFluxSwingT;
     std::optional<double> testTemperatureC;

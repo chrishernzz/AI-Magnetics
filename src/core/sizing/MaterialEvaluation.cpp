@@ -48,8 +48,10 @@ std::vector<MaterialCandidate> findSuitableMaterials(const OperatingPoint& opera
             candidate.missingDataWarnings.push_back("no validated Steinmetz core-loss coefficients for material '" + material.name + "' - core loss will be reported as not evaluated regardless of ripple current");
         }
 
-        //real for materials - see MaterialData::manufacturer/datasheetUrl (populated for 100% of materials
-        //in the current snapshot). datasheetRevision/dateAccessed remain unset (no such data exists).
+        /*
+        real for materials - see MaterialData::manufacturer/datasheetUrl (populated for 100% of materials
+        in the current snapshot). datasheetRevision/dateAccessed remain unset (no such data exists).
+        */
         candidate.source.manufacturer = material.manufacturer.empty() ? std::nullopt : std::optional<std::string>(material.manufacturer);
         candidate.source.datasheetUrl = material.datasheetUrl.empty() ? std::nullopt : std::optional<std::string>(material.datasheetUrl);
         candidate.source.datasheetName = "PyOpenMagnetics/MAS export (data/real_materials.csv snapshot)";

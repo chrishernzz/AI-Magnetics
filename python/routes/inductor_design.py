@@ -1,11 +1,9 @@
 #type: ignore
 """
-inductor_design.py
+inductor_design.py: python wrapper around a C++ inductor design engine. The C++ engine is a single function call that runs the entire design pipeline (materials -> area product -> cores -> turns/gap -> magnetic validation -> winding -> losses -> thermal -> ranking) and returns a single DesignRecommendation object. 
+This wrapper converts the request from the frontend into a C++ object, calls the C++ engine, and then serializes the returned recommendation into a JSON response for the frontend.
 
-The Phase 1 direct-entry inductor design pipeline. InductorDesignRequest is
-the renamed successor to the old shared BuckInput model - the old name
-described this as a buck-specific input even though every field is a
-direct inductor specification with no topology knowledge (spec section 6).
+The Phase 1 direct-entry inductor design pipeline.
 
 POST /inductor-design is the single entry point: it runs the full C++
 pipeline (materials -> area product -> cores -> turns/gap -> magnetic

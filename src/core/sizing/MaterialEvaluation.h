@@ -23,25 +23,29 @@ struct MaterialCandidate {
     //true if the material's declared [minFrequencyHz, maxFrequencyHz) range contains the requested switching frequency.
     bool frequencySuitable = false;
 
-    //hasBmaxData: true when real_materials.csv carries a real (>0.0) saturation flux density for this
-    //material - true for most materials in the current snapshot (e.g. 3C90=0.47T), false for the handful
-    //that don't (see scripts/audit_material_core_database.py for the current count).
-    //hasCoreLossData: true when data/real_core_loss_coefficients.csv carries at least one real Steinmetz
-    //coefficient row for this material, at any frequency (checked against the actual coefficient database,
-    //not the unused cuLossFactor field below - see MaterialEvaluation.cpp's hasAnyCoreLossCoefficients()).
-    //Both flags exist so downstream stages (and the API response) say so honestly instead of silently
-    //treating missing data as a real value. Defaulted to false (not left indeterminate) - a struct with no
-    //in-class initializer here is genuinely uninitialized garbage when default-constructed, a real latent
-    //bug found via a g++-11-specific test failure: a default-constructed MaterialCandidate in a test (never
-    //explicitly setting hasBmaxData) read as true under one compiler/build and false under another, silently
-    //flipping whether LossEvaluation.cpp's saturation check ran at all.
+    /*
+    hasBmaxData: true when real_materials.csv carries a real (>0.0) saturation flux density for this
+    material - true for most materials in the current snapshot (e.g. 3C90=0.47T), false for the handful
+    that don't (see scripts/audit_material_core_database.py for the current count).
+    hasCoreLossData: true when data/real_core_loss_coefficients.csv carries at least one real Steinmetz
+    coefficient row for this material, at any frequency (checked against the actual coefficient database,
+    not the unused cuLossFactor field below - see MaterialEvaluation.cpp's hasAnyCoreLossCoefficients()).
+    Both flags exist so downstream stages (and the API response) say so honestly instead of silently
+    treating missing data as a real value. Defaulted to false (not left indeterminate) - a struct with no
+    in-class initializer here is genuinely uninitialized garbage when default-constructed, a real latent
+    bug found via a g++-11-specific test failure: a default-constructed MaterialCandidate in a test (never
+    explicitly setting hasBmaxData) read as true under one compiler/build and false under another, silently
+    flipping whether LossEvaluation.cpp's saturation check ran at all.
+    */
     bool hasBmaxData = false;
     bool hasCoreLossData = false;
 
-    //bmaxT: real value from real_materials.csv when hasBmaxData is true, 0.0 otherwise.
-    //cuLossFactor: always 0.0 - real_materials.csv carries no such column in the current snapshot; core-loss
-    //coefficients live entirely in the separate real_core_loss_coefficients.csv (see hasCoreLossData above).
-    //Kept as a field rather than removed since MaterialData (the raw CSV row type) still declares it.
+    /*
+    bmaxT: real value from real_materials.csv when hasBmaxData is true, 0.0 otherwise.
+    cuLossFactor: always 0.0 - real_materials.csv carries no such column in the current snapshot; core-loss
+    coefficients live entirely in the separate real_core_loss_coefficients.csv (see hasCoreLossData above).
+    Kept as a field rather than removed since MaterialData (the raw CSV row type) still declares it.
+    */
     double bmaxT = 0.0;
     double cuLossFactor = 0.0;
 
@@ -49,11 +53,11 @@ struct MaterialCandidate {
     std::string alternatives;
     std::vector<std::string> missingDataWarnings;
 
-    //provenance for this material's data - see Provenance.h. datasheetRevision/Url/dateAccessed are always
-    //unset in Phase 1 (no real per-material datasheet metadata exists in this snapshot).
+    /*
+    provenance for this material's data - see Provenance.h. datasheetRevision/Url/dateAccessed are always
+    unset in Phase 1 (no real per-material datasheet metadata exists in this snapshot).
+    */
     SourceInfo source;
 };
 
-//precondition: Materials::load() has been populated (set_material_database called at FastAPI startup)
-//postcondition: returns every material whose declared frequency range, contains operatingPoint.switchingFreqHz, each as a full candidate with its own reason and missing-data warnings - not a single winner.
 std::vector<MaterialCandidate> findSuitableMaterials(const OperatingPoint& operatingPoint);

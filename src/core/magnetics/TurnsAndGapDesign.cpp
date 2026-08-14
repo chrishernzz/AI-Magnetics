@@ -11,9 +11,11 @@ namespace {
 //this will be the maximum number of the turns-and-gap recalculation attempts before rejecting the design
 constexpr int kMaxIterations = 15;
 
-//no real core's winding window could ever fit anywhere near this many turns - a real physical bound, not an arbitrary cap. Guards every N = sqrt(target/AL) computation below: when effective AL has rolled off (or
-//been gapped) to something very small but not exactly zero/negative, targetNh/AL can be astronomically large, and casting sqrt() of that to int is undefined behavior - observed in practice as silently
-//returning INT_MAX (2147483647), which then posed as a real "converged" turns count downstream instead of a rejection. Checking the ratio against this bound before the sqrt/cast avoids ever exercising that UB.
+/*
+no real core's winding window could ever fit anywhere near this many turns - a real physical bound, not an arbitrary cap. Guards every N = sqrt(target/AL) computation below: when effective AL has rolled off (or
+been gapped) to something very small but not exactly zero/negative, targetNh/AL can be astronomically large, and casting sqrt() of that to int is undefined behavior - observed in practice as silently
+returning INT_MAX (2147483647), which then posed as a real "converged" turns count downstream instead of a rejection. Checking the ratio against this bound before the sqrt/cast avoids ever exercising that UB.
+*/
 constexpr double kMaxTurnsSquared = 1e12;  //(1,000,000 turns)^2
 
 //precondition: Seeds the initial turns estimate by reusing TurnsCalculation's existing N = round(sqrt(L/AL)) formula against the core's ungapped catalog AL
@@ -69,12 +71,14 @@ double inductanceAtGapUH(int turns, double gapMm, double aeCm2, double leCm, dou
 //Distributed Gap Core
 TurnsAndGapResult solveDistributedGapCore(double targetNh, const CoreCandidate& core, double targetInductanceUH, double tolerancePercent, const std::optional<double>& peakCurrentA, double rmsCurrentA) {
     TurnsAndGapResult result;
-    //C055439A2: turns must be solved ONCE from the catalog's zero-bias AL0 and then held fixed - DC-bias roll-off degrades the inductance a fixed winding
-    //delivers at real operating current, it does not change how many turns are physically on the core. The previous behavior here iterated turns and the rolled-off AL together as a fixed point
-    //(turns -> H -> %mu(H) -> AL_eff -> turns required against AL_eff -> repeat) so the CALCULATED inductance still hit target AT the real operating current - physically real, but for a
-    //winding-fit/copper-loss/thermal-evaluation purpose: a real magnetics engineer reviewing this tool's output expects the turns count to be the zero-bias design value (e.g. 149
-    //for C055439A2), with DC-bias roll-off reported as a separate, informational inductance-at-current number (e.g. 1.5mH at 5A) - not folded back into a compensated, larger winding (e.g. 289 turns)
-    //that no longer represents what the tool says it's recommending building.
+    /*
+    C055439A2: turns must be solved ONCE from the catalog's zero-bias AL0 and then held fixed - DC-bias roll-off degrades the inductance a fixed winding
+    delivers at real operating current, it does not change how many turns are physically on the core. The previous behavior here iterated turns and the rolled-off AL together as a fixed point
+    (turns -> H -> %mu(H) -> AL_eff -> turns required against AL_eff -> repeat) so the CALCULATED inductance still hit target AT the real operating current - physically real, but for a
+    winding-fit/copper-loss/thermal-evaluation purpose: a real magnetics engineer reviewing this tool's output expects the turns count to be the zero-bias design value (e.g. 149
+    for C055439A2), with DC-bias roll-off reported as a separate, informational inductance-at-current number (e.g. 1.5mH at 5A) - not folded back into a compensated, larger winding (e.g. 289 turns)
+    that no longer represents what the tool says it's recommending building.
+    */
     int turns = std::max(1, seedTurns(core, targetInductanceUH));
 
     //this check is a sanity/overflow gaurd that rejects designs where the core AL value is so small that the required turns count would become physically unrealistic
@@ -94,8 +98,10 @@ TurnsAndGapResult solveDistributedGapCore(double targetNh, const CoreCandidate& 
     //Identical to turns now (turns is never raised past the zero-bias solve) - kept as its own field
     result.zeroBiasSeedTurns = turns;
     result.gapMm = 0.0;
-    //set to the rolled-off (loaded) AL below once the DC-bias block runs - core.al (zero-bias) is only the placeholder default here for the no-rolloff-data case, matching this field's existing name/
-    //meaning ("effective AL at operating current"), not the zero-bias design AL.
+    /*
+    set to the rolled-off (loaded) AL below once the DC-bias block runs - core.al (zero-bias) is only the placeholder default here for the no-rolloff-data case, matching this field's existing name/
+    meaning ("effective AL at operating current"), not the zero-bias design AL.
+    */
     result.effectiveAlNHPerTurnSquared = core.al;
     result.calculatedInductanceUH = units::nHToUh(zeroBiasNh);
     result.inductanceErrorPercent = errorPercent;
@@ -107,9 +113,11 @@ TurnsAndGapResult solveDistributedGapCore(double targetNh, const CoreCandidate& 
     result.inductanceAtMaxGapUH = result.calculatedInductanceUH;
     result.inductanceWithinToleranceAcrossGapRange = result.withinTolerance;
 
-    //DC-bias roll-off, evaluated ONCE at this now-fixed turns count - informational (loadedInductanceUH/dcMagnetizingForceOe/percentInitialPermeabilityAtOperatingCurrent), never fed
-    //back into turns. loadedInductanceUH is the real physical inductance at the request's real operating current - PeakFluxValidation/SaturationValidation use THIS, not calculatedInductanceUH
-    //(the zero-bias design value), since saturation risk has to be judged against what the core actually does at current, not what it does at 0A.
+    /*
+    DC-bias roll-off, evaluated ONCE at this now-fixed turns count - informational (loadedInductanceUH/dcMagnetizingForceOe/percentInitialPermeabilityAtOperatingCurrent), never fed
+    back into turns. loadedInductanceUH is the real physical inductance at the request's real operating current - PeakFluxValidation/SaturationValidation use THIS, not calculatedInductanceUH
+    (the zero-bias design value), since saturation risk has to be judged against what the core actually does at current, not what it does at 0A.
+    */
     DCBiasCurveLookup rolloffCurve = findDCBiasCurve(core.material);
     std::optional<double> biasCurrentA;
     bool biasCurrentIsRmsFloor = false;
@@ -171,19 +179,23 @@ TurnsAndGapResult solveMachinedGapCore(double targetNh, const CoreCandidate& cor
 
     int turns = seedTurns(core, targetInductanceUH);
 
-    //Flux-aware turns floor: the plain inductance-matching seed above is the MINIMUM possible turns count for this target L (it comes from the core's ungapped/maximum AL) - it has no awareness of peak current
-    //or flux density, so on many real ferrite cores it converges directly to a zero-gap, minimum-turns design that PeakFluxValidation/SaturationValidation then reject downstream with no retry (a real user
-    //report, at the time reproduced against the E100/60/28-3C90 ferrite catalog row this project carried then: at 3000uH/5A peak converged at turns=20/gapMm=0.0, Bpk=1.03T vs Bmax=0.47T, when a real
-    //~49-turn/~0.6mm-gap design exists on the SAME core and passes; that row has since been removed along with the rest of ferrite scope, but the underlying methodology bug and fix described here are unchanged
-    //and still apply to any machined-gap core). When a real peak current is known, raise the starting turns to whatever this exact core/target/limit combination requires to
-    //already respect rules.minimumSaturationMarginPercent - Bpk = L*Ipk/(N*Ae) inverted for N. This only ever RAISES the seed (max(), never lowered) - a core where the inductance-matching seed already had
-    //enough margin is completely unaffected.
+    /*
+    Flux-aware turns floor: the plain inductance-matching seed above is the MINIMUM possible turns count for this target L (it comes from the core's ungapped/maximum AL) - it has no awareness of peak current
+    or flux density, so on many real ferrite cores it converges directly to a zero-gap, minimum-turns design that PeakFluxValidation/SaturationValidation then reject downstream with no retry (a real user
+    report, at the time reproduced against the E100/60/28-3C90 ferrite catalog row this project carried then: at 3000uH/5A peak converged at turns=20/gapMm=0.0, Bpk=1.03T vs Bmax=0.47T, when a real
+    ~49-turn/~0.6mm-gap design exists on the SAME core and passes; that row has since been removed along with the rest of ferrite scope, but the underlying methodology bug and fix described here are unchanged
+    and still apply to any machined-gap core). When a real peak current is known, raise the starting turns to whatever this exact core/target/limit combination requires to
+    already respect rules.minimumSaturationMarginPercent - Bpk = L*Ipk/(N*Ae) inverted for N. This only ever RAISES the seed (max(), never lowered) - a core where the inductance-matching seed already had
+    enough margin is completely unaffected.
+    */
     
-    //When peakCurrentA is absent but rmsCurrentA > 0.0, the same seed runs against rmsCurrentA instead - a mathematically guaranteed LOWER BOUND on the real (unsupplied) peak current (RMS <= peak always, for
-    //any unidirectional inductor-current waveform), never a substitute for the real peak. Without this, an RMS-only request has NO flux-aware floor at all, and the plain inductance-matching seed can converge on
-    //a minimum-turns, ultra-high-permeability ferrite design that saturates far below the stated RMS current Using the RMS floor here does not confirm the design is safe (real ripple could still push the true
-    //peak, and therefore true required margin, higher) - PeakFluxValidation/SaturationValidation's own RMS-floor certain-failure check (see DesignValidation.cpp) is what actually rejects a design that's
-    //still broken even at this floor; this seed just stops the solver from handing that design a trivial minimum-turns win in the first place.
+    /*
+    When peakCurrentA is absent but rmsCurrentA > 0.0, the same seed runs against rmsCurrentA instead - a mathematically guaranteed LOWER BOUND on the real (unsupplied) peak current (RMS <= peak always, for
+    any unidirectional inductor-current waveform), never a substitute for the real peak. Without this, an RMS-only request has NO flux-aware floor at all, and the plain inductance-matching seed can converge on
+    a minimum-turns, ultra-high-permeability ferrite design that saturates far below the stated RMS current Using the RMS floor here does not confirm the design is safe (real ripple could still push the true
+    peak, and therefore true required margin, higher) - PeakFluxValidation/SaturationValidation's own RMS-floor certain-failure check (see DesignValidation.cpp) is what actually rejects a design that's
+    still broken even at this floor; this seed just stops the solver from handing that design a trivial minimum-turns win in the first place.
+    */
     std::optional<double> fluxAwareSeedCurrentA;
     bool seedIsRmsFloor = false;
     if (peakCurrentA.has_value() && *peakCurrentA > 0.0) {
@@ -211,8 +223,10 @@ TurnsAndGapResult solveMachinedGapCore(double targetNh, const CoreCandidate& cor
         }
     }
 
-    //will run up to kMaxIterations times during each iteration it: Calculates the required gap for the current turns, Rounds the gap to a manufacturable value
-    //Calculates the effective AL with that gap, Recalculates the required turns, and Checks whether the turns stopped changing
+    /*
+    will run up to kMaxIterations times during each iteration it: Calculates the required gap for the current turns, Rounds the gap to a manufacturable value
+    Calculates the effective AL with that gap, Recalculates the required turns, and Checks whether the turns stopped changing
+    */
     for (int iteration = 0; iteration < kMaxIterations; ++iteration) {
         //given the core, number of turns, and target inductance, what air gap is required?
         double gapCm = calculateRequiredGapCm(turns, aeCm2, leCm, core.mu, targetNh);
@@ -235,8 +249,10 @@ TurnsAndGapResult solveMachinedGapCore(double targetNh, const CoreCandidate& cor
             return result;
         }
         if (targetNh / alEff > kMaxTurnsSquared) {
-            //effective AL is small enough that no sane turns count could reach the target - same non-convergence outcome as the <=0.0 case above, not an overflowed sqrt/int cast (which
-            //previously silently produced turns=2147483647 instead of an honest rejection here).
+            /*
+            effective AL is small enough that no sane turns count could reach the target - same non-convergence outcome as the <=0.0 case above, not an overflowed sqrt/int cast (which
+            previously silently produced turns=2147483647 instead of an honest rejection here).
+            */
             result.converged = false;
             result.rejectionReasons.push_back("required turns count is unreasonably large for core '" + core.partNumber + "' at this target inductance/gap - effective AL is too small to satisfy the target with a sane winding");
             return result;
@@ -259,8 +275,10 @@ TurnsAndGapResult solveMachinedGapCore(double targetNh, const CoreCandidate& cor
             result.inductanceErrorPercent = errorPercent;
             result.withinTolerance = std::abs(errorPercent) <= tolerancePercent;
             result.converged = true;
-            //Machined-gap (ferrite) cores have no separate 0-bias/loaded-at-current distinction - the gap loop already solves directly for the real requested operating point, so the "loaded" value
-            //PeakFluxValidation/SaturationValidation read is the same as the design value.
+            /*
+            Machined-gap (ferrite) cores have no separate 0-bias/loaded-at-current distinction - the gap loop already solves directly for the real requested operating point, so the "loaded" value
+            PeakFluxValidation/SaturationValidation read is the same as the design value.
+            */
             result.loadedInductanceUH = result.calculatedInductanceUH;
 
             if (!result.withinTolerance) {
@@ -312,15 +330,19 @@ TurnsAndGapResult solveMachinedGapCore(double targetNh, const CoreCandidate& cor
 TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCandidate& material, double targetInductanceUH, double tolerancePercent, const std::optional<double>& peakCurrentA, double rmsCurrentA, const DesignRules& rules) {
     TurnsAndGapResult result;
 
-    //real powder materials (MPP/Kool Mu/High Flux/XFlux/Edge/Sendust, etc.) achieve their working permeability through gapping distributed at the powder-particle level, baked into the catalog AL -
-    //there is no discrete machined air gap to report, REGARDLESS OF SHAPE. This used to also require coreShape=="Toroid", which was wrong in the other direction from the original ferrite-toroid bug: real
-    //powder E-cores/blocks/EQ/LP families (e.g. Kool Mu E/U/EER, XFlux Blocks) are just as distributed-gap as powder toroids - same material, same physics, different mechanical shape
+    /*
+    real powder materials (MPP/Kool Mu/High Flux/XFlux/Edge/Sendust, etc.) achieve their working permeability through gapping distributed at the powder-particle level, baked into the catalog AL -
+    there is no discrete machined air gap to report, REGARDLESS OF SHAPE. This used to also require coreShape=="Toroid", which was wrong in the other direction from the original ferrite-toroid bug: real
+    powder E-cores/blocks/EQ/LP families (e.g. Kool Mu E/U/EER, XFlux Blocks) are just as distributed-gap as powder toroids - same material, same physics, different mechanical shape
+    */
     bool isDistributedGapCore = core.materialType == "powder";
     //this will be used for early rejection return 
     result.gapMethod = isDistributedGapCore ? GapMethod::Distributed : rules.gapMethod;
 
-    //only MachinedCenterLeg has a validated formula in Phase 1 (see GapMethod.h) - any other requested method is rejected here rather than having the one validated formula silently applied to a technique
-    //it was never checked against. Distributed-gap toroids are exempt from this gate since they never run the discrete-gap formula at all - see below.
+    /*
+    only MachinedCenterLeg has a validated formula in Phase 1 (see GapMethod.h) - any other requested method is rejected here rather than having the one validated formula silently applied to a technique
+    it was never checked against. Distributed-gap toroids are exempt from this gate since they never run the discrete-gap formula at all - see below.
+    */
     if (!isDistributedGapCore && rules.gapMethod != GapMethod::MachinedCenterLeg) {
         result.converged = false;
         result.rejectionReasons.push_back("gap method is not implemented in Phase 1 (only MachinedCenterLeg has a validated formula)");
@@ -329,12 +351,14 @@ TurnsAndGapResult designTurnsAndGap(const CoreCandidate& core, const MaterialCan
 
     //target inductance is converted from microhenries to nanohenries (1uH = 1000nH)
     double targetNh = units::uHToNh(targetInductanceUH);
-    //distributed-gap (powder) cores: even on shapes with a physical center leg (E-cores, blocks, EQ/LP), that leg is never machined with an air gap - the material itself provides the gap-equivalent property,
-    //distributed through the powder. So the McLyman required-gap iteration below (which solves for an ADDITIONAL air gap on top of the ungapped AL) does not apply - the only lever available is turns.
-    //Reporting a nonzero "gap" here would imply a machinable dimension that does not physically exist on this part. No gap-tolerance sweep either - there is no gap dimension for mechanical tolerance to act
-    //on; AL manufacturing tolerance is a different, real concern this Phase 1 dataset does not carry data for (see DATA_FILES.md).
-    //core.al is the material's INITIAL permeability (measured at ~0 A DC bias), not a constant - real powder cores roll off permeability as DC current rises (see PermeabilityRolloff.h)
-    
+    /*
+    distributed-gap (powder) cores: even on shapes with a physical center leg (E-cores, blocks, EQ/LP), that leg is never machined with an air gap - the material itself provides the gap-equivalent property,
+    distributed through the powder. So the McLyman required-gap iteration below (which solves for an ADDITIONAL air gap on top of the ungapped AL) does not apply - the only lever available is turns.
+    Reporting a nonzero "gap" here would imply a machinable dimension that does not physically exist on this part. No gap-tolerance sweep either - there is no gap dimension for mechanical tolerance to act
+    on; AL manufacturing tolerance is a different, real concern this Phase 1 dataset does not carry data for (see DATA_FILES.md).
+    core.al is the material's INITIAL permeability (measured at ~0 A DC bias), not a constant - real powder cores roll off permeability as DC current rises (see PermeabilityRolloff.h)
+    */
+
     //if the material is powder then it takes in distrbuted gap
     if(isDistributedGapCore) {
         result = solveDistributedGapCore(targetNh, core, targetInductanceUH, tolerancePercent, peakCurrentA, rmsCurrentA);

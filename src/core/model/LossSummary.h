@@ -17,11 +17,15 @@ reasoning applied to the PASS tier.
 
 */
 struct LossSummary {
-    //sum of copper/core loss for whichever of the two are Evaluated - never a silently-assumed 0.0 for a
-    //missing component (see InductorDesignService.cpp's buildLossSummary()).
+    /*
+    sum of copper/core loss for whichever of the two are Evaluated - never a silently-assumed 0.0 for a
+    missing component (see InductorDesignService.cpp's buildLossSummary()).
+    */
     double knownPartialLossW = 0.0;
     bool isCompleteTotal = false;
-    //human-readable label naming exactly which components are included, e.g. "Known Partial Loss
-    //(copper+core - AC/skin-effect loss not modeled)".
+    /*
+    human-readable label naming exactly which components are included, e.g. "Known Partial Loss
+    (copper+core - AC/skin-effect loss not modeled)".
+    */
     std::string label;
 };

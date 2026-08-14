@@ -51,15 +51,19 @@ struct ThermalIterationInputs {
     //mirrors LossEvaluationResult::coreLossStatus == Evaluated - when false, the loop still runs on copper loss alone (a real, if partial, estimate) rather than refusing to run at all.
     bool coreLossKnown = false;
 
-    //CoreCandidate::aeMm2/leMm - this candidate's own real magnetic-circuit geometry, used to derive a size-aware thermal resistance (see estimateThermalResistanceCPerW() in ThermalEvaluation.cpp).
-    //0.0 means unknown, in which case the loop falls back to rules.defaultThermalResistanceCPerW.
+    /*
+    CoreCandidate::aeMm2/leMm - this candidate's own real magnetic-circuit geometry, used to derive a size-aware thermal resistance (see estimateThermalResistanceCPerW() in ThermalEvaluation.cpp).
+    0.0 means unknown, in which case the loop falls back to rules.defaultThermalResistanceCPerW.
+    */
     double coreEffectiveAreaMm2 = 0.0;
     double coreMagneticPathLengthMm = 0.0;
 
-    //CoreCandidate::surfaceAreaWoundMm2 - the REAL, manufacturer-published external surface area of the wound coil (not the bare core), straight from the datasheet's own "Surface Area" table when
-    //transcribed for this part (see data/real_cores.csv). C055439A2 review: flagged that the Ae*Le/compact-solid-shape-factor estimate below
-    //materially under-states a wound toroid's real cooling surface - this is the fix: when a real published number exists for this part, use it directly instead of estimating one. 0.0 means not yet
-    //transcribed for this part (true for every part except C055439A2 as of this field's introduction) - never guessed or backfilled from the shape-factor formula.
+    /*
+    CoreCandidate::surfaceAreaWoundMm2 - the REAL, manufacturer-published external surface area of the wound coil (not the bare core), straight from the datasheet's own "Surface Area" table when
+    transcribed for this part (see data/real_cores.csv). C055439A2 review: flagged that the Ae*Le/compact-solid-shape-factor estimate below
+    materially under-states a wound toroid's real cooling surface - this is the fix: when a real published number exists for this part, use it directly instead of estimating one. 0.0 means not yet
+    transcribed for this part (true for every part except C055439A2 as of this field's introduction) - never guessed or backfilled from the shape-factor formula.
+    */
     double coreWoundSurfaceAreaMm2 = 0.0;
 };
 
@@ -79,14 +83,18 @@ struct ThermalEvaluationResult {
     bool converged = false;
     //the thermal resistance actually used for this run - carried alongside the result so a caller never has to re-derive which Rth assumption produced it.
     double thermalResistanceCPerWUsed = 0.0;
-    //true when thermalResistanceCPerWUsed came from this candidate's own real Ae/Le geometry (Newton's law of cooling over an estimated compact-solid surface area) rather than the flat
-    //rules.defaultThermalResistanceCPerW fallback (used only when geometry was unavailable).
+    /*
+    true when thermalResistanceCPerWUsed came from this candidate's own real Ae/Le geometry (Newton's law of cooling over an estimated compact-solid surface area) rather than the flat
+    rules.defaultThermalResistanceCPerW fallback (used only when geometry was unavailable).
+    */
     bool thermalResistanceIsGeometryDerived = false;
-    //true when thermalResistanceCPerWUsed came from the REAL, manufacturer-published wound-coil surface
-    //area (coreWoundSurfaceAreaMm2) rather than the Ae*Le compact-solid-shape-factor estimate - a real
-    //number, not an estimate of an estimate. Only ever true when thermalResistanceIsGeometryDerived is
-    //also true; false (with thermalResistanceIsGeometryDerived still possibly true) means the shape-factor
-    //estimate was used because no real published surface area exists yet for this part.
+    /*
+    true when thermalResistanceCPerWUsed came from the REAL, manufacturer-published wound-coil surface
+    area (coreWoundSurfaceAreaMm2) rather than the Ae*Le compact-solid-shape-factor estimate - a real
+    number, not an estimate of an estimate. Only ever true when thermalResistanceIsGeometryDerived is
+    also true; false (with thermalResistanceIsGeometryDerived still possibly true) means the shape-factor
+    estimate was used because no real published surface area exists yet for this part.
+    */
     bool thermalResistanceUsesRealSurfaceArea = false;
 
     std::string missingDataExplanation;

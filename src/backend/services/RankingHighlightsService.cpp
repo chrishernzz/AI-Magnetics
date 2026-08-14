@@ -15,8 +15,10 @@ RankingHighlights computeRankingHighlights(const std::vector<InductorCandidate>&
 
     double bestThermalRise = thermalRiseForRanking(candidates.front());
     double lowestLoss = candidates.front().lossSummary.knownPartialLossW;
-    //marginForRanking returns -max() for any candidate whose SaturationValidation is NotEvaluated - if every candidate in this list is in that state, the "highest" margin found is just the first
-    //candidate by iteration order (an arbitrary but harmless tie among equally-unknown values, never treated as a real measured margin).
+    /*
+    marginForRanking returns -max() for any candidate whose SaturationValidation is NotEvaluated - if every candidate in this list is in that state, the "highest" margin found is just the first
+    candidate by iteration order (an arbitrary but harmless tie among equally-unknown values, never treated as a real measured margin).
+    */
     double highestSatMargin = marginForRanking(candidates.front(), "SaturationValidation", true);
     double smallestAreaProduct = candidates.front().core.areaProductCm4;
 
